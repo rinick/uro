@@ -7,9 +7,11 @@ interface GoBoardProps {
   document: SgfDocument;
   path: number[];
   showCoordinates: boolean;
-  showMoveNumbers: boolean;
+  moveNumberLimit: MoveNumberLimit;
   onVertexClick: (point: string) => void;
 }
+
+export type MoveNumberLimit = 0 | 1 | 5 | 20 | 'all';
 
 const markerTypes: Record<MarkupKind, Marker['type']> = {
   CR: 'circle',
@@ -23,7 +25,7 @@ const gobanBorderEm = 0.3;
 const coordinateTrackEm = 2;
 const boardPaddingWithoutCoordinatesEm = 0.5;
 
-export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVertexClick}: GoBoardProps) {
+export function GoBoard({document, path, showCoordinates, moveNumberLimit, onVertexClick}: GoBoardProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
   const [availableSize, setAvailableSize] = useState({width: 620, height: 620});
@@ -51,13 +53,13 @@ export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVer
           const point = position.points.find((item) => item.x === x && item.y === y);
           if (point == null) return {};
           if (point.label != null) return {type: 'label', label: point.label};
-          if (showMoveNumbers && point.stone != null && point.moveNumber != null)
+          if (shouldShowMoveNumber(point.moveNumber, point.stone != null, position.moveNumber, moveNumberLimit))
             return {type: 'label', label: String(point.moveNumber)};
           if (point.markup != null) return {type: markerTypes[point.markup]};
           return {};
         })
       ),
-    [position, showMoveNumbers]
+    [position, moveNumberLimit]
   );
 
   useLayoutEffect(() => {
@@ -89,4 +91,15 @@ export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVer
       </div>
     </div>
   );
+}
+
+function shouldShowMoveNumber(
+  moveNumber: number | null,
+  hasStone: boolean,
+  currentMoveNumber: number,
+  moveNumberLimit: MoveNumberLimit
+): boolean {
+  if (!hasStone || moveNumber == null || moveNumberLimit === 0) return false;
+  if (moveNumberLimit === 'all') return true;
+  return moveNumber > currentMoveNumber - moveNumberLimit;
 }

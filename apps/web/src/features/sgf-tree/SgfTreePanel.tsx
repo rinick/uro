@@ -1,5 +1,7 @@
+import {ArrowLeftOutlined, ArrowRightOutlined, DeleteOutlined, SwapOutlined, ToTopOutlined} from '@ant-design/icons';
+import {Button, Space, Tooltip} from 'antd';
 import {buildTree, getBoardSize, samePath, type SgfDocument} from '@uro/sgf-core';
-import {useCallback, useEffect, useMemo, useRef} from 'react';
+import {useCallback, useEffect, useMemo, useRef, type ReactNode} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
   cornerRadius,
@@ -14,13 +16,30 @@ import {
 interface SgfTreePanelProps {
   document: SgfDocument;
   selectedPath: number[];
+  replaceActive: boolean;
   onSelectPath: (path: number[]) => void;
+  onMoveToMain: () => void;
+  onMoveLeft: () => void;
+  onMoveRight: () => void;
+  onReplace: () => void;
+  onDelete: () => void;
 }
 
-export function SgfTreePanel({document, selectedPath, onSelectPath}: SgfTreePanelProps) {
+export function SgfTreePanel({
+  document,
+  selectedPath,
+  replaceActive,
+  onSelectPath,
+  onMoveToMain,
+  onMoveLeft,
+  onMoveRight,
+  onReplace,
+  onDelete,
+}: SgfTreePanelProps) {
   const {t} = useTranslation();
-  const panelRef = useRef<HTMLElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const suppressScrollSelectRef = useRef(false);
+  const selectedFromScrollRef = useRef(false);
   const releaseSuppressScrollSelectRef = useRef<number | null>(null);
   const lastScrollTopRef = useRef(0);
   const tree = useMemo(() => buildTree(document), [document]);
@@ -28,7 +47,12 @@ export function SgfTreePanel({document, selectedPath, onSelectPath}: SgfTreePane
   const layout = useMemo(() => layoutTree(tree[0], boardSize), [boardSize, tree]);
 
   useEffect(() => {
-    const panel = panelRef.current;
+    if (selectedFromScrollRef.current) {
+      selectedFromScrollRef.current = false;
+      return;
+    }
+
+    const panel = scrollRef.current;
     const selectedCell = layout.cells.find((cell) => samePath(cell.path, selectedPath));
     if (panel == null || selectedCell == null) return;
 
@@ -57,7 +81,7 @@ export function SgfTreePanel({document, selectedPath, onSelectPath}: SgfTreePane
   }, []);
 
   const handleScroll = useCallback(() => {
-    const panel = panelRef.current;
+    const panel = scrollRef.current;
     if (panel == null) return;
 
     const scrollTop = panel.scrollTop;
@@ -68,45 +92,110 @@ export function SgfTreePanel({document, selectedPath, onSelectPath}: SgfTreePane
     const currentCell = layout.cells.find((cell) => samePath(cell.path, selectedPath));
     if (currentCell == null) return;
 
-    const visibleTop = panel.scrollTop;
-    const visibleBottom = visibleTop + panel.clientHeight;
-    const visibleCenter = (visibleTop + visibleBottom) / 2;
-    const treeTop = panel.querySelector<HTMLElement>('.move-tree')?.offsetTop ?? 0;
-    const branchCells = layout.cells.filter((cell) => cell.column === currentCell.column);
-    const visibleCells = branchCells.filter((cell) => {
-      const cellCenter = treeTop + (cell.row - 1) * treeStep + treeStep / 2;
-      return cellCenter >= visibleTop && cellCenter <= visibleBottom;
-    });
-    const candidates = visibleCells.length > 0 ? visibleCells : branchCells;
-    const nextCell = candidates.reduce<TreeCell | null>((best, cell) => {
-      const cellCenter = treeTop + (cell.row - 1) * treeStep + treeStep / 2;
-      const bestCenter = best == null ? Infinity : treeTop + (best.row - 1) * treeStep + treeStep / 2;
-      return Math.abs(cellCenter - visibleCenter) < Math.abs(bestCenter - visibleCenter) ? cell : best;
-    }, null);
+    const branchCells = layout.cells
+      .filter((cell) => cell.column === currentCell.column)
+      .sort((left, right) => left.row - right.row);
+    const maxScroll = panel.scrollHeight - panel.clientHeight;
+    const scrollRatio = maxScroll <= 0 ? 0 : panel.scrollTop / maxScroll;
+    const nextIndex = Math.min(branchCells.length - 1, Math.max(0, Math.round(scrollRatio * (branchCells.length - 1))));
+    const nextCell = branchCells[nextIndex];
 
-    if (nextCell != null && !samePath(nextCell.path, selectedPath)) onSelectPath(nextCell.path);
+    if (nextCell != null && !samePath(nextCell.path, selectedPath)) {
+      selectedFromScrollRef.current = true;
+      onSelectPath(nextCell.path);
+    }
   }, [layout, onSelectPath, selectedPath]);
 
   return (
-    <section className="side-panel tree-panel" ref={panelRef} onScroll={handleScroll}>
-      <h2>{t('panels.tree')}</h2>
-      <div
-        className="move-tree"
-        style={{gridTemplateColumns: `${gutterWidth}px repeat(${layout.columns}, ${treeStep}px)`}}
-      >
-        <ConnectorLayer layout={layout} />
-        {layout.rows.map((row) => (
-          <MoveTreeRow
-            key={row}
-            row={row}
-            columns={layout.columns}
-            cells={layout.cells.filter((cell) => cell.row === row)}
-            selectedPath={selectedPath}
-            onSelectPath={onSelectPath}
+    <section className="side-panel tree-panel">
+      <div className="tree-panel-header">
+        <h2>{t('panels.tree')}</h2>
+        <Space.Compact>
+          <TreeActionButton
+            title={t('treeActions.moveToMain')}
+            disabled={selectedPath.length === 0}
+            icon={<ToTopOutlined />}
+            onClick={onMoveToMain}
           />
-        ))}
+          <TreeActionButton
+            title={t('treeActions.moveLeft')}
+            disabled={selectedPath.length === 0}
+            icon={<ArrowLeftOutlined />}
+            onClick={onMoveLeft}
+          />
+          <TreeActionButton
+            title={t('treeActions.moveRight')}
+            disabled={selectedPath.length === 0}
+            icon={<ArrowRightOutlined />}
+            onClick={onMoveRight}
+          />
+          <TreeActionButton
+            title={t('treeActions.replace')}
+            disabled={selectedPath.length === 0}
+            icon={<SwapOutlined />}
+            type={replaceActive ? 'primary' : 'default'}
+            onClick={onReplace}
+          />
+          <TreeActionButton
+            title={t('treeActions.delete')}
+            disabled={selectedPath.length === 0}
+            icon={<DeleteOutlined />}
+            danger
+            onClick={onDelete}
+          />
+        </Space.Compact>
+      </div>
+      <div className="tree-scroll" ref={scrollRef} onScroll={handleScroll}>
+        <div
+          className="move-tree"
+          style={{gridTemplateColumns: `${gutterWidth}px repeat(${layout.columns}, ${treeStep}px)`}}
+        >
+          <ConnectorLayer layout={layout} />
+          {layout.rows.map((row) => (
+            <MoveTreeRow
+              key={row}
+              row={row}
+              columns={layout.columns}
+              cells={layout.cells.filter((cell) => cell.row === row)}
+              selectedPath={selectedPath}
+              onSelectPath={onSelectPath}
+            />
+          ))}
+        </div>
       </div>
     </section>
+  );
+}
+
+function TreeActionButton({
+  title,
+  icon,
+  disabled,
+  danger,
+  type = 'default',
+  onClick,
+}: {
+  title: string;
+  icon: ReactNode;
+  disabled: boolean;
+  danger?: boolean;
+  type?: 'default' | 'primary';
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip title={title}>
+      <span>
+        <Button
+          size="small"
+          aria-label={title}
+          disabled={disabled}
+          danger={danger}
+          type={type}
+          icon={icon}
+          onClick={onClick}
+        />
+      </span>
+    </Tooltip>
   );
 }
 

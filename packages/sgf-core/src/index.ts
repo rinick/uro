@@ -137,6 +137,102 @@ export function addMove(
   return {document: next, path: [...path, parent.children.length - 1]};
 }
 
+export function countMoves(document: SgfDocument): number {
+  let count = 0;
+
+  function walk(node: SgfNode): void {
+    if (node.data.B != null || node.data.W != null) count += 1;
+    for (const child of node.children) walk(child);
+  }
+
+  walk(document.root);
+  return count;
+}
+
+export function moveBranchToMain(document: SgfDocument, path: number[]): {document: SgfDocument; path: number[]} {
+  if (path.length === 0) return {document, path};
+
+  const next = cloneDocument(document);
+  let node = next.root;
+  for (const childIndex of path) {
+    const child = node.children[childIndex];
+    if (child == null) throw new Error(`Invalid SGF path: ${path.join('.')}`);
+    node.children.splice(childIndex, 1);
+    node.children.unshift(child);
+    node = child;
+  }
+
+  return {document: next, path: path.map(() => 0)};
+}
+
+export function moveBranch(
+  document: SgfDocument,
+  path: number[],
+  direction: -1 | 1
+): {document: SgfDocument; path: number[]} {
+  if (path.length === 0) return {document, path};
+
+  const next = cloneDocument(document);
+  const nextPath = [...path];
+
+  for (let depth = path.length - 1; depth >= 0; depth -= 1) {
+    const parentPath = path.slice(0, depth);
+    const parent = getNodeAtPath(next, parentPath);
+    const index = path[depth];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= parent.children.length) continue;
+
+    [parent.children[index], parent.children[targetIndex]] = [parent.children[targetIndex], parent.children[index]];
+    nextPath[depth] = targetIndex;
+    return {document: next, path: nextPath};
+  }
+
+  return {document, path};
+}
+
+export function deleteNode(document: SgfDocument, path: number[]): {document: SgfDocument; path: number[]} {
+  if (path.length === 0) return {document, path};
+
+  const next = cloneDocument(document);
+  const parentPath = path.slice(0, -1);
+  const parent = getNodeAtPath(next, parentPath);
+  parent.children.splice(path[path.length - 1], 1);
+  return {document: next, path: parentPath};
+}
+
+export function replaceMove(
+  document: SgfDocument,
+  path: number[],
+  point: SgfPoint
+): {document: SgfDocument; path: number[]} {
+  if (path.length === 0) return {document, path};
+
+  const current = getNodeAtPath(document, path);
+  const color: SgfColor | null = current.data.B != null ? 'B' : current.data.W != null ? 'W' : null;
+  if (color == null) return {document, path};
+
+  const next = cloneDocument(document);
+  const parentPath = path.slice(0, -1);
+  const parent = getNodeAtPath(next, parentPath);
+  const index = path[path.length - 1];
+  const node = parent.children[index];
+  const existingIndex = parent.children.findIndex((child, childIndex) => {
+    if (childIndex === index) return false;
+    return child.data[color]?.[0] === point;
+  });
+
+  if (existingIndex >= 0) {
+    const existing = parent.children[existingIndex];
+    existing.children.push(...node.children);
+    parent.children.splice(index, 1);
+    const adjustedIndex = existingIndex > index ? existingIndex - 1 : existingIndex;
+    return {document: next, path: [...parentPath, adjustedIndex]};
+  }
+
+  setProperty(node, color, [point]);
+  return {document: next, path};
+}
+
 export function addSetupStone(document: SgfDocument, path: number[], color: SgfColor, point: SgfPoint): SgfDocument {
   const prop = color === 'B' ? 'AB' : 'AW';
   const opposite = color === 'B' ? 'AW' : 'AB';

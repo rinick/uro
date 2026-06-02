@@ -21,12 +21,16 @@ import {
   addMove,
   addSetupStone,
   createNewGame,
+  deleteNode,
   erasePoint,
   getComment,
   getBoardSize,
   getGameInfo,
   getNodeAtPath,
   buildTree,
+  moveBranch,
+  moveBranchToMain,
+  replaceMove,
   samePath,
   parseSgf,
   serializeSgf,
@@ -39,7 +43,7 @@ import {boardSizes, type BoardSize} from '@uro/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
-import {GoBoard} from '../features/board/GoBoard';
+import {GoBoard, type MoveNumberLimit} from '../features/board/GoBoard';
 import {CommentsPanel} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
 import {SgfTreePanel} from '../features/sgf-tree/SgfTreePanel';
@@ -83,8 +87,9 @@ export function App() {
   const [path, setPath] = useState<number[]>([]);
   const [tool, setTool] = useState<EditorTool>('auto');
   const [autoColorOverride, setAutoColorOverride] = useState<'B' | 'W' | null>(null);
+  const [replaceMode, setReplaceMode] = useState(false);
   const [showCoordinates, setShowCoordinates] = useState(true);
-  const [showMoveNumbers, setShowMoveNumbers] = useState(true);
+  const [moveNumberLimit, setMoveNumberLimit] = useState<MoveNumberLimit>('all');
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [openGameModalOpen, setOpenGameModalOpen] = useState(false);
   const [storedGameId, setStoredGameId] = useState<string | null>(null);
@@ -119,6 +124,7 @@ export function App() {
     setDocument(next);
     setPath(nextPath);
     setAutoColorOverride(null);
+    setReplaceMode(false);
     rememberPath(nextPath);
   }
 
@@ -213,6 +219,7 @@ export function App() {
   const navigateToFirst = useCallback(() => {
     setPath([]);
     setAutoColorOverride(null);
+    setReplaceMode(false);
   }, []);
 
   const navigatePrevious = useCallback((steps = 1) => {
@@ -221,6 +228,7 @@ export function App() {
       return current.slice(0, Math.max(0, current.length - steps));
     });
     setAutoColorOverride(null);
+    setReplaceMode(false);
   }, []);
 
   const navigateNext = useCallback(
@@ -237,6 +245,7 @@ export function App() {
         return next;
       });
       setAutoColorOverride(null);
+      setReplaceMode(false);
     },
     [document]
   );
@@ -252,6 +261,7 @@ export function App() {
       }
     });
     setAutoColorOverride(null);
+    setReplaceMode(false);
   }, [document]);
 
   const navigateBranch = useCallback(
@@ -269,16 +279,19 @@ export function App() {
       rememberPath(nextCell.path);
       setPath(nextCell.path);
       setAutoColorOverride(null);
+      setReplaceMode(false);
     },
     [path, treeLayout]
   );
 
   function handleToolChange(nextTool: EditorTool): void {
+    setReplaceMode(false);
     setTool(nextTool);
     if (nextTool !== 'auto') setAutoColorOverride(null);
   }
 
   function handleAutoToolClick(): void {
+    setReplaceMode(false);
     if (tool !== 'auto') {
       setTool('auto');
       return;
@@ -316,6 +329,12 @@ export function App() {
   }, [navigateBranch, navigateNext, navigatePrevious]);
 
   function handleBoardClick(point: string): void {
+    if (replaceMode) {
+      const result = replaceMove(document, path, point);
+      replaceDocument(result.document, result.path);
+      return;
+    }
+
     if (tool === 'auto') {
       const color = nextAutoColor;
       const result = addMove(document, path, color, point);
@@ -349,7 +368,33 @@ export function App() {
   }
 
   function handlePass(): void {
+    if (replaceMode) {
+      const result = replaceMove(document, path, '');
+      replaceDocument(result.document, result.path);
+      return;
+    }
+
     const result = addMove(document, path, nextAutoColor, '');
+    replaceDocument(result.document, result.path);
+  }
+
+  function handleMoveBranchToMain(): void {
+    const result = moveBranchToMain(document, path);
+    replaceDocument(result.document, result.path);
+  }
+
+  function handleMoveBranchLeft(): void {
+    const result = moveBranch(document, path, -1);
+    replaceDocument(result.document, result.path);
+  }
+
+  function handleMoveBranchRight(): void {
+    const result = moveBranch(document, path, 1);
+    replaceDocument(result.document, result.path);
+  }
+
+  function handleDeleteNode(): void {
+    const result = deleteNode(document, path);
     replaceDocument(result.document, result.path);
   }
 
@@ -401,13 +446,26 @@ export function App() {
                 <span>{t('menu.coordinates')}</span>
                 <Switch size="small" checked={showCoordinates} onChange={setShowCoordinates} />
                 <span>{t('menu.numbers')}</span>
-                <Switch size="small" checked={showMoveNumbers} onChange={setShowMoveNumbers} />
+                <Select
+                  size="small"
+                  value={moveNumberLimit}
+                  popupMatchSelectWidth={false}
+                  onChange={setMoveNumberLimit}
+                  options={[
+                    {value: 0, label: t('moveNumbers.none')},
+                    {value: 1, label: '1'},
+                    {value: 5, label: '5'},
+                    {value: 20, label: '20'},
+                    {value: 'all', label: t('moveNumbers.all')},
+                  ]}
+                />
               </Space>
               <Select
                 size="small"
                 aria-label={t('menu.language')}
                 value={currentLanguage}
                 suffixIcon={<TranslationOutlined />}
+                popupMatchSelectWidth={false}
                 onChange={(value) => void i18n.changeLanguage(value)}
                 options={languageOptions}
               />
@@ -442,7 +500,7 @@ export function App() {
               document={document}
               path={path}
               showCoordinates={showCoordinates}
-              showMoveNumbers={showMoveNumbers}
+              moveNumberLimit={moveNumberLimit}
               onVertexClick={handleBoardClick}
             />
           </main>
@@ -463,11 +521,18 @@ export function App() {
             <SgfTreePanel
               document={document}
               selectedPath={path}
+              replaceActive={replaceMode}
               onSelectPath={(nextPath) => {
                 rememberPath(nextPath);
                 setPath(nextPath);
                 setAutoColorOverride(null);
+                setReplaceMode(false);
               }}
+              onMoveToMain={handleMoveBranchToMain}
+              onMoveLeft={handleMoveBranchLeft}
+              onMoveRight={handleMoveBranchRight}
+              onReplace={() => setReplaceMode(true)}
+              onDelete={handleDeleteNode}
             />
           </aside>
         </Content>

@@ -4,6 +4,7 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
@@ -12,6 +13,7 @@ body {
 
 .app-shell {
   height: 100%;
+  overflow: hidden;
   color: #1f2933;
 }
 
@@ -148,6 +150,7 @@ body {
   grid-template-columns: minmax(420px, 1fr) 360px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .board-region {
@@ -234,6 +237,35 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: #335247;
+}
+
+.tree-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.tree-panel-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #d8e2dc;
+  background: #f8faf9;
+}
+
+.tree-panel-header h2 {
+  margin: 0;
+}
+
+.tree-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 0 12px 12px;
+  overflow: auto;
 }
 
 .comments-panel {
@@ -397,9 +429,14 @@ body {
   box-shadow: 0 12px 30px rgba(35, 45, 38, 0.22);
 }
 
-.uro-goban .shudan-marker_label {
+.uro-goban .shudan-vertex.shudan-marker_label .shudan-marker {
+  font-size: 0.5em;
   font-weight: 700;
   line-height: 1;
+}
+
+.uro-goban .shudan-vertex.shudan-smalllabel .shudan-marker {
+  font-size: 0.4em;
 }
 
 .game-info-form {
@@ -410,21 +447,4 @@ body {
 
 .hidden-file-input {
   display: none;
-}
-
-@media (max-width: 900px) {
-  .menu-row {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .app-content {
-    grid-template-columns: 1fr;
-  }
-
-  .right-region {
-    grid-template-rows: auto 220px 320px;
-    border-left: 0;
-    border-top: 1px solid #c4d2ca;
-  }
 }
