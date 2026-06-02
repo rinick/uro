@@ -111,7 +111,7 @@ export const resources = {
   zh: {
     translation: {
       app: {
-        title: 'Uro SGF 编辑器',
+        title: '乌鹭 SGF 编辑器',
         dirty: '已修改',
         clean: '已保存',
         move: '第 {{count}} 手',
@@ -217,7 +217,7 @@ export const resources = {
   ja: {
     translation: {
       app: {
-        title: 'Uro SGFエディター',
+        title: '烏鷺 SGFエディター',
         dirty: '変更あり',
         clean: '保存済み',
         move: '{{count}}手目',
@@ -323,7 +323,7 @@ export const resources = {
   ko: {
     translation: {
       app: {
-        title: 'Uro SGF 편집기',
+        title: '오로 SGF 편집기',
         dirty: '수정됨',
         clean: '저장됨',
         move: '{{count}}수',
