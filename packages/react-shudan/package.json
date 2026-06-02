@@ -3,8 +3,8 @@
   "version": "1.7.1-uro.0",
   "private": true,
   "type": "module",
-  "main": "./src/main.js",
-  "types": "./src/main.d.ts",
+  "main": "./src/main.ts",
+  "types": "./src/main.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests",

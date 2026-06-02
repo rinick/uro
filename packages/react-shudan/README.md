@@ -1,48 +1,43 @@
-# Shudan Goban
+# @uro/react-shudan
 
-A highly customizable, low-level Preact Goban component.
+React and TypeScript fork of SabakiHQ/Shudan for the Uro SGF editor.
 
-![Screenshot](./screenshot.png)
+This package keeps the Shudan goban rendering model, CSS class names, and visual behavior, but uses React directly instead of Preact. The source is TypeScript/TSX; there are no generated `.d.ts` shims or JavaScript source files in this workspace package.
 
-## Features
+## Exports
 
-- Resizable
-- Board coordinates
-- Easy customization
-- Fuzzy stone placement
-- Stone placing animation
-- Board and stone markers
-- Lines and arrows
-- Heat and paint map
-- Busy state
-- Partial board
+- `Goban`
+- `BoundedGoban`
+- `GobanProps`
+- `BoundedGobanProps`
+- board data types such as `Vertex`, `Marker`, `GhostStone`, `HeatVertex`, and `LineMarker`
 
-## Documentation
+Import the stylesheet separately:
 
-See [documentation](./docs/README.md).
-
-## Build Demo
-
-Make sure you have Node.js v8 and npm installed. First, clone this repository
-via Git, then install all dependencies with npm:
-
-```
-$ git clone https://github.com/SabakiHQ/Shudan
-$ cd Shudan
-$ npm install
+```ts
+import '@uro/react-shudan/css/goban.css';
 ```
 
-Use the `build-demo` script to build the demo project:
+## Development
 
-```
-$ npm run build-demo
-```
+Run package typechecking:
 
-You can use the `watch-demo` command for development:
-
-```
-$ npm run watch-demo
+```sh
+pnpm --filter @uro/react-shudan typecheck
 ```
 
-Open `demo/index.html` in your browser to run demo. Alternatively, use
-`build-demo-react` and `watch-demo-react` to build the React-based demo.
+Run the package test script:
+
+```sh
+pnpm --filter @uro/react-shudan test
+```
+
+Build verification for the main app:
+
+```sh
+pnpm --filter @uro/web build
+```
+
+## Upstream
+
+This package is based on SabakiHQ/Shudan. Future changes from SabakiHQ should be brought in from the GitHub repository first, then converted or adapted in this TypeScript React fork.
