@@ -1,0 +1,22 @@
+{
+  "name": "uro",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @uro/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "prettier-check": "prettier --check \"(packages|app)/**/*.+(ts|tsx)\"",
+    "prettier-write": "prettier --write \"(packages|app)/**/*.+(ts|tsx)\""
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "@vitejs/plugin-react": "^5.1.1",
+    "prettier": "^3.8.3",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.6",
+    "vitest": "^4.0.14"
+  },
+  "packageManager": "pnpm@11.3.0"
+}

@@ -1,0 +1,451 @@
+export type SgfColor = 'B' | 'W';
+export type SgfPoint = string;
+export type MarkupKind = 'CR' | 'SQ' | 'TR' | 'MA' | 'SL';
+
+export interface SgfNode {
+  id: string;
+  data: Record<string, string[]>;
+  children: SgfNode[];
+}
+
+export interface SgfDocument {
+  root: SgfNode;
+}
+
+export interface TreeItem {
+  id: string;
+  path: number[];
+  label: string;
+  moveNumber: number | null;
+  color: SgfColor | null;
+  point: SgfPoint | null;
+  hasMetadata: boolean;
+  hasComment: boolean;
+  hasDrawing: boolean;
+  children: TreeItem[];
+}
+
+const letters = 'abcdefghijklmnopqrstuvwxyz';
+
+let nodeCounter = 0;
+
+export function createNode(data: Record<string, string[]> = {}, children: SgfNode[] = []): SgfNode {
+  nodeCounter += 1;
+  return {id: `n${nodeCounter}`, data, children};
+}
+
+export function createNewGame(size = 19): SgfDocument {
+  const now = new Date();
+  const date = formatSgfDate(now);
+  const name = `Game ${date} ${formatTime(now)}`;
+
+  return {
+    root: createNode({
+      GM: ['1'],
+      FF: ['4'],
+      CA: ['UTF-8'],
+      SZ: [String(size)],
+      DT: [date],
+      GN: [name],
+    }),
+  };
+}
+
+export function cloneDocument(document: SgfDocument): SgfDocument {
+  return {root: cloneNode(document.root)};
+}
+
+export function cloneNode(node: SgfNode): SgfNode {
+  return {
+    id: node.id,
+    data: Object.fromEntries(Object.entries(node.data).map(([key, values]) => [key, [...values]])),
+    children: node.children.map(cloneNode),
+  };
+}
+
+export function parseSgf(input: string): SgfDocument {
+  const parser = new Parser(input);
+  return {root: parser.parseCollection()};
+}
+
+export function serializeSgf(document: SgfDocument): string {
+  return serializeTree(document.root);
+}
+
+export function getBoardSize(document: SgfDocument): number {
+  const size = Number(document.root.data.SZ?.[0] ?? 19);
+  return Number.isFinite(size) && size > 0 ? size : 19;
+}
+
+export function pointToVertex(point: SgfPoint): [number, number] | null {
+  if (point.length !== 2) return null;
+  const x = letters.indexOf(point[0]);
+  const y = letters.indexOf(point[1]);
+  if (x < 0 || y < 0) return null;
+  return [x, y];
+}
+
+export function vertexToPoint(x: number, y: number): SgfPoint {
+  return `${letters[x] ?? ''}${letters[y] ?? ''}`;
+}
+
+export function getNodeAtPath(document: SgfDocument, path: number[]): SgfNode {
+  let node = document.root;
+  for (const index of path) {
+    const child = node.children[index];
+    if (child == null) throw new Error(`Invalid SGF path: ${path.join('.')}`);
+    node = child;
+  }
+  return node;
+}
+
+export function getLine(document: SgfDocument, path: number[]): SgfNode[] {
+  const nodes = [document.root];
+  let node = document.root;
+  for (const index of path) {
+    const child = node.children[index];
+    if (child == null) break;
+    nodes.push(child);
+    node = child;
+  }
+  return nodes;
+}
+
+export function updateComment(document: SgfDocument, path: number[], comment: string): SgfDocument {
+  return updateNode(document, path, (node) => setProperty(node, 'C', comment === '' ? [] : [comment]));
+}
+
+export function updateGameInfo(document: SgfDocument, values: Record<string, string>): SgfDocument {
+  const next = cloneDocument(document);
+  for (const [key, value] of Object.entries(values)) {
+    setProperty(next.root, key, value.trim() === '' ? [] : [value]);
+  }
+  return next;
+}
+
+export function addMove(
+  document: SgfDocument,
+  path: number[],
+  color: SgfColor,
+  point: SgfPoint
+): {document: SgfDocument; path: number[]} {
+  const next = cloneDocument(document);
+  const parent = getNodeAtPath(next, path);
+  const child = createNode({[color]: [point]});
+  parent.children.push(child);
+  return {document: next, path: [...path, parent.children.length - 1]};
+}
+
+export function addSetupStone(document: SgfDocument, path: number[], color: SgfColor, point: SgfPoint): SgfDocument {
+  const prop = color === 'B' ? 'AB' : 'AW';
+  const opposite = color === 'B' ? 'AW' : 'AB';
+
+  return updateNode(document, path, (node) => {
+    removePointFromProperties(node, [opposite, 'AE'], point);
+    addPointValue(node, prop, point);
+  });
+}
+
+export function erasePoint(document: SgfDocument, path: number[], point: SgfPoint): SgfDocument {
+  return updateNode(document, path, (node) => {
+    removePointFromProperties(node, ['AB', 'AW', 'B', 'W', 'CR', 'SQ', 'TR', 'MA', 'SL'], point);
+    removeLabel(node, point);
+    addPointValue(node, 'AE', point);
+  });
+}
+
+export function addMarkup(document: SgfDocument, path: number[], kind: MarkupKind, point: SgfPoint): SgfDocument {
+  return updateNode(document, path, (node) => {
+    removePointFromProperties(node, ['CR', 'SQ', 'TR', 'MA', 'SL'], point);
+    addPointValue(node, kind, point);
+  });
+}
+
+export function addLabel(document: SgfDocument, path: number[], point: SgfPoint, label: string): SgfDocument {
+  return updateNode(document, path, (node) => {
+    removeLabel(node, point);
+    addPointValue(node, 'LB', `${point}:${label}`);
+  });
+}
+
+export function getComment(document: SgfDocument, path: number[]): string {
+  return getNodeAtPath(document, path).data.C?.[0] ?? '';
+}
+
+export function getGameInfo(document: SgfDocument): Record<string, string> {
+  const keys = ['PB', 'PW', 'BR', 'WR', 'EV', 'RO', 'DT', 'PC', 'KM', 'HA', 'RU', 'RE', 'GN', 'GC'];
+  return Object.fromEntries(keys.map((key) => [key, document.root.data[key]?.[0] ?? '']));
+}
+
+export function getNextColor(document: SgfDocument, path: number[]): SgfColor {
+  const line = getLine(document, path);
+  for (let index = line.length - 1; index >= 0; index -= 1) {
+    if (line[index].data.B != null) return 'W';
+    if (line[index].data.W != null) return 'B';
+  }
+  return 'B';
+}
+
+export function buildTree(document: SgfDocument): TreeItem[] {
+  const items: TreeItem[] = [];
+
+  function walk(node: SgfNode, path: number[], moveNumber: number): TreeItem {
+    const color: SgfColor | null = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
+    const point = color == null ? null : (node.data[color]?.[0] ?? '');
+    const nextMoveNumber = color == null ? moveNumber : moveNumber + 1;
+    const label = color == null ? 'Root' : `${color}${nextMoveNumber} ${formatPoint(point)}`;
+
+    return {
+      id: node.id,
+      path,
+      label,
+      moveNumber: color == null ? null : nextMoveNumber,
+      color,
+      point: color == null ? null : point,
+      hasMetadata: hasNodeMetadata(node),
+      hasComment: hasNodeComment(node),
+      hasDrawing: hasNodeDrawing(node),
+      children: node.children.map((child, index) => walk(child, [...path, index], nextMoveNumber)),
+    };
+  }
+
+  items.push(walk(document.root, [], 0));
+  return items;
+}
+
+function hasNodeMetadata(node: SgfNode): boolean {
+  const moveKeys = new Set(['B', 'W']);
+  return Object.keys(node.data).some((key) => !moveKeys.has(key));
+}
+
+function hasNodeComment(node: SgfNode): boolean {
+  return (node.data.C ?? []).some((value) => value.length > 0);
+}
+
+function hasNodeDrawing(node: SgfNode): boolean {
+  const drawingKeys = ['CR', 'SQ', 'TR', 'MA', 'SL', 'LB', 'AR', 'LN', 'DD'];
+  return drawingKeys.some((key) => (node.data[key] ?? []).length > 0);
+}
+
+function formatSgfDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatTime(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+  return `${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+export function samePath(left: number[], right: number[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+export function formatPoint(point: string | null): string {
+  if (point == null) return '';
+  if (point === '') return 'pass';
+  const vertex = pointToVertex(point);
+  if (vertex == null) return point;
+  return `${letters[vertex[0]].toUpperCase()}${vertex[1] + 1}`;
+}
+
+function updateNode(document: SgfDocument, path: number[], update: (node: SgfNode) => void): SgfDocument {
+  const next = cloneDocument(document);
+  update(getNodeAtPath(next, path));
+  return next;
+}
+
+function setProperty(node: SgfNode, key: string, values: string[]): void {
+  if (values.length === 0) {
+    delete node.data[key];
+  } else {
+    node.data[key] = values;
+  }
+}
+
+function addPointValue(node: SgfNode, key: string, value: string): void {
+  const values = node.data[key] ?? [];
+  if (!values.includes(value)) node.data[key] = [...values, value];
+}
+
+function removePointFromProperties(node: SgfNode, keys: string[], point: SgfPoint): void {
+  for (const key of keys) {
+    const values = node.data[key];
+    if (values == null) continue;
+
+    const next = values.filter((value) => value.slice(0, 2) !== point);
+    if (next.length === 0) {
+      delete node.data[key];
+    } else {
+      node.data[key] = next;
+    }
+  }
+}
+
+function removeLabel(node: SgfNode, point: SgfPoint): void {
+  const values = node.data.LB;
+  if (values == null) return;
+
+  const next = values.filter((value) => !value.startsWith(`${point}:`));
+  if (next.length === 0) {
+    delete node.data.LB;
+  } else {
+    node.data.LB = next;
+  }
+}
+
+function serializeTree(root: SgfNode): string {
+  const sequence: SgfNode[] = [];
+  let current: SgfNode | null = root;
+
+  while (current != null) {
+    sequence.push(current);
+    current = current.children.length === 1 ? current.children[0] : null;
+  }
+
+  let output = `(${sequence.map(serializeNode).join('')}`;
+  const last = sequence[sequence.length - 1];
+  for (const child of last.children) {
+    output += serializeTree(child);
+  }
+  output += ')';
+  return output;
+}
+
+function serializeNode(node: SgfNode): string {
+  return `;${Object.entries(node.data)
+    .filter(([, values]) => values.length > 0)
+    .map(([key, values]) => `${key}${values.map((value) => `[${escapeValue(value)}]`).join('')}`)
+    .join('')}`;
+}
+
+function escapeValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/\]/g, '\\]');
+}
+
+function unescapeValue(value: string): string {
+  let output = '';
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (char === '\\' && index + 1 < value.length) {
+      index += 1;
+      output += value[index];
+    } else {
+      output += char;
+    }
+  }
+  return output;
+}
+
+class Parser {
+  private index = 0;
+
+  constructor(private readonly input: string) {}
+
+  parseCollection(): SgfNode {
+    this.skipSpace();
+    const root = this.parseTree();
+    this.skipSpace();
+    return root;
+  }
+
+  private parseTree(): SgfNode {
+    this.expect('(');
+    const sequence: SgfNode[] = [];
+
+    while (true) {
+      this.skipSpace();
+      if (this.peek() !== ';') break;
+      sequence.push(this.parseNode());
+    }
+
+    if (sequence.length === 0) throw new Error('SGF game tree must contain at least one node.');
+
+    for (let index = 0; index < sequence.length - 1; index += 1) {
+      sequence[index].children.push(sequence[index + 1]);
+    }
+
+    const tail = sequence[sequence.length - 1];
+    while (true) {
+      this.skipSpace();
+      if (this.peek() !== '(') break;
+      tail.children.push(this.parseTree());
+    }
+
+    this.skipSpace();
+    this.expect(')');
+    return sequence[0];
+  }
+
+  private parseNode(): SgfNode {
+    this.expect(';');
+    const data: Record<string, string[]> = {};
+
+    while (true) {
+      this.skipSpace();
+      const key = this.readIdentifier();
+      if (key === '') break;
+
+      const values: string[] = [];
+      while (true) {
+        this.skipSpace();
+        if (this.peek() !== '[') break;
+        values.push(this.readValue());
+      }
+      data[key] = [...(data[key] ?? []), ...values];
+    }
+
+    return createNode(data);
+  }
+
+  private readIdentifier(): string {
+    let key = '';
+    while (/[A-Za-z]/.test(this.peek())) {
+      key += this.input[this.index];
+      this.index += 1;
+    }
+    return key.toUpperCase();
+  }
+
+  private readValue(): string {
+    this.expect('[');
+    let raw = '';
+
+    while (this.index < this.input.length) {
+      const char = this.input[this.index];
+      if (char === ']') {
+        this.index += 1;
+        return unescapeValue(raw);
+      }
+
+      raw += char;
+      this.index += 1;
+      if (char === '\\' && this.index < this.input.length) {
+        raw += this.input[this.index];
+        this.index += 1;
+      }
+    }
+
+    throw new Error('Unterminated SGF property value.');
+  }
+
+  private skipSpace(): void {
+    while (/\s/.test(this.peek())) this.index += 1;
+  }
+
+  private peek(): string {
+    return this.input[this.index] ?? '';
+  }
+
+  private expect(char: string): void {
+    if (this.peek() !== char) {
+      throw new Error(`Expected "${char}" at offset ${this.index}.`);
+    }
+    this.index += 1;
+  }
+}

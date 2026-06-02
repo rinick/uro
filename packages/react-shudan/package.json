@@ -1,0 +1,26 @@
+{
+  "name": "@uro/react-shudan",
+  "version": "1.7.1-uro.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/main.js",
+  "types": "./src/main.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "description": "React fork of SabakiHQ/Shudan for Uro.",
+  "license": "MIT",
+  "dependencies": {
+    "classnames": "^2.3.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}
