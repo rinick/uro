@@ -1,4 +1,4 @@
-import {formatPoint, type SgfColor, type TreeItem} from "@uro/sgf-core";
+import {formatPoint, type SgfColor, type TreeItem} from '@uro/sgf-core';
 
 export interface TreeCell {
   id: string;
@@ -32,7 +32,7 @@ export const gutterWidth = 42;
 export const treeStep = 30;
 export const cornerRadius = 6;
 
-export function layoutTree(root: TreeItem): TreeLayout {
+export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
   const cells: TreeCell[] = [];
   const connectors: TreeConnector[] = [];
   let nextColumn = 1;
@@ -50,7 +50,7 @@ export function layoutTree(root: TreeItem): TreeLayout {
           fromRow: item.moveNumber,
           fromColumn: column,
           toRow: child.moveNumber,
-          toColumn: childColumn
+          toColumn: childColumn,
         });
       }
 
@@ -62,11 +62,11 @@ export function layoutTree(root: TreeItem): TreeLayout {
           row: child.moveNumber,
           column: childColumn,
           color: child.color,
-          text: child.point === "" ? "" : formatPoint(child.point),
-          isPass: child.point === "",
+          text: child.point === '' ? '' : formatPoint(child.point, boardSize),
+          isPass: child.point === '',
           hasMetadata: child.hasMetadata,
           hasComment: child.hasComment,
-          hasDrawing: child.hasDrawing
+          hasDrawing: child.hasDrawing,
         });
       }
 
@@ -80,6 +80,6 @@ export function layoutTree(root: TreeItem): TreeLayout {
     rows: Array.from({length: maxRow}, (_, index) => index + 1),
     columns: Math.max(maxColumn + 1, 1),
     cells,
-    connectors
+    connectors,
   };
 }

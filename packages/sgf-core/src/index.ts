@@ -26,6 +26,7 @@ export interface TreeItem {
 }
 
 const letters = 'abcdefghijklmnopqrstuvwxyz';
+const coordinateLetters = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
 
 let nodeCounter = 0;
 
@@ -188,12 +189,13 @@ export function getNextColor(document: SgfDocument, path: number[]): SgfColor {
 
 export function buildTree(document: SgfDocument): TreeItem[] {
   const items: TreeItem[] = [];
+  const boardSize = getBoardSize(document);
 
   function walk(node: SgfNode, path: number[], moveNumber: number): TreeItem {
     const color: SgfColor | null = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
     const point = color == null ? null : (node.data[color]?.[0] ?? '');
     const nextMoveNumber = color == null ? moveNumber : moveNumber + 1;
-    const label = color == null ? 'Root' : `${color}${nextMoveNumber} ${formatPoint(point)}`;
+    const label = color == null ? 'Root' : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
 
     return {
       id: node.id,
@@ -246,12 +248,12 @@ export function samePath(left: number[], right: number[]): boolean {
   return left.length === right.length && left.every((value, index) => value === right[index]);
 }
 
-export function formatPoint(point: string | null): string {
+export function formatPoint(point: string | null, boardSize = 19): string {
   if (point == null) return '';
   if (point === '') return 'pass';
   const vertex = pointToVertex(point);
   if (vertex == null) return point;
-  return `${letters[vertex[0]].toUpperCase()}${vertex[1] + 1}`;
+  return `${coordinateLetters[vertex[0]] ?? letters[vertex[0]].toUpperCase()}${boardSize - vertex[1]}`;
 }
 
 function updateNode(document: SgfDocument, path: number[], update: (node: SgfNode) => void): SgfDocument {

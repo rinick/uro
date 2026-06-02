@@ -8,7 +8,6 @@ node_modules
 /.cache
 /.parcel-cache
 build
-/dist
 /packages/**/*.js
 /test/**/*.js
 *.map
@@ -29,3 +28,4 @@ en.base.yaml
 /app/**/*.d.ts
 /packages/**/*.d.ts
 /tool/**/*.d.ts
+/apps/web/dist

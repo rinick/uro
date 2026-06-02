@@ -1,7 +1,7 @@
-import {Goban, type Marker} from "@uro/react-shudan";
-import {deriveBoardPosition} from "@uro/go-core";
-import {pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from "@uro/sgf-core";
-import {useLayoutEffect, useMemo, useRef, useState} from "react";
+import {Goban, type Marker} from '@uro/react-shudan';
+import {deriveBoardPosition} from '@uro/go-core';
+import {pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@uro/sgf-core';
+import {useLayoutEffect, useMemo, useRef, useState} from 'react';
 
 interface GoBoardProps {
   document: SgfDocument;
@@ -11,21 +11,25 @@ interface GoBoardProps {
   onVertexClick: (point: string) => void;
 }
 
-const markerTypes: Record<MarkupKind, Marker["type"]> = {
-  CR: "circle",
-  SQ: "square",
-  TR: "triangle",
-  MA: "cross",
-  SL: "point"
+const markerTypes: Record<MarkupKind, Marker['type']> = {
+  CR: 'circle',
+  SQ: 'square',
+  TR: 'triangle',
+  MA: 'cross',
+  SL: 'point',
 };
+
+const gobanBorderEm = 0.3;
+const coordinateTrackEm = 2;
+const boardPaddingWithoutCoordinatesEm = 0.5;
 
 export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVertexClick}: GoBoardProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
   const [availableSize, setAvailableSize] = useState({width: 620, height: 620});
   const vertexSize = useMemo(() => {
-    const coordinateSlots = showCoordinates ? 2 : 0;
-    const slots = position.size + coordinateSlots;
+    const extraSlots = showCoordinates ? coordinateTrackEm : boardPaddingWithoutCoordinatesEm;
+    const slots = position.size + extraSlots + gobanBorderEm;
     return Math.max(12, Math.floor(Math.min(availableSize.width, availableSize.height) / slots));
   }, [availableSize.height, availableSize.width, position.size, showCoordinates]);
 
@@ -34,7 +38,7 @@ export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVer
       Array.from({length: position.size}, (_, y) =>
         Array.from({length: position.size}, (_, x) => {
           const stone = position.stones.get(vertexToPoint(x, y));
-          return stone === "B" ? 1 : stone === "W" ? -1 : 0;
+          return stone === 'B' ? 1 : stone === 'W' ? -1 : 0;
         })
       ),
     [position]
@@ -44,10 +48,11 @@ export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVer
     () =>
       Array.from({length: position.size}, (_, y) =>
         Array.from({length: position.size}, (_, x): Marker => {
-          const point = position.points.find(item => item.x === x && item.y === y);
+          const point = position.points.find((item) => item.x === x && item.y === y);
           if (point == null) return {};
-          if (point.label != null) return {type: "label", label: point.label};
-          if (showMoveNumbers && point.stone != null && point.moveNumber != null) return {type: "label", label: String(point.moveNumber)};
+          if (point.label != null) return {type: 'label', label: point.label};
+          if (showMoveNumbers && point.stone != null && point.moveNumber != null)
+            return {type: 'label', label: String(point.moveNumber)};
           if (point.markup != null) return {type: markerTypes[point.markup]};
           return {};
         })
@@ -59,7 +64,7 @@ export function GoBoard({document, path, showCoordinates, showMoveNumbers, onVer
     const element = frameRef.current;
     if (element == null) return;
 
-    const observer = new ResizeObserver(entries => {
+    const observer = new ResizeObserver((entries) => {
       const rect = entries[0]?.contentRect;
       if (rect == null) return;
       setAvailableSize({width: rect.width, height: rect.height});

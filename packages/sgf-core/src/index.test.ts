@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {addLabel, addMarkup, addMove, createNewGame, parseSgf, serializeSgf, updateComment} from '.';
+import {addLabel, addMarkup, addMove, createNewGame, formatPoint, parseSgf, serializeSgf, updateComment} from '.';
 
 describe('sgf-core', () => {
   it('creates a 19x19 SGF by default', () => {
@@ -31,5 +31,13 @@ describe('sgf-core', () => {
     document = addLabel(document, result.path, 'dp', '1');
 
     expect(serializeSgf(document)).toContain(';B[dd]TR[pq]LB[dp:1])');
+  });
+
+  it('formats display coordinates without I', () => {
+    expect(formatPoint('aa')).toBe('A19');
+    expect(formatPoint('hh')).toBe('H12');
+    expect(formatPoint('ii')).toBe('J11');
+    expect(formatPoint('ss')).toBe('T1');
+    expect(formatPoint('ii', 13)).toBe('J5');
   });
 });
