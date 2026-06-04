@@ -551,7 +551,13 @@ async function stopKataGoAnalysis(): Promise<void> {
   sendKataGoConsole(katagoSender, 'uro', 'info', 'Stopping KataGo analysis.');
   activeKataGoQueryIds.clear();
   await Promise.all(
-    queryIds.map((queryId) => writeKataGoMessage({action: 'terminate', terminateId: queryId}).catch(() => undefined))
+    queryIds.map((queryId) =>
+      writeKataGoMessage({
+        id: `uro-terminate-${queryId}`,
+        action: 'terminate',
+        terminateId: queryId,
+      }).catch(() => undefined)
+    )
   );
 }
 
