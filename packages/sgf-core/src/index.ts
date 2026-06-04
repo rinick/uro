@@ -47,6 +47,8 @@ export function createNewGame(size = 19): SgfDocument {
       CA: ['UTF-8'],
       SZ: [String(size)],
       DT: [date],
+      KM: ['6.5'],
+      RU: ['Japanese'],
       GN: [name],
     }),
   };
@@ -66,7 +68,16 @@ export function cloneNode(node: SgfNode): SgfNode {
 
 export function parseSgf(input: string): SgfDocument {
   const parser = new Parser(input);
-  return {root: parser.parseCollection()};
+  const root = parser.parseCollection();
+  normalizeRootProperties(root);
+  return {root};
+}
+
+function normalizeRootProperties(root: SgfNode): void {
+  if (Number(root.data.KM?.[0]?.trim().replace(',', '.')) !== 375) return;
+
+  root.data.KM = ['7.5'];
+  if (root.data.RU?.[0]?.trim() == null || root.data.RU[0].trim() === '') root.data.RU = ['Chinese'];
 }
 
 export function serializeSgf(document: SgfDocument): string {

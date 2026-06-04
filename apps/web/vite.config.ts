@@ -10,6 +10,9 @@ export default defineConfig({
       {find: '@uro/sgf-core', replacement: path.resolve(__dirname, '../../packages/sgf-core/src')},
       {find: '@uro/go-core', replacement: path.resolve(__dirname, '../../packages/go-core/src')},
       {find: '@uro/ui-shared', replacement: path.resolve(__dirname, '../../packages/ui-shared/src')},
+      {find: '@uro/analysis-core', replacement: path.resolve(__dirname, '../../packages/analysis-core/src')},
+      {find: '@uro/sgf-analysis-tree', replacement: path.resolve(__dirname, '../../packages/sgf-analysis-tree/src')},
+      {find: '@uro/katago-core', replacement: path.resolve(__dirname, '../../packages/katago-core/src')},
     ],
   },
 });

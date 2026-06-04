@@ -16,13 +16,13 @@ import {
 } from './helper';
 import {CoordX, CoordY} from './Coord';
 import Grid from './Grid';
-import Vertex, {type GhostStone, type HeatVertex, type VertexHandler} from './Vertex';
+import Vertex, {type GhostStone, type HeatVertex, type MoveHint, type VertexHandler} from './Vertex';
 import Line, {type LineMarker} from './Line';
 import type {Marker} from './Marker';
 
 export type Vertex = VertexPoint;
 export type Map<T> = T[][];
-export type {GhostStone, HeatVertex, LineMarker, Marker};
+export type {GhostStone, HeatVertex, LineMarker, Marker, MoveHint};
 
 type Sign = 0 | -1 | 1;
 
@@ -50,9 +50,10 @@ export interface GobanProps extends PublicVertexEventHandlers {
   animationDuration?: number;
   signMap?: Map<Sign>;
   markerMap?: Map<Marker | null>;
-  paintMap?: Map<Sign>;
+  paintMap?: Map<number>;
   ghostStoneMap?: Map<GhostStone | null>;
   heatMap?: Map<HeatVertex | null>;
+  moveHintMap?: Map<MoveHint | null>;
   selectedVertices?: VertexPoint[];
   dimmedVertices?: VertexPoint[];
   lines?: LineMarker[];
@@ -137,6 +138,7 @@ export default class Goban extends Component<GobanProps, GobanState> {
       signMap,
       paintMap,
       heatMap,
+      moveHintMap,
       markerMap,
       ghostStoneMap,
       fuzzyStonePlacement = false,
@@ -237,20 +239,13 @@ export default class Goban extends Component<GobanProps, GobanState> {
                     sign: signMap?.[y]?.[x],
 
                     heat: heatMap?.[y]?.[x],
+                    moveHint: moveHintMap?.[y]?.[x],
                     marker: markerMap?.[y]?.[x],
                     ghostStone: ghostStoneMap?.[y]?.[x],
                     dimmed: dimmedVertices.some(equalsVertex),
                     animate: animatedVertices.some(equalsVertex),
 
                     paint: paintMap?.[y]?.[x],
-                    paintLeft: paintMap?.[y]?.[x - 1],
-                    paintRight: paintMap?.[y]?.[x + 1],
-                    paintTop: paintMap?.[y - 1]?.[x],
-                    paintBottom: paintMap?.[y + 1]?.[x],
-                    paintTopLeft: paintMap?.[y - 1]?.[x - 1],
-                    paintTopRight: paintMap?.[y - 1]?.[x + 1],
-                    paintBottomLeft: paintMap?.[y + 1]?.[x - 1],
-                    paintBottomRight: paintMap?.[y + 1]?.[x + 1],
 
                     selected,
                     selectedLeft: selected && selectedVertices.some((v) => vertexEquals(v, [x - 1, y])),

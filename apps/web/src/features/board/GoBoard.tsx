@@ -1,13 +1,17 @@
-import {Goban, type Marker} from '@uro/react-shudan';
-import {deriveBoardPosition} from '@uro/go-core';
-import {pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@uro/sgf-core';
+import {Goban, type HeatVertex, type Marker, type MoveHint} from '@uro/react-shudan';
+import {deriveBoardPosition, type BoardPoint} from '@uro/go-core';
+import {getNodeAtPath, pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@uro/sgf-core';
 import {useLayoutEffect, useMemo, useRef, useState} from 'react';
+import type {AnalysisSettings, KataGoAnalysisResult, KataGoMoveInfo} from '@uro/analysis-core';
 
 interface GoBoardProps {
   document: SgfDocument;
   path: number[];
   showCoordinates: boolean;
   moveNumberLimit: MoveNumberLimit;
+  analysis: KataGoAnalysisResult | null;
+  stoneScoreDeltas: Map<string, number>;
+  analysisSettings: AnalysisSettings;
   onVertexClick: (point: string) => void;
 }
 
@@ -24,8 +28,18 @@ const markerTypes: Record<MarkupKind, Marker['type']> = {
 const gobanBorderEm = 0.3;
 const coordinateTrackEm = 2;
 const boardPaddingWithoutCoordinatesEm = 0.5;
+const evalThresholds = [12, 6, 3, 1.5, 0.5, 0];
 
-export function GoBoard({document, path, showCoordinates, moveNumberLimit, onVertexClick}: GoBoardProps) {
+export function GoBoard({
+  document,
+  path,
+  showCoordinates,
+  moveNumberLimit,
+  analysis,
+  stoneScoreDeltas,
+  analysisSettings,
+  onVertexClick,
+}: GoBoardProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
   const [availableSize, setAvailableSize] = useState({width: 620, height: 620});
@@ -61,6 +75,27 @@ export function GoBoard({document, path, showCoordinates, moveNumberLimit, onVer
       ),
     [position, moveNumberLimit]
   );
+  const heatMap = useMemo(
+    () =>
+      buildAnalysisHeatMap(
+        position.size,
+        analysis,
+        analysisSettings,
+        position.nextColor,
+        position.points,
+        position.moveNumber,
+        stoneScoreDeltas
+      ),
+    [analysis, analysisSettings, position, stoneScoreDeltas]
+  );
+  const moveHintMap = useMemo(
+    () => buildMoveHintMap(position.size, document, path, analysis, analysisSettings),
+    [analysis, analysisSettings, document, path, position.size]
+  );
+  const paintMap = useMemo(
+    () => buildOwnershipPaintMap(position.size, analysis, analysisSettings, position.stones),
+    [analysis, analysisSettings, position.size, position.stones]
+  );
 
   useLayoutEffect(() => {
     const element = frameRef.current;
@@ -85,12 +120,261 @@ export function GoBoard({document, path, showCoordinates, moveNumberLimit, onVer
           showCoordinates={showCoordinates}
           signMap={signMap}
           markerMap={markerMap}
+          heatMap={heatMap}
+          moveHintMap={moveHintMap}
+          paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
           onVertexClick={(_event, vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1]))}
         />
       </div>
     </div>
   );
+}
+
+function buildAnalysisHeatMap(
+  size: number,
+  analysis: KataGoAnalysisResult | null,
+  settings: AnalysisSettings,
+  nextColor: 'B' | 'W',
+  points: BoardPoint[],
+  currentMoveNumber: number,
+  stoneScoreDeltas: Map<string, number>
+): Array<Array<HeatVertex | null>> | undefined {
+  const result = emptyMap<HeatVertex | null>(size, null);
+  const topMoveDisplay = settings.topMoveDisplay ?? (settings.showDots ? 'dot' : 'none');
+  let hasHeat = false;
+
+  if (settings.showTopMoves && analysis?.moveInfos != null) {
+    const moves = analysis.moveInfos
+      .filter((move) => gtpMoveToVertex(move.move, size) != null)
+      .slice(0, analysisMoveLimit(settings.maxMoves));
+
+    for (const move of moves) {
+      const vertex = gtpMoveToVertex(move.move, size);
+      if (vertex == null) continue;
+      const [x, y] = vertex;
+      const text = analysisMoveText(move, settings.moveDisplay, analysis, nextColor);
+      result[y][x] = {
+        ...(result[y][x] ?? {}),
+        strength: heatStrength(move, analysis, nextColor),
+        heat: true,
+        text: text === '' ? undefined : text,
+      };
+      hasHeat = true;
+    }
+  }
+
+  if (topMoveDisplay === 'dot') {
+    for (const point of points) {
+      const scoreDelta = stoneScoreDeltas.get(point.point);
+      if (
+        point.stone == null ||
+        point.moveNumber == null ||
+        scoreDelta == null ||
+        !shouldShowMoveAnalysis(point.moveNumber, currentMoveNumber, settings.maxMoves)
+      ) {
+        continue;
+      }
+
+      result[point.y][point.x] = {
+        ...(result[point.y][point.x] ?? {}),
+        strength: evaluationClass(-scoreDelta) + 1,
+        heat: false,
+        dot: true,
+      };
+      hasHeat = true;
+    }
+  }
+
+  return hasHeat ? result : undefined;
+}
+
+function buildMoveHintMap(
+  size: number,
+  document: SgfDocument,
+  path: number[],
+  analysis: KataGoAnalysisResult | null,
+  settings: AnalysisSettings
+): Array<Array<MoveHint | null>> | undefined {
+  if (!settings.showNextMove) return undefined;
+
+  const result = emptyMap<MoveHint | null>(size, null);
+  let hasHints = false;
+  const node = getNodeAtPath(document, path);
+
+  node.children.forEach((child, index) => {
+    const color = child.data.B != null ? 1 : child.data.W != null ? -1 : 0;
+    const point = child.data.B?.[0] ?? child.data.W?.[0];
+    if (point == null || point === '') return;
+    const vertex = pointToVertex(point);
+    if (vertex == null) return;
+
+    const [x, y] = vertex;
+    result[y][x] = {...(result[y][x] ?? {}), branch: index === 0 ? 'main' : 'variation', sign: color};
+    hasHints = true;
+  });
+
+  const bestVertex = analysis?.moveInfos?.[0] == null ? null : gtpMoveToVertex(analysis.moveInfos[0].move, size);
+  if (bestVertex != null) {
+    const [x, y] = bestVertex;
+    result[y][x] = {...(result[y][x] ?? {}), best: true};
+    hasHints = true;
+  }
+
+  return hasHints ? result : undefined;
+}
+
+function buildOwnershipPaintMap(
+  size: number,
+  analysis: KataGoAnalysisResult | null,
+  settings: AnalysisSettings,
+  stones: Map<string, 'B' | 'W'>
+): number[][] | undefined {
+  if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
+
+  return Array.from({length: size}, (_, y) =>
+    Array.from({length: size}, (_, x) => {
+      const value = analysis.ownership?.[y * size + x] ?? 0;
+      if (Math.abs(value) < 0.15) return 0;
+
+      const paint = Math.max(-1, Math.min(1, value));
+      const stone = stones.get(vertexToPoint(x, y));
+      if (stone === 'B' && paint > 0) return 0;
+      if (stone === 'W' && paint < 0) return 0;
+      if (stone != null) return paint * 2;
+      return paint;
+    })
+  );
+}
+
+function analysisMoveText(
+  move: KataGoMoveInfo,
+  mode: AnalysisSettings['moveDisplay'],
+  analysis: KataGoAnalysisResult,
+  nextColor: 'B' | 'W'
+): string {
+  if (mode === 'none') return '';
+
+  if (mode === 'winrate') {
+    const winrateLost = moveWinrateLost(move, analysis, nextColor);
+    return winrateLost == null ? '' : formatPercentDelta(-winrateLost);
+  }
+
+  const scoreDelta = moveScoreDelta(move, analysis, nextColor, mode);
+  if (scoreDelta != null) return formatScore(scoreDelta);
+
+  if (move.pointsLost != null) return formatScore(-move.pointsLost);
+
+  return '';
+}
+
+function movePointsLost(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number | null {
+  if (move.pointsLost != null) return move.pointsLost;
+  const score = moveScoreLead(move);
+  if (score == null) return null;
+
+  const scoreDelta = (score - (rootScoreLead(analysis) ?? 0)) * (nextColor === 'B' ? 1 : -1);
+  return scoreDelta == null ? null : -scoreDelta;
+}
+
+function moveScoreDelta(
+  move: KataGoMoveInfo,
+  analysis: KataGoAnalysisResult,
+  nextColor: 'B' | 'W',
+  mode: AnalysisSettings['moveDisplay']
+): number | null {
+  const score = moveScoreLead(move);
+  if (score == null) return null;
+
+  const passMove = analysis.moveInfos?.find((item) => item.move.toLowerCase() === 'pass');
+  const passScore = passMove == null ? null : moveScoreLead(passMove);
+  const baseScore = mode === 'absScore' && passScore != null ? passScore : (rootScoreLead(analysis) ?? 0);
+  return (score - baseScore) * (nextColor === 'B' ? 1 : -1);
+}
+
+function moveWinrateLost(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number | null {
+  if (move.winrateLost != null) return normalizeWinrateDelta(move.winrateLost);
+  if (analysis.rootInfo?.winrate == null || move.winrate == null) return null;
+
+  return (nextColor === 'B' ? 1 : -1) * (normalizeWinrate(analysis.rootInfo.winrate) - normalizeWinrate(move.winrate));
+}
+
+function evaluationClass(pointsLost: number): number {
+  let index = 0;
+  while (index < evalThresholds.length - 1 && pointsLost < evalThresholds[index]) index += 1;
+  return index;
+}
+
+function heatStrength(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number {
+  const pointsLost = movePointsLost(move, analysis, nextColor);
+  if (pointsLost != null) return evaluationClass(pointsLost) + 1;
+
+  return 0;
+}
+
+function rootScoreLead(analysis: KataGoAnalysisResult): number | null {
+  return analysis.rootInfo?.scoreLead ?? analysis.rootInfo?.scoreMean ?? null;
+}
+
+function moveScoreLead(move: KataGoMoveInfo): number | null {
+  return move.scoreLead ?? move.scoreMean ?? null;
+}
+
+function normalizeWinrate(value: number): number {
+  return value > 1 ? value / 100 : value;
+}
+
+function normalizeWinrateDelta(value: number): number {
+  return Math.abs(value) > 1 ? value / 100 : value;
+}
+
+function formatPercentDelta(value: number): string {
+  const percent = value * 100;
+  return `${percent >= 0 ? '+' : ''}${formatPrecision(percent)}%`;
+}
+
+function formatScore(value: number): string {
+  return `${value > 0 ? '+' : ''}${formatPrecision(value)}`;
+}
+
+function formatPrecision(value: number): string {
+  if (Math.abs(value) < 10) {
+    const rounded = Math.round(value * 10) / 10;
+    const normalized = Object.is(rounded, -0) ? 0 : rounded;
+    return normalized.toFixed(1);
+  }
+
+  const rounded = Math.round(value);
+  const normalized = Object.is(rounded, -0) ? 0 : rounded;
+  return String(normalized);
+}
+
+function gtpMoveToVertex(move: string, size: number): [number, number] | null {
+  if (move.toLowerCase() === 'pass') return null;
+  const match = /^([A-Za-z])(\d+)$/.exec(move);
+  if (match == null) return null;
+
+  const x = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'.indexOf(match[1].toUpperCase());
+  const y = size - Number(match[2]);
+  if (x < 0 || y < 0 || x >= size || y >= size) return null;
+  return [x, y];
+}
+
+function emptyMap<T>(size: number, value: T): T[][] {
+  return Array.from({length: size}, () => Array.from({length: size}, () => value));
+}
+
+function analysisMoveLimit(limit: AnalysisSettings['maxMoves']): number | undefined {
+  return limit === 'all' ? undefined : limit;
+}
+
+function shouldShowMoveAnalysis(
+  moveNumber: number,
+  currentMoveNumber: number,
+  moveLimit: AnalysisSettings['maxMoves']
+): boolean {
+  if (moveLimit === 'all') return true;
+  return moveNumber > currentMoveNumber - moveLimit;
 }
 
 function shouldShowMoveNumber(

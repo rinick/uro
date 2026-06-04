@@ -283,20 +283,15 @@
 /* Paint map */
 
 .shudan-vertex .shudan-paint {
-  overflow: hidden;
+  pointer-events: none;
 }
 .shudan-vertex .shudan-paint::before {
   content: '';
   display: block;
   position: absolute;
-  left: 0;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  inset: 35%;
   opacity: var(--shudan-paint-opacity);
-  box-shadow: var(--shudan-paint-box-shadow);
   background: transparent;
-  border-radius: 0.2em;
 }
 .shudan-vertex.shudan-paint_1 .shudan-paint::before {
   background: var(--shudan-black-background-color);
@@ -304,87 +299,84 @@
 .shudan-vertex.shudan-paint_-1 .shudan-paint::before {
   background: var(--shudan-white-background-color);
 }
-.shudan-vertex.shudan-paintedleft .shudan-paint::before {
-  border-left: none;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-.shudan-vertex.shudan-paintedright .shudan-paint::before {
-  border-right: none;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-.shudan-vertex.shudan-paintedtop .shudan-paint::before {
-  border-top: none;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-.shudan-vertex.shudan-paintedbottom .shudan-paint::before {
-  border-bottom: none;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
 
 /* Heat map */
 
 .shudan-vertex .shudan-heat {
   top: 50%;
   left: 50%;
-  margin-left: -1px;
-  margin-top: -1px;
+  margin-left: -0.3em;
+  margin-top: -0.3em;
   border-radius: 50%;
-  width: 1px;
-  height: 1px;
+  width: 0.6em;
+  height: 0.6em;
   opacity: 0;
   pointer-events: none;
-  transition:
-    opacity 0.5s,
-    box-shadow 0.5s;
 }
-.shudan-vertex.shudan-heat_9 .shudan-heat {
-  background: #59a80f;
-  box-shadow: 0 0 1em 1em #59a80f;
+.shudan-vertex .shudan-analysisdot {
+  top: 50%;
+  left: 50%;
+  width: 0.5em;
+  height: 0.5em;
+  margin-left: -0.25em;
+  margin-top: -0.25em;
+  border-radius: 50%;
+  opacity: 0.9;
+  pointer-events: none;
+}
+.shudan-vertex.shudan-heat_6 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_6 {
+  background: #1e9600;
+  box-shadow: 0 0 0.1em 0.1em #1e9600;
   opacity: 0.8;
 }
-.shudan-vertex.shudan-heat_8 .shudan-heat {
-  background: #59a80f;
-  box-shadow: 0 0 1em 0.9em #59a80f;
+.shudan-vertex .shudan-analysisdot.shudan-heat_6 {
+  background: #1e9600;
+}
+.shudan-vertex.shudan-heat_5 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_5 {
+  background: #abde2e;
+  box-shadow: 0 0 0.1em 0.1em #abde2e;
   opacity: 0.7;
 }
-.shudan-vertex.shudan-heat_7 .shudan-heat {
-  background: #4886d5;
-  box-shadow: 0 0 1em 0.75em #4886d5;
+.shudan-vertex .shudan-analysisdot.shudan-heat_5 {
+  background: #abde2e;
+}
+.shudan-vertex.shudan-heat_4 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_4 {
+  background: #f2f200;
+  box-shadow: 0 0 0.1em 0.1em #f2f200;
   opacity: 0.8;
 }
-.shudan-vertex.shudan-heat_6 .shudan-heat {
-  background: #4886d5;
-  box-shadow: 0 0 1em 0.6em #4886d5;
-  opacity: 0.8;
+.shudan-vertex .shudan-analysisdot.shudan-heat_4 {
+  background: #f2f200;
 }
-.shudan-vertex.shudan-heat_5 .shudan-heat {
-  background: #4886d5;
-  box-shadow: 0 0 0.9em 0.55em #4886d5;
+.shudan-vertex.shudan-heat_3 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_3 {
+  background: #e6661a;
+  box-shadow: 0 0 0.1em 0.1em #e6661a;
   opacity: 0.7;
 }
-.shudan-vertex.shudan-heat_4 .shudan-heat {
-  background: #92278f;
-  box-shadow: 0 0 0.85em 0.5em #92278f;
+.shudan-vertex .shudan-analysisdot.shudan-heat_3 {
+  background: #e6661a;
+}
+.shudan-vertex.shudan-heat_2 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_2 {
+  background: #cc0000;
+  box-shadow: 0 0 0.1em 0.1em #cc0000;
   opacity: 0.8;
 }
-.shudan-vertex.shudan-heat_3 .shudan-heat {
-  background: #92278f;
-  box-shadow: 0 0 0.8em 0.45em #92278f;
+.shudan-vertex .shudan-analysisdot.shudan-heat_2 {
+  background: #cc0000;
+}
+.shudan-vertex.shudan-heat_1 .shudan-heat,
+.shudan-vertex .shudan-heat.shudan-heat_1 {
+  background: #72216b;
+  box-shadow: 0 0 0.1em 0.1em #72216b;
   opacity: 0.7;
 }
-.shudan-vertex.shudan-heat_2 .shudan-heat {
-  background: #f02311;
-  box-shadow: 0 0 0.75em 0.4em #f02311;
-  opacity: 0.8;
-}
-.shudan-vertex.shudan-heat_1 .shudan-heat {
-  background: #f02311;
-  box-shadow: 0 0 0.75em 0.4em #f02311;
-  opacity: 0.7;
+.shudan-vertex .shudan-analysisdot.shudan-heat_1 {
+  background: #72216b;
 }
 
 .shudan-vertex .shudan-heatlabel {
@@ -397,7 +389,7 @@
   font-size: 0.36em;
   line-height: 1.26;
   text-align: center;
-  text-overflow: ellipsis;
+  text-overflow: clip;
   text-shadow: 0 0.1em 0.3em black;
   white-space: pre;
   opacity: 0.9;
@@ -409,9 +401,20 @@
 
 .shudan-vertex .shudan-selection {
   box-sizing: border-box;
-  border: 0.1em solid #0082f0;
+  top: 0.04em;
+  left: 0.04em;
+  width: calc(100% - 0.08em);
+  height: calc(100% - 0.08em);
+  border: 0.075em solid var(--shudan-board-foreground-color);
   border-radius: 50%;
-  background: rgba(0, 130, 240, 0.07);
+  background: transparent;
+  pointer-events: none;
+}
+.shudan-vertex.shudan-sign_1 .shudan-selection {
+  border-color: var(--shudan-black-foreground-color);
+}
+.shudan-vertex.shudan-sign_-1 .shudan-selection {
+  border-color: var(--shudan-white-foreground-color);
 }
 .shudan-vertex.shudan-selectedleft .shudan-selection {
   border-left: none;
@@ -432,6 +435,33 @@
   border-bottom: none;
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
+}
+
+/* Move hints */
+
+.shudan-vertex .shudan-movehint {
+  box-sizing: border-box;
+  top: 0.04em;
+  left: 0.04em;
+  width: calc(100% - 0.08em);
+  height: calc(100% - 0.08em);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.shudan-vertex .shudan-movehint-best {
+  border: 0.075em solid #0878ff;
+}
+.shudan-vertex .shudan-movehint-next {
+  border: 0.075em dotted var(--shudan-board-foreground-color);
+}
+.shudan-vertex.shudan-nextmove_main .shudan-movehint-next {
+  border-style: dashed;
+}
+.shudan-vertex.shudan-nextmove-sign_1 .shudan-movehint-next {
+  border-color: #111;
+}
+.shudan-vertex.shudan-nextmove-sign_-1 .shudan-movehint-next {
+  border-color: #fff;
 }
 
 /* Lines & arrows */

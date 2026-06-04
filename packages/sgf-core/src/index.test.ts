@@ -19,6 +19,7 @@ describe('sgf-core', () => {
   it('creates a 19x19 SGF by default', () => {
     const sgf = serializeSgf(createNewGame());
     expect(sgf).toContain('GM[1]FF[4]CA[UTF-8]SZ[19]');
+    expect(sgf).toContain('KM[6.5]RU[Japanese]');
     expect(sgf).toMatch(/DT\[\d{4}-\d{2}-\d{2}\]/);
     expect(sgf).toContain('GN[Game ');
   });
@@ -32,6 +33,16 @@ describe('sgf-core', () => {
     const document = parseSgf('(;GM[1]SZ[19];B[dd](;W[pp])(;W[dp]))');
     expect(document.root.children[0].children).toHaveLength(2);
     expect(serializeSgf(document)).toBe('(;GM[1]SZ[19];B[dd](;W[pp])(;W[dp]))');
+  });
+
+  it('normalizes Chinese stone komi during parsing', () => {
+    const document = parseSgf('(;GM[1]SZ[19]KM[375])');
+    expect(serializeSgf(document)).toBe('(;GM[1]SZ[19]KM[7.5]RU[Chinese])');
+  });
+
+  it('preserves explicit rules when normalizing Chinese stone komi', () => {
+    const document = parseSgf('(;GM[1]SZ[19]KM[375]RU[AGA])');
+    expect(serializeSgf(document)).toBe('(;GM[1]SZ[19]KM[7.5]RU[AGA])');
   });
 
   it('escapes comments', () => {

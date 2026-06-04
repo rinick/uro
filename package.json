@@ -4,11 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "pnpm --filter @uro/web dev",
+    "dev:electron": "pnpm --filter @uro/web build && pnpm --filter @uro/electron dev",
     "build": "pnpm -r build",
+    "build:electron": "pnpm --filter @uro/web build && pnpm --filter @uro/electron build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "prettier-check": "prettier --check \"(packages|app)/**/*.+(ts|tsx)\"",
-    "prettier-write": "prettier --write \"(packages|app)/**/*.+(ts|tsx)\""
+    "prettier-check": "prettier --check \"{packages,apps}/**/*.{ts,tsx}\"",
+    "prettier-write": "prettier --write \"{packages,apps}/**/*.{ts,tsx}\""
   },
   "devDependencies": {
     "@types/node": "^24.10.2",

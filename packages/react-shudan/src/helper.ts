@@ -27,8 +27,6 @@ export const vertexEvents: VertexEventName[] = [
   'PointerLeave',
 ];
 
-export const avg = (xs: number[]) => (xs.length === 0 ? 0 : xs.reduce((sum, x) => sum + x, 0) / xs.length);
-
 export const range = (n: number) =>
   Array(n)
     .fill(0)
@@ -48,9 +46,6 @@ export const vertexEquals = ([x1, y1]: Vertex, [x2, y2]: Vertex) => x1 === x2 &&
 
 export const lineEquals = ([v1, w1]: [Vertex, Vertex], [v2, w2]: [Vertex, Vertex]) =>
   vertexEquals(v1, v2) && vertexEquals(w1, w2);
-
-export const signEquals = (...xs: number[]) =>
-  xs.length === 0 ? true : xs.every((x) => Math.sign(x) === Math.sign(xs[0]));
 
 export function getHoshis(width: number, height: number): Vertex[] {
   if (Math.min(width, height) <= 6) return [];

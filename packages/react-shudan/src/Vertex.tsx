@@ -2,7 +2,7 @@ import {createElement as h, useCallback} from 'react';
 import type {CSSProperties, MouseEvent, PointerEvent} from 'react';
 import classnames from 'classnames';
 
-import {avg, signEquals, vertexEvents, type Vertex as VertexPoint, type VertexEventName} from './helper';
+import {vertexEvents, type Vertex as VertexPoint, type VertexEventName} from './helper';
 import Marker, {type Marker as MarkerData} from './Marker';
 
 type Sign = 0 | -1 | 1;
@@ -17,7 +17,15 @@ export interface GhostStone {
 
 export interface HeatVertex {
   strength: number;
+  heat?: boolean;
+  dot?: boolean;
   text?: string | number | null;
+}
+
+export interface MoveHint {
+  best?: boolean;
+  branch?: 'main' | 'variation';
+  sign?: Sign;
 }
 
 export type VertexEventHandlers = Partial<Record<`on${VertexEventName}`, VertexHandler>>;
@@ -28,15 +36,8 @@ export interface VertexProps extends VertexEventHandlers {
   random?: number;
   sign?: Sign;
   heat?: HeatVertex | null;
-  paint?: Sign;
-  paintLeft?: Sign;
-  paintRight?: Sign;
-  paintTop?: Sign;
-  paintBottom?: Sign;
-  paintTopLeft?: Sign;
-  paintTopRight?: Sign;
-  paintBottomLeft?: Sign;
-  paintBottomRight?: Sign;
+  moveHint?: MoveHint | null;
+  paint?: number;
   dimmed?: boolean;
   marker?: MarkerData | null;
   ghostStone?: GhostStone | null;
@@ -48,9 +49,8 @@ export interface VertexProps extends VertexEventHandlers {
   selectedBottom?: boolean;
 }
 
-const absoluteStyle = (zIndex?: number): CSSProperties => ({
+const absoluteStyle = (): CSSProperties => ({
   position: 'absolute',
-  zIndex,
 });
 
 export default function Vertex(props: VertexProps) {
@@ -60,15 +60,8 @@ export default function Vertex(props: VertexProps) {
     random,
     sign = 0,
     heat,
+    moveHint,
     paint = 0,
-    paintLeft = 0,
-    paintRight = 0,
-    paintTop = 0,
-    paintBottom = 0,
-    paintTopLeft = 0,
-    paintTopRight = 0,
-    paintBottomLeft = 0,
-    paintBottomRight = 0,
     dimmed,
     marker,
     ghostStone,
@@ -91,14 +84,15 @@ export default function Vertex(props: VertexProps) {
     );
   }
 
-  let markerMarkup = (zIndex?: number) =>
+  let paintOpacity = Math.min(1, Math.abs(paint) * 0.5);
+
+  let markerMarkup = () =>
     !!marker &&
     h(Marker, {
       key: 'marker',
       sign,
       type: marker.type,
       label: marker.label,
-      zIndex,
     });
 
   return h(
@@ -114,15 +108,14 @@ export default function Vertex(props: VertexProps) {
         } satisfies CSSProperties,
         'className': classnames('shudan-vertex', `shudan-random_${random}`, `shudan-sign_${sign}`, {
           [`shudan-shift_${shift}`]: !!shift,
-          [`shudan-heat_${!!heat && heat.strength}`]: !!heat,
+          [`shudan-heat_${heat?.strength}`]: (heat?.strength ?? 0) > 0,
+          'shudan-bestmove': !!moveHint?.best,
+          [`shudan-nextmove_${moveHint?.branch}`]: !!moveHint?.branch,
+          [`shudan-nextmove-sign_${moveHint?.sign}`]: !!moveHint?.sign,
           'shudan-dimmed': dimmed,
           'shudan-animate': animate,
 
           [`shudan-paint_${paint > 0 ? 1 : -1}`]: !!paint,
-          'shudan-paintedleft': !!paint && signEquals(paintLeft, paint),
-          'shudan-paintedright': !!paint && signEquals(paintRight, paint),
-          'shudan-paintedtop': !!paint && signEquals(paintTop, paint),
-          'shudan-paintedbottom': !!paint && signEquals(paintBottom, paint),
 
           'shudan-selected': selected,
           'shudan-selectedleft': selectedLeft,
@@ -144,18 +137,26 @@ export default function Vertex(props: VertexProps) {
       }))
     ),
 
-    !sign && markerMarkup(0),
+    !sign && markerMarkup(),
     !sign &&
       !!ghostStone &&
       h('div', {
         key: 'ghost',
         className: 'shudan-ghost',
-        style: absoluteStyle(1),
+        style: absoluteStyle(),
       }),
+
+    h('div', {
+      key: 'heat',
+      className: classnames('shudan-heat', {
+        [`shudan-heat_${heat?.strength}`]: (heat?.heat ?? true) && (heat?.strength ?? 0) > 0,
+      }),
+      style: absoluteStyle(),
+    }),
 
     h(
       'div',
-      {key: 'stone', className: 'shudan-stone', style: absoluteStyle(2)},
+      {key: 'stone', className: 'shudan-stone', style: absoluteStyle()},
 
       !!sign &&
         h(
@@ -176,54 +177,52 @@ export default function Vertex(props: VertexProps) {
       !!sign && markerMarkup()
     ),
 
-    (!!paint || !!paintLeft || !!paintRight || !!paintTop || !!paintBottom) &&
+    !!paint &&
       h('div', {
         key: 'paint',
         className: 'shudan-paint',
         style: {
-          ...absoluteStyle(3),
-          '--shudan-paint-opacity': avg(
-            (!!paint
-              ? [paint]
-              : [paintLeft, paintRight, paintTop, paintBottom].filter((x) => x !== 0 && !isNaN(x))
-            ).map((x) => Math.abs(x) * 0.5)
-          ),
-          '--shudan-paint-box-shadow': [
-            signEquals(paintLeft, paintTop, paintTopLeft) ? [Math.sign(paintTop), '-.5em -.5em'] : null,
-            signEquals(paintRight, paintTop, paintTopRight) ? [Math.sign(paintTop), '.5em -.5em'] : null,
-            signEquals(paintLeft, paintBottom, paintBottomLeft) ? [Math.sign(paintBottom), '-.5em .5em'] : null,
-            signEquals(paintRight, paintBottom, paintBottomRight) ? [Math.sign(paintBottom), '.5em .5em'] : null,
-          ]
-            .filter((x): x is [number, string] => x != null && x[0] !== 0)
-            .map(
-              ([sign, translation]) =>
-                `${translation} 0 0 var(${
-                  sign > 0 ? '--shudan-black-background-color' : '--shudan-white-background-color'
-                })`
-            )
-            .join(','),
+          ...absoluteStyle(),
+          '--shudan-paint-opacity': paintOpacity,
         } as CSSProperties,
+      }),
+
+    !!moveHint?.best &&
+      h('div', {
+        key: 'bestmove',
+        className: 'shudan-movehint shudan-movehint-best',
+        style: absoluteStyle(),
+      }),
+
+    moveHint?.branch != null &&
+      h('div', {
+        key: 'nextmove',
+        className: 'shudan-movehint shudan-movehint-next',
+        style: absoluteStyle(),
+      }),
+
+    !!heat?.dot &&
+      h('div', {
+        key: 'analysisdot',
+        className: classnames('shudan-analysisdot', {
+          [`shudan-heat_${heat?.strength}`]: (heat?.strength ?? 0) > 0,
+        }),
+        style: absoluteStyle(),
       }),
 
     !!selected &&
       h('div', {
         key: 'selection',
         className: 'shudan-selection',
-        style: absoluteStyle(4),
+        style: absoluteStyle(),
       }),
-
-    h('div', {
-      key: 'heat',
-      className: 'shudan-heat',
-      style: absoluteStyle(5),
-    }),
     heat?.text != null &&
       h(
         'div',
         {
           key: 'heatlabel',
           className: 'shudan-heatlabel',
-          style: absoluteStyle(6),
+          style: absoluteStyle(),
         },
         heat.text && heat.text.toString()
       )

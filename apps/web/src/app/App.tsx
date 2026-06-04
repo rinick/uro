@@ -3,10 +3,25 @@ import {
   FileAddOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
+  LineChartOutlined,
   SaveOutlined,
+  SettingOutlined,
+  ThunderboltOutlined,
   TranslationOutlined,
 } from '@ant-design/icons';
-import {Button, ConfigProvider, Dropdown, Layout, Select, Space, Switch, message, theme} from 'antd';
+import {
+  Button,
+  Checkbox,
+  ConfigProvider,
+  Dropdown,
+  Layout,
+  Segmented,
+  Select,
+  Space,
+  Switch,
+  message,
+  theme,
+} from 'antd';
 import deDE from 'antd/locale/de_DE';
 import enUS from 'antd/locale/en_US';
 import frFR from 'antd/locale/fr_FR';
@@ -38,14 +53,31 @@ import {
   updateGameInfo,
   type MarkupKind,
   type SgfDocument,
+  type SgfNode,
 } from '@uro/sgf-core';
 import {boardSizes, type BoardSize} from '@uro/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
+import {
+  defaultAnalysisSettings,
+  type AnalysisSettings,
+  type AnalysisChartPoint,
+  type KataGoAnalysisResult,
+  type KataGoMoveInfo,
+} from '@uro/analysis-core';
+import {sgfPointToGtp} from '@uro/sgf-analysis-tree';
+import {
+  buildKataGoQuery,
+  defaultKataGoSettings,
+  type KataGoConsoleMessage,
+  type KataGoSettings,
+} from '@uro/katago-core';
 import {GoBoard, type MoveNumberLimit} from '../features/board/GoBoard';
 import {CommentsPanel} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
+import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal';
+import {KataGoSettingsModal} from '../features/katago/KataGoSettingsModal';
 import {SgfTreePanel} from '../features/sgf-tree/SgfTreePanel';
 import {layoutTree} from '../features/sgf-tree/layout';
 import {OpenGameModal} from '../features/storage/OpenGameModal';
@@ -58,6 +90,7 @@ import {
 } from '../features/storage/gameStorage';
 import {EditorToolbar} from '../features/toolbar/EditorToolbar';
 import type {EditorTool} from '../features/toolbar/types';
+import {getAppCapabilities} from './capabilities';
 
 const {Header, Content} = Layout;
 
@@ -81,8 +114,26 @@ const antdLocales = {
   zh: zhCN,
 } as const;
 
+interface CachedAnalysis {
+  result: KataGoAnalysisResult;
+  visits: number;
+  completed: boolean;
+}
+
+interface AnalysisQueryContext {
+  nodeId: string;
+  version: number;
+  mode: 'fast' | 'live';
+}
+
+interface ReplaceDocumentOptions {
+  clearAnalysisCache?: boolean;
+  invalidatePath?: number[];
+}
+
 export function App() {
   const {t, i18n} = useTranslation();
+  const capabilities = useMemo(() => getAppCapabilities(), []);
   const [document, setDocument] = useState<SgfDocument>(() => createNewGame());
   const [path, setPath] = useState<number[]>([]);
   const [tool, setTool] = useState<EditorTool>('auto');
@@ -96,8 +147,20 @@ export function App() {
   const [storedGames, setStoredGames] = useState<StoredGameSummary[]>([]);
   const [selectedStoredGameId, setSelectedStoredGameId] = useState<string | null>(null);
   const [storedGamesLoading, setStoredGamesLoading] = useState(false);
+  const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
+  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(defaultAnalysisSettings);
+  const [kataGoSettings, setKataGoSettings] = useState<KataGoSettings>(defaultKataGoSettings);
+  const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
+  const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
+  const [fastAnalysis, setFastAnalysis] = useState(false);
+  const [liveAnalysis, setLiveAnalysis] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const branchMemoryRef = useRef(new Map<string, number>());
+  const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
+  const documentVersionRef = useRef(0);
+  const fastAnalysisRef = useRef(false);
+  const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
   const boardSize = useMemo(() => getBoardSize(document), [document]);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
@@ -105,13 +168,48 @@ export function App() {
   const nextAutoColor = autoColorOverride ?? position.nextColor;
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const antdLocale = antdLocales[currentLanguage];
+  const stoneOverlayDisplay = analysisSettings.topMoveDisplay ?? (analysisSettings.showDots ? 'dot' : 'none');
+  const boardMoveNumberLimit =
+    capabilities.katago && stoneOverlayDisplay === 'number'
+      ? analysisSettings.maxMoves
+      : capabilities.katago
+        ? 0
+        : moveNumberLimit;
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
+  const mainLinePaths = useMemo(() => getMainLinePaths(document), [document]);
+  const movePaths = useMemo(() => getMovePaths(document), [document]);
+  const analysisPaths = useMemo(() => [[], ...movePaths], [movePaths]);
+  const currentAnalysis = useMemo(
+    () => analysisCache[nodeKey(document, path)]?.result ?? null,
+    [analysisCache, document, path]
+  );
+  const analysisTargetVisits = Math.max(1, kataGoSettings.fastVisits || defaultKataGoSettings.fastVisits);
+  const analysisPendingCount = useMemo(
+    () =>
+      analysisPaths.filter((movePath) => {
+        const cached = analysisCache[nodeKey(document, movePath)];
+        return cached == null || cached.visits < analysisTargetVisits;
+      }).length,
+    [analysisCache, analysisPaths, analysisTargetVisits, document]
+  );
+  const analysisChartData = useMemo<AnalysisChartPoint[]>(
+    () => buildAnalysisChartData(document, mainLinePaths, analysisCache),
+    [analysisCache, document, mainLinePaths]
+  );
+  const stoneScoreDeltas = useMemo(
+    () => buildStoneScoreDeltas(document, path, analysisCache),
+    [analysisCache, document, path]
+  );
 
   const newMenuItems: MenuProps['items'] = boardSizes.map((size) => ({
     key: String(size),
     label: t(`menu.new${size}`),
   }));
+
+  const appendKataGoConsoleMessage = useCallback((message: KataGoConsoleMessage): void => {
+    setKataGoConsoleMessages((current) => [...current.slice(-499), message]);
+  }, []);
 
   function rememberPath(nextPath: number[]): void {
     for (let index = 0; index < nextPath.length; index += 1) {
@@ -120,18 +218,163 @@ export function App() {
     }
   }
 
-  function replaceDocument(next: SgfDocument, nextPath: number[] = []): void {
+  function replaceDocument(next: SgfDocument, nextPath: number[] = [], options: ReplaceDocumentOptions = {}): void {
+    const normalizedPath = normalizeSelectedPath(next, nextPath);
+    documentVersionRef.current += 1;
+    analysisQueryContextRef.current.clear();
+    if (options.clearAnalysisCache === true) {
+      setAnalysisCache({});
+    } else if (options.invalidatePath != null) {
+      const invalidatedNodeIds = new Set(collectNodeIds(getNodeAtPath(next, options.invalidatePath)));
+      setAnalysisCache((current) =>
+        Object.fromEntries(Object.entries(current).filter(([nodeId]) => !invalidatedNodeIds.has(nodeId)))
+      );
+    }
     setDocument(next);
-    setPath(nextPath);
+    setPath(normalizedPath);
     setAutoColorOverride(null);
     setReplaceMode(false);
-    rememberPath(nextPath);
+    rememberPath(normalizedPath);
   }
+
+  const updateAnalysisSettings = useCallback((values: Partial<AnalysisSettings>): void => {
+    setAnalysisSettings((current) => {
+      const next = {...current, ...values};
+      if (window.uro != null) void window.uro.analysis.saveSettings(next);
+      return next;
+    });
+  }, []);
+
+  const refreshKataGoSettings = useCallback(async (): Promise<KataGoSettings> => {
+    if (window.uro == null) return defaultKataGoSettings;
+    const settings = await window.uro.katago.getSettings();
+    setKataGoSettings(settings);
+    return settings;
+  }, []);
+
+  useEffect(() => {
+    if (!capabilities.katago || window.uro == null) return;
+    void refreshKataGoSettings();
+    window.uro.analysis
+      .getSettings()
+      .then((settings) => setAnalysisSettings({...defaultAnalysisSettings, ...settings}))
+      .catch(() => undefined);
+  }, [capabilities.katago, refreshKataGoSettings]);
+
+  useEffect(() => {
+    if (!capabilities.katago || window.uro == null) return;
+
+    const unsubscribeAnalysis = window.uro.katago.onAnalysis((result) => {
+      const context = analysisQueryContextRef.current.get(result.id);
+      if (context == null) return;
+      if (!result.isDuringSearch) analysisQueryContextRef.current.delete(result.id);
+
+      if (context.version !== documentVersionRef.current) return;
+      if (result.error != null) return;
+
+      const visits = getAnalysisVisits(result);
+      setAnalysisCache((current) => {
+        const existing = current[context.nodeId];
+        if (existing != null && visits < existing.visits && result.isDuringSearch) return current;
+
+        return {
+          ...current,
+          [context.nodeId]: {
+            result,
+            visits: Math.max(visits, existing?.visits ?? 0),
+            completed: existing?.completed === true || !result.isDuringSearch,
+          },
+        };
+      });
+    });
+    const unsubscribeConsole = window.uro.katago.onConsoleMessage(appendKataGoConsoleMessage);
+
+    return () => {
+      unsubscribeAnalysis();
+      unsubscribeConsole();
+    };
+  }, [appendKataGoConsoleMessage, capabilities.katago]);
+
+  useEffect(() => {
+    const element = kataGoConsoleRef.current;
+    if (element == null) return;
+    element.scrollTop = element.scrollHeight;
+  }, [kataGoConsoleMessages]);
+
+  useEffect(() => {
+    fastAnalysisRef.current = fastAnalysis;
+  }, [fastAnalysis]);
+
+  const requestAnalysis = useCallback(
+    async (
+      requestPath: number[],
+      mode: AnalysisQueryContext['mode'],
+      maxVisits: number,
+      live = false
+    ): Promise<void> => {
+      if (window.uro == null) return;
+
+      const queryId = `uro-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      analysisQueryContextRef.current.set(queryId, {
+        nodeId: nodeKey(document, requestPath),
+        version: documentVersionRef.current,
+        mode,
+      });
+
+      try {
+        await window.uro.katago.analyze(
+          buildKataGoQuery(document, {
+            id: queryId,
+            path: requestPath,
+            live,
+            maxVisits,
+          })
+        );
+      } catch (error) {
+        analysisQueryContextRef.current.delete(queryId);
+        throw error;
+      }
+    },
+    [document]
+  );
+
+  useEffect(() => {
+    if (!capabilities.katago || window.uro == null) return;
+
+    if (!liveAnalysis) {
+      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void window.uro.katago.stopAnalysis();
+      return;
+    }
+
+    const targetVisits = Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
+    const cached = analysisCache[nodeKey(document, path)];
+    if ((cached?.visits ?? 0) >= targetVisits && cached?.completed) return;
+    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeKey(document, path))) return;
+
+    void requestAnalysis(path, 'live', targetVisits, true).catch((error: unknown) => {
+      appendKataGoConsoleMessage(
+        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
+      );
+      setLiveAnalysis(false);
+    });
+  }, [
+    analysisCache,
+    appendKataGoConsoleMessage,
+    capabilities.katago,
+    document,
+    kataGoSettings.maxVisits,
+    liveAnalysis,
+    path,
+    requestAnalysis,
+    t,
+  ]);
 
   function handleNew(size: BoardSize = 19): void {
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    replaceDocument(createNewGame(size));
+    fastAnalysisRef.current = false;
+    setFastAnalysis(false);
+    replaceDocument(createNewGame(size), [], {clearAnalysisCache: true});
   }
 
   async function handleSaveBrowserGame(): Promise<void> {
@@ -165,7 +408,9 @@ export function App() {
       const nextDocument = await loadStoredGame(selectedStoredGameId);
       branchMemoryRef.current.clear();
       setStoredGameId(selectedStoredGameId);
-      replaceDocument(nextDocument);
+      fastAnalysisRef.current = false;
+      setFastAnalysis(false);
+      replaceDocument(nextDocument, [], {clearAnalysisCache: true});
       setOpenGameModalOpen(false);
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('savedGames.openFailed'));
@@ -186,14 +431,39 @@ export function App() {
     }
   }
 
-  function handleExportSgf(): void {
-    const blob = new Blob([serializeSgf(document)], {type: 'application/x-go-sgf;charset=utf-8'});
+  async function handleExportSgf(): Promise<void> {
+    const content = serializeSgf(document);
+    if (capabilities.storage === 'filesystem' && window.uro != null) {
+      try {
+        await window.uro.exportSgf({content, suggestedName: `${safeFileName(gameInfo.GN || 'game')}.sgf`});
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : t('menu.exportFailed'));
+      }
+      return;
+    }
+
+    const blob = new Blob([content], {type: 'application/x-go-sgf;charset=utf-8'});
     const url = URL.createObjectURL(blob);
     const link = window.document.createElement('a');
     link.href = url;
-    link.download = 'game.sgf';
+    link.download = `${safeFileName(gameInfo.GN || 'game')}.sgf`;
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function handleImportSgfFromMenu(): Promise<void> {
+    if (capabilities.storage === 'filesystem' && window.uro != null) {
+      try {
+        const result = await window.uro.importSgf();
+        if (result == null) return;
+        importSgfText(result.content, result.fileName);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : t('menu.importFailed'));
+      }
+      return;
+    }
+
+    fileInputRef.current?.click();
   }
 
   async function handleImportSgf(file: File | undefined): Promise<void> {
@@ -201,15 +471,21 @@ export function App() {
 
     try {
       const text = await file.text();
-      const importedDocument = withImportedGameName(parseSgf(text), file);
-      branchMemoryRef.current.clear();
-      setStoredGameId(null);
-      replaceDocument(importedDocument);
+      importSgfText(text, file.name);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Failed to open SGF.');
+      message.error(error instanceof Error ? error.message : t('menu.importFailed'));
     } finally {
       if (fileInputRef.current != null) fileInputRef.current.value = '';
     }
+  }
+
+  function importSgfText(text: string, fileName: string): void {
+    const importedDocument = withImportedGameName(parseSgf(text), fileName);
+    branchMemoryRef.current.clear();
+    setStoredGameId(null);
+    fastAnalysisRef.current = true;
+    setFastAnalysis(true);
+    replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
 
   function handleCommentChange(value: string): void {
@@ -217,19 +493,22 @@ export function App() {
   }
 
   const navigateToFirst = useCallback(() => {
-    setPath([]);
+    setPath(normalizeSelectedPath(document, []));
     setAutoColorOverride(null);
     setReplaceMode(false);
-  }, []);
+  }, [document]);
 
-  const navigatePrevious = useCallback((steps = 1) => {
-    setPath((current) => {
-      rememberPath(current);
-      return current.slice(0, Math.max(0, current.length - steps));
-    });
-    setAutoColorOverride(null);
-    setReplaceMode(false);
-  }, []);
+  const navigatePrevious = useCallback(
+    (steps = 1) => {
+      setPath((current) => {
+        rememberPath(current);
+        return normalizeSelectedPath(document, current.slice(0, Math.max(0, current.length - steps)));
+      });
+      setAutoColorOverride(null);
+      setReplaceMode(false);
+    },
+    [document]
+  );
 
   const navigateNext = useCallback(
     (steps = 1) => {
@@ -303,7 +582,67 @@ export function App() {
     });
   }
 
-  const canNavigatePrevious = path.length > 0;
+  const handleFastAnalysis = useCallback(async (): Promise<void> => {
+    if (!capabilities.katago || window.uro == null || !fastAnalysis) return;
+
+    try {
+      const settings = await refreshKataGoSettings();
+      const targetVisits = Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
+      const runVersion = documentVersionRef.current;
+      const pathsToAnalyze = analysisPaths.filter((movePath) => {
+        const nodeId = nodeKey(document, movePath);
+        const cached = analysisCache[nodeId];
+        return (
+          (cached == null || cached.visits < targetVisits) &&
+          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId)
+        );
+      });
+
+      for (const movePath of pathsToAnalyze) {
+        if (!fastAnalysisRef.current || runVersion !== documentVersionRef.current) break;
+        await requestAnalysis(movePath, 'fast', targetVisits);
+      }
+    } catch (error) {
+      appendKataGoConsoleMessage(
+        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
+      );
+    }
+  }, [
+    analysisCache,
+    appendKataGoConsoleMessage,
+    analysisPaths,
+    capabilities.katago,
+    document,
+    fastAnalysis,
+    refreshKataGoSettings,
+    requestAnalysis,
+    t,
+  ]);
+
+  useEffect(() => {
+    if (!fastAnalysis || analysisPaths.length === 0) return;
+    void handleFastAnalysis();
+  }, [analysisPaths.length, fastAnalysis, handleFastAnalysis]);
+
+  function handleFastAnalysisToggle(): void {
+    setFastAnalysis((current) => {
+      const next = !current;
+      fastAnalysisRef.current = next;
+      if (!next) {
+        clearPendingAnalysisQueries('fast');
+        if (!liveAnalysis && window.uro != null) void window.uro.katago.stopAnalysis();
+      }
+      return next;
+    });
+  }
+
+  function clearPendingAnalysisQueries(mode: AnalysisQueryContext['mode']): void {
+    for (const [id, context] of analysisQueryContextRef.current.entries()) {
+      if (context.mode === mode) analysisQueryContextRef.current.delete(id);
+    }
+  }
+
+  const canNavigatePrevious = path.length > 1;
   const canNavigateNext = getNodeAtPath(document, path).children.length > 0;
 
   useEffect(() => {
@@ -321,17 +660,24 @@ export function App() {
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         navigateBranch(1);
+      } else if (capabilities.katago && event.key === ' ') {
+        event.preventDefault();
+        setLiveAnalysis((current) => !current);
       }
     }
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigateBranch, navigateNext, navigatePrevious]);
+  }, [capabilities.katago, navigateBranch, navigateNext, navigatePrevious]);
+
+  const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
+    setAnalysisSettings(settings);
+  }, []);
 
   function handleBoardClick(point: string): void {
     if (replaceMode) {
       const result = replaceMove(document, path, point);
-      replaceDocument(result.document, result.path);
+      replaceDocument(result.document, result.path, {invalidatePath: result.path});
       return;
     }
 
@@ -344,12 +690,12 @@ export function App() {
 
     if (tool === 'black' || tool === 'white') {
       const color = tool === 'black' ? 'B' : 'W';
-      replaceDocument(addSetupStone(document, path, color, point), path);
+      replaceDocument(addSetupStone(document, path, color, point), path, {invalidatePath: path});
       return;
     }
 
     if (tool === 'erase') {
-      replaceDocument(erasePoint(document, path, point), path);
+      replaceDocument(erasePoint(document, path, point), path, {invalidatePath: path});
       return;
     }
 
@@ -370,7 +716,7 @@ export function App() {
   function handlePass(): void {
     if (replaceMode) {
       const result = replaceMove(document, path, '');
-      replaceDocument(result.document, result.path);
+      replaceDocument(result.document, result.path, {invalidatePath: result.path});
       return;
     }
 
@@ -427,38 +773,56 @@ export function App() {
               >
                 {t('menu.new')}
               </Dropdown.Button>
-              <Button size="small" icon={<FolderOpenOutlined />} onClick={openSavedGameDialog}>
-                {t('menu.open')}
-              </Button>
-              <Button size="small" icon={<SaveOutlined />} onClick={() => void handleSaveBrowserGame()}>
-                {t('menu.save')}
-              </Button>
-              <Button size="small" icon={<FolderOpenOutlined />} onClick={() => fileInputRef.current?.click()}>
+              {capabilities.storage === 'indexeddb' ? (
+                <>
+                  <Button size="small" icon={<FolderOpenOutlined />} onClick={openSavedGameDialog}>
+                    {t('menu.open')}
+                  </Button>
+                  <Button size="small" icon={<SaveOutlined />} onClick={() => void handleSaveBrowserGame()}>
+                    {t('menu.save')}
+                  </Button>
+                </>
+              ) : null}
+              <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handleImportSgfFromMenu()}>
                 {t('menu.importSgf')}
               </Button>
-              <Button size="small" icon={<DownloadOutlined />} onClick={handleExportSgf}>
+              <Button size="small" icon={<DownloadOutlined />} onClick={() => void handleExportSgf()}>
                 {t('menu.exportSgf')}
               </Button>
               <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setGameInfoOpen(true)}>
                 {t('menu.editGameInfo')}
               </Button>
+              {capabilities.katago ? (
+                <>
+                  <Button size="small" icon={<SettingOutlined />} onClick={() => setKataGoSettingsOpen(true)}>
+                    {t('katago.button')}
+                  </Button>
+                  <Button size="small" icon={<LineChartOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
+                    {t('analysis.button')}
+                  </Button>
+                </>
+              ) : null}
               <Space className="view-toggles">
                 <span>{t('menu.coordinates')}</span>
                 <Switch size="small" checked={showCoordinates} onChange={setShowCoordinates} />
-                <span>{t('menu.numbers')}</span>
-                <Select
-                  size="small"
-                  value={moveNumberLimit}
-                  popupMatchSelectWidth={false}
-                  onChange={setMoveNumberLimit}
-                  options={[
-                    {value: 0, label: t('moveNumbers.none')},
-                    {value: 1, label: '1'},
-                    {value: 5, label: '5'},
-                    {value: 20, label: '20'},
-                    {value: 'all', label: t('moveNumbers.all')},
-                  ]}
-                />
+                {!capabilities.katago ? (
+                  <>
+                    <span>{t('menu.numbers')}</span>
+                    <Select
+                      size="small"
+                      value={moveNumberLimit}
+                      popupMatchSelectWidth={false}
+                      onChange={setMoveNumberLimit}
+                      options={[
+                        {value: 0, label: t('moveNumbers.none')},
+                        {value: 1, label: '1'},
+                        {value: 5, label: '5'},
+                        {value: 20, label: '20'},
+                        {value: 'all', label: t('moveNumbers.all')},
+                      ]}
+                    />
+                  </>
+                ) : null}
               </Space>
               <Select
                 size="small"
@@ -485,9 +849,95 @@ export function App() {
             onNext={() => navigateNext()}
             onNext10={() => navigateNext(10)}
             onLast={navigateToLast}
+            extraEnd={
+              capabilities.katago ? (
+                <Space className="analysis-toolbar-options">
+                  <Checkbox
+                    checked={analysisSettings.showNextMove}
+                    onChange={(event) => updateAnalysisSettings({showNextMove: event.target.checked})}
+                  >
+                    {t('analysis.nextMove')}
+                  </Checkbox>
+                  <Checkbox
+                    checked={analysisSettings.showTopMoves}
+                    onChange={(event) => updateAnalysisSettings({showTopMoves: event.target.checked})}
+                  >
+                    {t('analysis.topMoves')}
+                  </Checkbox>
+                  <Segmented
+                    size="small"
+                    value={stoneOverlayDisplay}
+                    onChange={(value) =>
+                      updateAnalysisSettings({topMoveDisplay: value as AnalysisSettings['topMoveDisplay']})
+                    }
+                    options={[
+                      {value: 'dot', label: t('analysis.dot')},
+                      {value: 'number', label: t('analysis.number')},
+                      {value: 'none', label: t('analysis.none')},
+                    ]}
+                  />
+                  <Select
+                    size="small"
+                    value={analysisSettings.maxMoves}
+                    popupMatchSelectWidth={false}
+                    onChange={(value) => updateAnalysisSettings({maxMoves: value as AnalysisSettings['maxMoves']})}
+                    options={[
+                      {value: 1, label: '1'},
+                      {value: 5, label: '5'},
+                      {value: 20, label: '20'},
+                      {value: 'all', label: t('moveNumbers.all')},
+                    ]}
+                  />
+                  <Checkbox
+                    checked={analysisSettings.showExpectedTerritory}
+                    onChange={(event) => updateAnalysisSettings({showExpectedTerritory: event.target.checked})}
+                  >
+                    {t('analysis.expectedTerritory')}
+                  </Checkbox>
+                  <Button size="small" type={fastAnalysis ? 'primary' : 'default'} onClick={handleFastAnalysisToggle}>
+                    {t('analysis.fast')}
+                  </Button>
+                  <span className="analysis-pending-count">
+                    {t('analysis.pendingMoves', {count: analysisPendingCount})}
+                  </span>
+                  <Button
+                    className="live-analysis-toggle"
+                    size="small"
+                    type={liveAnalysis ? 'primary' : 'default'}
+                    icon={<ThunderboltOutlined />}
+                    onClick={() => setLiveAnalysis((current) => !current)}
+                  >
+                    {t('analysis.live')}
+                  </Button>
+                </Space>
+              ) : null
+            }
           />
         </Header>
-        <Content className="app-content">
+        <Content className={`app-content ${capabilities.katago ? 'with-katago-console' : ''}`}>
+          {capabilities.katago ? (
+            <aside className="katago-console-panel">
+              <div className="katago-console-header">
+                <h2>{t('panels.katagoConsole')}</h2>
+                <Button size="small" onClick={() => setKataGoConsoleMessages([])}>
+                  {t('action.clear')}
+                </Button>
+              </div>
+              <div className="katago-console-log" ref={kataGoConsoleRef}>
+                {kataGoConsoleMessages.length === 0 ? (
+                  <div className="katago-console-empty">{t('katago.consoleEmpty')}</div>
+                ) : (
+                  kataGoConsoleMessages.map((item) => (
+                    <div key={item.id} className={`katago-console-line ${item.level}`}>
+                      <span className="katago-console-time">{formatConsoleTime(item.time)}</span>
+                      <span className={`katago-console-source ${item.source}`}>{item.source}</span>
+                      <span className="katago-console-text">{item.text}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </aside>
+          ) : null}
           <main
             className="board-region"
             onWheel={(event) => {
@@ -500,7 +950,10 @@ export function App() {
               document={document}
               path={path}
               showCoordinates={showCoordinates}
-              moveNumberLimit={moveNumberLimit}
+              moveNumberLimit={boardMoveNumberLimit}
+              analysis={currentAnalysis}
+              stoneScoreDeltas={stoneScoreDeltas}
+              analysisSettings={analysisSettings}
               onVertexClick={handleBoardClick}
             />
           </main>
@@ -517,14 +970,20 @@ export function App() {
                 <span className="capture-count capture-count-white">{position.captures.B}</span>
               </span>
             </section>
-            <CommentsPanel value={getComment(document, path)} onChange={handleCommentChange} />
+            <CommentsPanel
+              value={getComment(document, path)}
+              onChange={handleCommentChange}
+              showAnalysisControls={capabilities.katago}
+              chartData={analysisChartData}
+            />
             <SgfTreePanel
               document={document}
               selectedPath={path}
               replaceActive={replaceMode}
               onSelectPath={(nextPath) => {
-                rememberPath(nextPath);
-                setPath(nextPath);
+                const normalizedPath = normalizeSelectedPath(document, nextPath);
+                rememberPath(normalizedPath);
+                setPath(normalizedPath);
                 setAutoColorOverride(null);
                 setReplaceMode(false);
               }}
@@ -544,22 +1003,40 @@ export function App() {
         accept=".sgf,application/x-go-sgf,text/plain"
         onChange={(event) => void handleImportSgf(event.target.files?.[0])}
       />
-      <OpenGameModal
-        open={openGameModalOpen}
-        games={storedGames}
-        selectedId={selectedStoredGameId}
-        loading={storedGamesLoading}
-        onSelect={(id) => setSelectedStoredGameId(id === '' ? null : id)}
-        onOpen={() => void handleOpenSavedGame()}
-        onDelete={() => void handleDeleteSavedGame()}
-        onCancel={() => setOpenGameModalOpen(false)}
-      />
+      {capabilities.storage === 'indexeddb' ? (
+        <OpenGameModal
+          open={openGameModalOpen}
+          games={storedGames}
+          selectedId={selectedStoredGameId}
+          loading={storedGamesLoading}
+          onSelect={(id) => setSelectedStoredGameId(id === '' ? null : id)}
+          onOpen={() => void handleOpenSavedGame()}
+          onDelete={() => void handleDeleteSavedGame()}
+          onCancel={() => setOpenGameModalOpen(false)}
+        />
+      ) : null}
+      {capabilities.katago ? (
+        <>
+          <KataGoSettingsModal
+            open={kataGoSettingsOpen}
+            onCancel={() => {
+              setKataGoSettingsOpen(false);
+              void refreshKataGoSettings();
+            }}
+          />
+          <AnalysisSettingsModal
+            open={analysisSettingsOpen}
+            onCancel={() => setAnalysisSettingsOpen(false)}
+            onSave={handleAnalysisSettingsSave}
+          />
+        </>
+      ) : null}
       <GameInfoModal
         open={gameInfoOpen}
         values={gameInfo}
         onCancel={() => setGameInfoOpen(false)}
         onSave={(values) => {
-          replaceDocument(updateGameInfo(document, values), path);
+          replaceDocument(updateGameInfo(document, values), path, {clearAnalysisCache: true});
           setGameInfoOpen(false);
         }}
       />
@@ -571,16 +1048,186 @@ function pathKey(path: number[]): string {
   return path.join('.');
 }
 
-function withImportedGameName(document: SgfDocument, file: File): SgfDocument {
+function getMainLinePaths(document: SgfDocument): number[][] {
+  const paths: number[][] = [];
+  let node = document.root;
+  let path: number[] = [];
+
+  while (node.children[0] != null) {
+    path = [...path, 0];
+    paths.push(path);
+    node = node.children[0];
+  }
+
+  return paths;
+}
+
+function getMovePaths(document: SgfDocument): number[][] {
+  const paths: number[][] = [];
+
+  function walk(node: SgfNode, path: number[]): void {
+    if (node.data.B != null || node.data.W != null) paths.push(path);
+    node.children.forEach((child, index) => walk(child, [...path, index]));
+  }
+
+  walk(document.root, []);
+  return paths;
+}
+
+function nodeKey(document: SgfDocument, path: number[]): string {
+  return getNodeAtPath(document, path).id;
+}
+
+function collectNodeIds(node: SgfNode): string[] {
+  return [node.id, ...node.children.flatMap(collectNodeIds)];
+}
+
+function hasPendingAnalysisQuery(
+  contexts: Map<string, AnalysisQueryContext>,
+  mode: AnalysisQueryContext['mode'],
+  nodeId?: string
+): boolean {
+  for (const context of contexts.values()) {
+    if (context.mode !== mode) continue;
+    if (nodeId == null || context.nodeId === nodeId) return true;
+  }
+  return false;
+}
+
+function getAnalysisVisits(result: KataGoAnalysisResult): number {
+  return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
+}
+
+function buildAnalysisChartData(
+  document: SgfDocument,
+  paths: number[][],
+  cache: Record<string, CachedAnalysis>
+): AnalysisChartPoint[] {
+  const data: AnalysisChartPoint[] = [];
+
+  paths.forEach((path, index) => {
+    const rootInfo = cache[nodeKey(document, path)]?.result.rootInfo;
+    if (rootInfo?.scoreLead != null) data.push({moveNumber: index + 1, series: 'score', value: rootInfo.scoreLead});
+    if (rootInfo?.winrate != null)
+      data.push({moveNumber: index + 1, series: 'winrate', value: normalizeWinratePercent(rootInfo.winrate)});
+  });
+
+  return data;
+}
+
+function buildStoneScoreDeltas(
+  document: SgfDocument,
+  path: number[],
+  cache: Record<string, CachedAnalysis>
+): Map<string, number> {
+  const result = new Map<string, number>();
+  const boardSize = getBoardSize(document);
+
+  for (const movePath of getLinePaths(path)) {
+    const node = getNodeAtPath(document, movePath);
+    const color = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
+    const point = color == null ? null : (node.data[color]?.[0] ?? '');
+    if (color == null || point == null || point === '') continue;
+
+    const parentPath = movePath.slice(0, -1);
+    const parentAnalysis = cache[nodeKey(document, parentPath)]?.result;
+    const childAnalysis = cache[nodeKey(document, movePath)]?.result;
+    const move = parentAnalysis?.moveInfos?.find(
+      (item) => item.move.toLowerCase() === sgfPointToGtp(point, boardSize).toLowerCase()
+    );
+
+    const moveVisits = move?.visits ?? 0;
+    const childVisits = childAnalysis?.rootInfo?.visits ?? 0;
+    const scoreDelta =
+      childVisits > moveVisits
+        ? analysisRootScoreDelta(parentAnalysis, childAnalysis, color)
+        : parentAnalysis != null && move != null
+          ? analysisMoveScoreDelta(move, parentAnalysis, color)
+          : analysisRootScoreDelta(parentAnalysis, childAnalysis, color);
+    if (scoreDelta != null) result.set(point, scoreDelta);
+  }
+
+  return result;
+}
+
+function getLinePaths(path: number[]): number[][] {
+  return [[], ...path.map((_, index) => path.slice(0, index + 1))];
+}
+
+function analysisMoveScoreDelta(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, color: 'B' | 'W'): number | null {
+  const score = move.scoreLead ?? move.scoreMean ?? null;
+  const rootScore = analysis.rootInfo?.scoreLead ?? analysis.rootInfo?.scoreMean ?? 0;
+  if (score == null) return null;
+
+  return (score - rootScore) * (color === 'B' ? 1 : -1);
+}
+
+function analysisRootScoreDelta(
+  parent: KataGoAnalysisResult | undefined,
+  child: KataGoAnalysisResult | undefined,
+  color: 'B' | 'W'
+): number | null {
+  const parentScore = parent?.rootInfo?.scoreLead ?? parent?.rootInfo?.scoreMean ?? null;
+  const childScore = child?.rootInfo?.scoreLead ?? child?.rootInfo?.scoreMean ?? null;
+  if (parentScore == null || childScore == null) return null;
+
+  return (childScore - parentScore) * (color === 'B' ? 1 : -1);
+}
+
+function normalizeWinratePercent(value: number): number {
+  return value > 1 ? value : value * 100;
+}
+
+function normalizeSelectedPath(document: SgfDocument, path: number[]): number[] {
+  if (document.root.children.length === 0) return [];
+
+  const normalized: number[] = [];
+  let node = document.root;
+  for (const index of path) {
+    if (node.children.length === 0) break;
+    const nextIndex = Math.min(Math.max(index, 0), node.children.length - 1);
+    normalized.push(nextIndex);
+    node = node.children[nextIndex];
+  }
+
+  return normalized.length === 0 ? [0] : normalized;
+}
+
+function withImportedGameName(document: SgfDocument, fileName: string): SgfDocument {
   const info = getGameInfo(document);
   if (info.GN.trim() !== '') return document;
 
-  return updateGameInfo(document, {...info, GN: gameNameFromSgfFile(file)});
+  return updateGameInfo(document, {...info, GN: gameNameFromSgfFile(fileName)});
 }
 
-function gameNameFromSgfFile(file: File): string {
-  const name = file.name.replace(/\.sgf$/i, '').trim();
+function gameNameFromSgfFile(fileName: string): string {
+  const name = fileName.replace(/\.sgf$/i, '').trim();
   return name === '' ? 'Imported game' : name;
+}
+
+function safeFileName(value: string): string {
+  const name = value.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
+  return name === '' ? 'game' : name;
+}
+
+function createLocalConsoleMessage(
+  source: 'uro' | 'katago',
+  level: 'info' | 'warning' | 'error',
+  text: string
+): KataGoConsoleMessage {
+  return {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    time: new Date().toISOString(),
+    source,
+    level,
+    text,
+  };
+}
+
+function formatConsoleTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
 }
 
 function normalizeLanguage(language: string): keyof typeof antdLocales {

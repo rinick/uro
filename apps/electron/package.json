@@ -1,0 +1,22 @@
+{
+  "name": "@uro/electron",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json && electron dist/main.js",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "extract-zip": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.2",
+    "electron": "^39.2.6",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.14"
+  }
+}

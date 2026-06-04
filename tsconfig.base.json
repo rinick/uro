@@ -19,7 +19,10 @@
     "paths": {
       "@uro/sgf-core": ["packages/sgf-core/src"],
       "@uro/go-core": ["packages/go-core/src"],
-      "@uro/ui-shared": ["packages/ui-shared/src"]
+      "@uro/ui-shared": ["packages/ui-shared/src"],
+      "@uro/analysis-core": ["packages/analysis-core/src"],
+      "@uro/sgf-analysis-tree": ["packages/sgf-analysis-tree/src"],
+      "@uro/katago-core": ["packages/katago-core/src"]
     }
   }
 }

@@ -29,3 +29,5 @@ en.base.yaml
 /packages/**/*.d.ts
 /tool/**/*.d.ts
 /apps/web/dist
+/apps/electron/dist
+/apps/electron/analysis_logs

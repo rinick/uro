@@ -7,15 +7,13 @@ export interface Marker {
 
 interface MarkerProps extends Marker {
   sign: 0 | -1 | 1;
-  zIndex?: number;
 }
 
-export default function Marker({sign, type, label, zIndex}: MarkerProps) {
+export default function Marker({sign, type, label}: MarkerProps) {
   let containerProps = {
     className: 'shudan-marker',
     style: {
       position: 'absolute',
-      zIndex,
     },
   };
 
