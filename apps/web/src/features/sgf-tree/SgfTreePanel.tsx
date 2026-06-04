@@ -23,8 +23,6 @@ interface SgfTreePanelProps {
   onMoveRight: () => void;
   onReplace: () => void;
   onDelete: () => void;
-  onPointerEnter?: () => void;
-  onPointerLeave?: () => void;
 }
 
 export function SgfTreePanel({
@@ -37,8 +35,6 @@ export function SgfTreePanel({
   onMoveRight,
   onReplace,
   onDelete,
-  onPointerEnter,
-  onPointerLeave,
 }: SgfTreePanelProps) {
   const {t} = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -111,7 +107,7 @@ export function SgfTreePanel({
   }, [layout, onSelectPath, selectedPath]);
 
   return (
-    <section className="side-panel tree-panel" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
+    <section className="side-panel tree-panel">
       <div className="tree-panel-header">
         <h2>{t('panels.tree')}</h2>
         <Space.Compact>

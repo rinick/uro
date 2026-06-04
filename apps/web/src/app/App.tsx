@@ -165,7 +165,6 @@ export function App() {
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
   const fastAnalysisRef = useRef(false);
-  const isSgfTreeHoveredRef = useRef(false);
   const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
   const boardSize = useMemo(() => getBoardSize(document), [document]);
@@ -658,20 +657,23 @@ export function App() {
     [document]
   );
 
-  const navigateFirstChild = useCallback((steps = 1) => {
-    setPath((current) => {
-      let next = current;
-      for (let index = 0; index < steps; index += 1) {
-        const node = getNodeAtPath(document, next);
-        if (node.children.length === 0) break;
-        next = [...next, 0];
-      }
-      rememberPath(next);
-      return next;
-    });
-    setAutoColorOverride(null);
-    setReplaceMode(false);
-  }, [document]);
+  const navigateFirstChild = useCallback(
+    (steps = 1) => {
+      setPath((current) => {
+        let next = current;
+        for (let index = 0; index < steps; index += 1) {
+          const node = getNodeAtPath(document, next);
+          if (node.children.length === 0) break;
+          next = [...next, 0];
+        }
+        rememberPath(next);
+        return next;
+      });
+      setAutoColorOverride(null);
+      setReplaceMode(false);
+    },
+    [document]
+  );
 
   const navigateToLast = useCallback(() => {
     setPath((current) => {
@@ -688,23 +690,30 @@ export function App() {
   }, [document]);
 
   const navigateBranch = useCallback(
-    (direction: -1 | 1) => {
-      const currentCell = treeLayout.cells.find((cell) => samePath(cell.path, path));
-      if (currentCell == null) return;
+    (direction: -1 | 1, steps = 1) => {
+      setPath((current) => {
+        const currentCell = treeLayout.cells.find((cell) => samePath(cell.path, current));
+        if (currentCell == null) return current;
 
-      const rowCells = treeLayout.cells
-        .filter((cell) => cell.row === currentCell.row)
-        .sort((left, right) => left.column - right.column);
-      const index = rowCells.findIndex((cell) => samePath(cell.path, path));
-      const nextCell = rowCells[index + direction];
-      if (nextCell == null) return;
+        const rowCells = treeLayout.cells
+          .filter((cell) => cell.row === currentCell.row)
+          .sort((left, right) => left.column - right.column);
+        const index = rowCells.findIndex((cell) => samePath(cell.path, current));
+        const nextIndex = !Number.isFinite(steps)
+          ? direction < 0
+            ? 0
+            : rowCells.length - 1
+          : Math.max(0, Math.min(rowCells.length - 1, index + direction * steps));
+        const nextPath = rowCells[nextIndex]?.path;
+        if (nextPath == null) return current;
 
-      rememberPath(nextCell.path);
-      setPath(nextCell.path);
+        rememberPath(nextPath);
+        return nextPath;
+      });
       setAutoColorOverride(null);
       setReplaceMode(false);
     },
-    [path, treeLayout]
+    [treeLayout]
   );
 
   function handleToolChange(nextTool: EditorTool): void {
@@ -820,38 +829,31 @@ export function App() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (isTextInputActive()) return;
-      const steps = event.shiftKey ? 10 : 1;
+      const steps = event.ctrlKey ? Infinity : event.shiftKey ? 10 : 1;
       const key = event.key.toLowerCase();
-      if (key === 'q') {
+      if (event.key === 'ArrowLeft' || key === 'a') {
         event.preventDefault();
-        navigateBranch(-1);
-      } else if (key === 'e') {
+        navigateBranch(-1, steps);
+      } else if (event.key === 'ArrowRight' || key === 'd' || key === 'z') {
         event.preventDefault();
-        navigateBranch(1);
-      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft' || key === 'w' || key === 'a') {
+        navigateBranch(1, steps);
+      } else if (event.key === 'ArrowUp' || key === 'w' || key === 'x') {
         event.preventDefault();
-        if (isSgfTreeHoveredRef.current && (event.key === 'ArrowLeft' || key === 'a')) {
-          navigateBranch(-1);
-        } else {
-          navigatePrevious(steps);
-        }
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || key === 's' || key === 'd') {
+        navigatePrevious(steps);
+      } else if (event.key === 'ArrowDown' || key === 's') {
         event.preventDefault();
-        if (isSgfTreeHoveredRef.current) {
-          if (event.key === 'ArrowDown' || key === 's') navigateNext(steps);
-          if (event.key === 'ArrowRight' || key === 'd') navigateBranch(1);
-        } else {
-          if (event.key === 'ArrowDown' || key === 's') navigateFirstChild(steps);
-          if (event.key === 'ArrowRight' || key === 'd') navigateNext(steps);
-        }
+        navigateNext(steps);
+      } else if (key === 'c') {
+        event.preventDefault();
+        navigateFirstChild(steps);
       } else if (capabilities.katago && event.key === ' ') {
         event.preventDefault();
         setLiveAnalysis((current) => !current);
       }
     }
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.document.body.addEventListener('keydown', handleKeyDown);
+    return () => window.document.body.removeEventListener('keydown', handleKeyDown);
   }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious]);
 
   const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
@@ -866,13 +868,24 @@ export function App() {
     }
 
     if (tool === 'auto') {
+      if (position.stones.has(point)) return;
       const color = nextAutoColor;
+      const existingChildPath = findChildMovePath(document, path, color, point);
+      if (existingChildPath != null) {
+        rememberPath(existingChildPath);
+        setPath(existingChildPath);
+        setAutoColorOverride(null);
+        setReplaceMode(false);
+        return;
+      }
+
       const result = addMove(document, path, color, point);
       replaceDocument(result.document, result.path);
       return;
     }
 
     if (tool === 'black' || tool === 'white') {
+      if (position.stones.has(point) && !isCurrentSetupStone(document, path, point)) return;
       const color = tool === 'black' ? 'B' : 'W';
       replaceDocument(addSetupStone(document, path, color, point), path, {invalidatePath: path});
       return;
@@ -1190,12 +1203,6 @@ export function App() {
               onMoveRight={handleMoveBranchRight}
               onReplace={() => setReplaceMode(true)}
               onDelete={handleDeleteNode}
-              onPointerEnter={() => {
-                isSgfTreeHoveredRef.current = true;
-              }}
-              onPointerLeave={() => {
-                isSgfTreeHoveredRef.current = false;
-              }}
             />
           </aside>
         </Content>
@@ -1250,6 +1257,17 @@ export function App() {
 
 function pathKey(path: number[]): string {
   return path.join('.');
+}
+
+function findChildMovePath(document: SgfDocument, path: number[], color: SgfColor, point: string): number[] | null {
+  const node = getNodeAtPath(document, path);
+  const index = node.children.findIndex((child) => child.data[color]?.[0] === point);
+  return index < 0 ? null : [...path, index];
+}
+
+function isCurrentSetupStone(document: SgfDocument, path: number[], point: string): boolean {
+  const node = getNodeAtPath(document, path);
+  return (node.data.AB ?? []).includes(point) || (node.data.AW ?? []).includes(point);
 }
 
 function getCurrentBranchMovePaths(
