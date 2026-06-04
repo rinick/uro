@@ -54,12 +54,6 @@ importers:
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.2.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@sabaki/go-board':
-        specifier: ^1.0.17
-        version: 1.4.3
-      '@sabaki/sgf':
-        specifier: ^3.4.7
-        version: 3.4.7
       '@uro/analysis-core':
         specifier: workspace:*
         version: link:../../packages/analysis-core
@@ -130,9 +124,6 @@ importers:
 
   packages/go-core:
     dependencies:
-      '@sabaki/go-board':
-        specifier: ^1.0.17
-        version: 1.4.3
       '@uro/sgf-core':
         specifier: workspace:*
         version: link:../sgf-core
@@ -193,10 +184,6 @@ importers:
         version: 4.1.7(@types/node@24.12.4)(vite@7.3.3(@types/node@24.12.4))
 
   packages/sgf-core:
-    dependencies:
-      '@sabaki/sgf':
-        specifier: ^3.4.7
-        version: 3.4.7
     devDependencies:
       vitest:
         specifier: ^4.0.14
@@ -1043,12 +1030,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@sabaki/go-board@1.4.3':
-    resolution: {integrity: sha512-tXonP7vw7bYcXKSVrN1bhkb/QQi5EfTbDSflBffSp2iabbFbz4JyhEyw0ekbuwR0ntBq6iHky6BfCGF69Z4ttg==}
-
-  '@sabaki/sgf@3.4.7':
-    resolution: {integrity: sha512-513CQMEejYVqaIKWK+P3AL1TXv2cqdUVOI+3mJDGcDEw5fWlz8puEYn+aQrGjnxJrn5XUUX0fefndEJbam65Sw==}
-
   '@sindresorhus/is@4.6.0':
     resolution: {integrity: sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw==}
     engines: {node: '>=10'}
@@ -1425,9 +1406,6 @@ packages:
   detect-node@2.1.0:
     resolution: {integrity: sha512-T0NIuQpnTvFDATNuHN5roPwSBG83rFsuO+MXXH9/3N1eFbn4wcPjttvjMLEPWJ0RGUYgQE7cGgS3tNxbqCGM7g==}
 
-  doken@1.0.2:
-    resolution: {integrity: sha512-JSVsMxaB5yikb6wBDQTGIcyNyUytrYQE7WGyGAC0EoFunUTV7Wag4p5JC2bXKuTfD7t847dy7TWcwyETUbYAiw==}
-
   electron-to-chromium@1.5.364:
     resolution: {integrity: sha512-G/dYE3+AYhyHwzTwg8UbnXf7zqMERYh7l2jJ3QujhFsH8agSYwtnGAR2aZ7f0AakIKJXd5En/Hre4igIUrdlYw==}
 
@@ -1574,10 +1552,6 @@ packages:
       typescript:
         optional: true
 
-  iconv-lite@0.4.24:
-    resolution: {integrity: sha512-v3MXnZAcvnywkTUEZomIActle7RXXeedOR31wwl7VlyoXO4Qi9arvSenNQWne1TcRwhCL1HwLI21bEqdpj8/rA==}
-    engines: {node: '>=0.10.0'}
-
   iconv-lite@0.6.3:
     resolution: {integrity: sha512-4fCk79wshMdzMp2rH06qWrJE4iolqLhCUH+OiuIgU++RB0+94NlDL81atO7GX55uUKueo0txHNtvEyI6D7WdMw==}
     engines: {node: '>=0.10.0'}
@@ -1597,10 +1571,6 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
-
-  jschardet@2.3.0:
-    resolution: {integrity: sha512-6I6xT7XN/7sBB7q8ObzKbmv5vN+blzLcboDE1BNEsEfmRXJValMxO6OIRT69ylPBRemS3rw6US+CMCar0OBc9g==}
-    engines: {node: '>=0.1.90'}
 
   jsesc@3.1.0:
     resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
@@ -2966,15 +2936,6 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.60.4':
     optional: true
 
-  '@sabaki/go-board@1.4.3': {}
-
-  '@sabaki/sgf@3.4.7':
-    dependencies:
-      doken: 1.0.2
-    optionalDependencies:
-      iconv-lite: 0.4.24
-      jschardet: 2.3.0
-
   '@sindresorhus/is@4.6.0': {}
 
   '@standard-schema/spec@1.1.0': {}
@@ -3403,8 +3364,6 @@ snapshots:
   detect-node@2.1.0:
     optional: true
 
-  doken@1.0.2: {}
-
   electron-to-chromium@1.5.364: {}
 
   electron@39.8.10:
@@ -3581,11 +3540,6 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  iconv-lite@0.4.24:
-    dependencies:
-      safer-buffer: 2.1.2
-    optional: true
-
   iconv-lite@0.6.3:
     dependencies:
       safer-buffer: 2.1.2
@@ -3599,9 +3553,6 @@ snapshots:
   is-mobile@5.0.0: {}
 
   js-tokens@4.0.0: {}
-
-  jschardet@2.3.0:
-    optional: true
 
   jsesc@3.1.0: {}
 

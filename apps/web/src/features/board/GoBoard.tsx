@@ -143,7 +143,7 @@ function buildAnalysisHeatMap(
   stoneScoreDeltas: Map<string, number>
 ): Array<Array<HeatVertex | null>> | undefined {
   const result = emptyMap<HeatVertex | null>(size, null);
-  const topMoveDisplay = settings.topMoveDisplay ?? (settings.showDots ? 'dot' : 'none');
+  const topMoveDisplay = settings.topMoveDisplay;
   let hasHeat = false;
 
   if (settings.showTopMoves && analysis?.moveInfos != null) {
@@ -246,7 +246,7 @@ function buildOwnershipPaintMap(
   stones: Map<string, 'B' | 'W'>
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
-  const doubleStoneOpacity = (settings.topMoveDisplay ?? (settings.showDots ? 'dot' : 'none')) !== 'number';
+  const doubleStoneOpacity = settings.topMoveDisplay !== 'number';
 
   return Array.from({length: size}, (_, y) =>
     Array.from({length: size}, (_, x) => {

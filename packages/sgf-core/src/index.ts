@@ -285,15 +285,6 @@ export function getGameInfo(document: SgfDocument): Record<string, string> {
   return Object.fromEntries(keys.map((key) => [key, document.root.data[key]?.[0] ?? '']));
 }
 
-export function getNextColor(document: SgfDocument, path: number[]): SgfColor {
-  const line = getLine(document, path);
-  for (let index = line.length - 1; index >= 0; index -= 1) {
-    if (line[index].data.B != null) return 'W';
-    if (line[index].data.W != null) return 'B';
-  }
-  return 'B';
-}
-
 export function buildTree(document: SgfDocument): TreeItem[] {
   const items: TreeItem[] = [];
   const boardSize = getBoardSize(document);

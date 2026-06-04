@@ -65,7 +65,7 @@ export function AnalysisSettingsModal({open, onCancel, onSave}: AnalysisSettings
             options={[
               {value: 'score', label: t('analysis.score')},
               {value: 'winrate', label: t('analysis.winrate')},
-              {value: 'absScore', label: t('analysis.absScore')},
+              {value: 'absScore', label: t('analysis.value')},
             ]}
           />
         </Form.Item>

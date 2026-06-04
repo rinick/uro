@@ -22,7 +22,6 @@ interface AnalysisSettings {
   maxMoves: 1 | 5 | 20 | 'all';
   minVisits: number;
   showNextMove: boolean;
-  showDots: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
 }
@@ -44,7 +43,6 @@ const defaultAnalysisSettings: AnalysisSettings = {
   maxMoves: 5,
   minVisits: 50,
   showNextMove: true,
-  showDots: true,
   showTopMoves: true,
   showExpectedTerritory: false,
 };

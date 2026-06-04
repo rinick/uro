@@ -102,10 +102,10 @@ function AnalysisChart({
     ...winrateData.map((item) => item.moveNumber)
   );
   const scoreScale = scoreScaleFor(scoreData);
-  const scorePoints = makePoints(scoreData, width, height, padding, (value) =>
+  const scorePoints = makePoints(scoreData, width, padding, (value) =>
     valueToCenteredY(value, scoreScale, height, padding)
   );
-  const winratePoints = makePoints(winrateData, width, height, padding, (value) =>
+  const winratePoints = makePoints(winrateData, width, padding, (value) =>
     valueToWinrateY(value, height, padding)
   );
   const centerY = (padding.top + height - padding.bottom) / 2;
@@ -187,7 +187,6 @@ function AnalysisChart({
 function makePoints(
   data: AnalysisChartPoint[],
   width: number,
-  height: number,
   padding: {top: number; right: number; bottom: number; left: number},
   yForValue: (value: number) => number
 ): PlotPoint[] {

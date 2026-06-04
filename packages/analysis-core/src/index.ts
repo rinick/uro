@@ -32,25 +32,12 @@ export interface KataGoAnalysisResult {
   turnNumber?: number;
 }
 
-export interface NodeAnalysis {
-  rootInfo?: KataGoRootInfo;
-  moveInfos: Record<string, KataGoMoveInfo>;
-  ownership?: number[];
-  policy?: number[];
-  completed: boolean;
-  requestedVisits: number;
-  hiddenPassRequested: boolean;
-}
-
-export type AnalysisByPath = Record<string, NodeAnalysis>;
-
 export interface AnalysisSettings {
   moveDisplay: AnalysisDisplayMode;
   topMoveDisplay: AnalysisTopMoveDisplay;
   maxMoves: AnalysisMoveLimit;
   minVisits: number;
   showNextMove: boolean;
-  showDots: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
 }
@@ -61,7 +48,6 @@ export const defaultAnalysisSettings: AnalysisSettings = {
   maxMoves: 5,
   minVisits: 50,
   showNextMove: true,
-  showDots: true,
   showTopMoves: true,
   showExpectedTerritory: false,
 };

@@ -172,7 +172,7 @@ export function App() {
   const nextAutoColor = autoColorOverride ?? position.nextColor;
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const antdLocale = antdLocales[currentLanguage];
-  const stoneOverlayDisplay = analysisSettings.topMoveDisplay ?? (analysisSettings.showDots ? 'dot' : 'none');
+  const stoneOverlayDisplay = analysisSettings.topMoveDisplay;
   const boardMoveNumberLimit =
     capabilities.katago && stoneOverlayDisplay === 'number'
       ? analysisSettings.maxMoves
@@ -436,7 +436,7 @@ export function App() {
   useEffect(() => {
     if (!capabilities.katago || window.uro == null || analysisSettings.moveDisplay !== 'absScore') return;
 
-    const targetVisits = selectedHiddenPassVisits(kataGoSettings);
+    const targetVisits = hiddenPassVisits(kataGoSettings, liveAnalysis);
     const nodeId = nodeKey(document, path);
     if (!shouldRequestHiddenPassAnalysis(document, path, analysisCache, targetVisits)) return;
     if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')) return;
@@ -453,6 +453,7 @@ export function App() {
     capabilities.katago,
     document,
     kataGoSettings,
+    liveAnalysis,
     path,
     requestHiddenPassAnalysis,
     t,
@@ -1219,7 +1220,9 @@ function getAnalysisVisits(result: KataGoAnalysisResult): number {
   return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
 }
 
-function selectedHiddenPassVisits(settings: KataGoSettings): number {
+function hiddenPassVisits(settings: KataGoSettings, live: boolean): number {
+  if (!live) return Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
+
   const maxVisits = Math.max(1, settings.maxVisits || defaultKataGoSettings.maxVisits);
   return Math.max(1, Math.ceil(maxVisits * 0.5));
 }

@@ -10,9 +10,6 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {
-    "@sabaki/sgf": "^3.4.7"
-  },
   "devDependencies": {
     "vitest": "^4.0.14"
   }

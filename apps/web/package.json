@@ -12,8 +12,6 @@
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
     "@ant-design/charts": "^2.6.5",
-    "@sabaki/go-board": "^1.0.17",
-    "@sabaki/sgf": "^3.4.7",
     "@uro/analysis-core": "workspace:*",
     "@uro/go-core": "workspace:*",
     "@uro/katago-core": "workspace:*",
