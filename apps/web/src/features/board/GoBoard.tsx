@@ -304,8 +304,12 @@ function moveScoreDelta(
 
   const passMove = analysis.moveInfos?.find((item) => item.move.toLowerCase() === 'pass');
   const passScore = passMove == null ? null : moveScoreLead(passMove);
-  const baseScore = mode === 'absScore' && passScore != null ? passScore : (rootScoreLead(analysis) ?? 0);
-  return (score - baseScore) * (nextColor === 'B' ? 1 : -1);
+  if (mode === 'absScore') {
+    if (passScore == null) return null;
+    return (score - passScore) * (nextColor === 'B' ? 1 : -1);
+  }
+
+  return (score - (rootScoreLead(analysis) ?? 0)) * (nextColor === 'B' ? 1 : -1);
 }
 
 function moveWinrateLost(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number | null {

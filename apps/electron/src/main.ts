@@ -67,6 +67,7 @@ interface KataGoAnalysisQuery {
   analyzeTurns?: number[];
   maxVisits?: number;
   maxTime?: number;
+  priority?: number;
   includePolicy: boolean;
   includeOwnership: boolean;
   reportDuringSearchEvery?: number;

@@ -20,6 +20,7 @@ export interface KataGoQueryOptions {
   nextMove?: {color: SgfColor; point: string};
   maxVisits?: number;
   maxTime?: number;
+  priority?: number;
   live?: boolean;
 }
 
@@ -34,6 +35,7 @@ export interface KataGoAnalysisQuery {
   analyzeTurns?: number[];
   maxVisits?: number;
   maxTime?: number;
+  priority?: number;
   includePolicy: boolean;
   includeOwnership: boolean;
   reportDuringSearchEvery?: number;
@@ -169,6 +171,7 @@ export function buildKataGoQuery(document: SgfDocument, options: KataGoQueryOpti
     analyzeTurns: options.analyzeTurns ?? [moves.length],
     maxVisits: options.maxVisits,
     maxTime: options.maxTime,
+    priority: options.priority,
     includePolicy: true,
     includeOwnership: true,
     reportDuringSearchEvery: options.live ? 0.25 : undefined,
