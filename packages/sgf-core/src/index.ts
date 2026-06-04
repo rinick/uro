@@ -107,17 +107,51 @@ export function parseGib(input: string): SgfDocument {
 
     const gameInfoMain = readGibTag(line, 'GAMEINFOMAIN');
     if (gameInfoMain != null) {
+      const fields = parseGibFields(gameInfoMain);
       setGibPropertyIfMissing(root, 'RE', readGibResult(gameInfoMain, /GRLT:(\d+),/, /ZIPSU:(\d+),/));
       setGibPropertyIfMissing(root, 'KM', readGibKomi(gameInfoMain, /GONGJE:(\d+),/));
+      setGibProperty(root, 'SZ', readGibNumber(fields.LINE));
+      setGibTimeProperties(root, fields.GTIME);
+      hasGibContent = true;
+      continue;
+    }
+
+    const gameInfoSub = readGibTag(line, 'GAMEINFOSUB');
+    if (gameInfoSub != null) {
+      const fields = parseGibFields(gameInfoSub);
+      setGibStringPropertyIfMissing(root, 'GN', fields.GNAME);
+      setGibStringPropertyIfMissing(root, 'DT', formatGibDateValue(fields.GDATE));
+      setGibStringPropertyIfMissing(root, 'PC', fields.GPLC);
+      setGibStringPropertyIfMissing(root, 'GC', fields.GCMT);
+      hasGibContent = true;
+      continue;
+    }
+
+    const whiteInfo = readGibTag(line, 'WUSERINFO');
+    if (whiteInfo != null) {
+      setGibPlayerProperties(root, 'W', parseGibFields(whiteInfo));
+      hasGibContent = true;
+      continue;
+    }
+
+    const blackInfo = readGibTag(line, 'BUSERINFO');
+    if (blackInfo != null) {
+      setGibPlayerProperties(root, 'B', parseGibFields(blackInfo));
       hasGibContent = true;
       continue;
     }
 
     const gameTag = readGibTag(line, 'GAMETAG');
     if (gameTag != null) {
+      const fields = parseGibFields(gameTag);
       setGibPropertyIfMissing(root, 'DT', readGibDate(gameTag));
       setGibPropertyIfMissing(root, 'RE', readGibResult(gameTag, /,W(\d+),/, /,Z(\d+),/));
       setGibPropertyIfMissing(root, 'KM', readGibKomi(gameTag, /,G(\d+),/));
+      setGibStringPropertyIfMissing(root, 'PW', fields.A ?? fields.I);
+      setGibStringPropertyIfMissing(root, 'PB', fields.B ?? fields.M);
+      setGibStringPropertyIfMissing(root, 'WR', fields.L);
+      setGibStringPropertyIfMissing(root, 'BR', fields.N);
+      setGibTimeProperties(root, fields.T == null ? null : reverseGibTime(fields.T));
       hasGibContent = true;
       continue;
     }
@@ -144,6 +178,16 @@ export function parseGib(input: string): SgfDocument {
       lastNode.children.push(child);
       lastNode = child;
       hasGibContent = true;
+      continue;
+    }
+
+    if (line.startsWith('SUR')) {
+      const parts = line.split(/\s+/);
+      if (root.data.RE == null) {
+        const resigningColor = parts[3] === '1' ? 'B' : parts[3] === '2' ? 'W' : null;
+        if (resigningColor != null) root.data.RE = [`${resigningColor === 'B' ? 'W' : 'B'}+R`];
+      }
+      hasGibContent = true;
     }
   }
 
@@ -166,12 +210,36 @@ function readGibTag(line: string, key: string): string | null {
 
 function parseGibPlayerName(raw: string): [string, string] {
   const match = /^(.*)\(([^()]*)\)$/.exec(raw);
-  if (match == null) return [raw.trim(), ''];
-  return [match[1].trim(), match[2].trim()];
+  if (match == null) return [cleanGibText(raw), ''];
+  return [cleanGibText(match[1]), cleanGibText(match[2])];
 }
 
 function setGibPropertyIfMissing(node: SgfNode, key: string, values: string[] | undefined): void {
   if (node.data[key] == null && values != null) node.data[key] = values;
+}
+
+function setGibProperty(node: SgfNode, key: string, values: string[] | undefined): void {
+  if (values != null) node.data[key] = values;
+}
+
+function setGibStringPropertyIfMissing(node: SgfNode, key: string, value: string | null | undefined): void {
+  const cleaned = cleanGibText(value ?? '');
+  if (node.data[key] == null && cleaned !== '') node.data[key] = [cleaned];
+}
+
+function setGibPlayerProperties(root: SgfNode, color: SgfColor, fields: Record<string, string>): void {
+  const prefix = color;
+  setGibStringPropertyIfMissing(root, `P${color}`, firstCleanGibText(fields[`${prefix}NICK`], fields[`${prefix}ID`]));
+  setGibStringPropertyIfMissing(root, `${color}R`, fields[`${prefix}LV`]);
+}
+
+function setGibTimeProperties(root: SgfNode, value: string | null | undefined): void {
+  const time = parseGibTime(value);
+  if (time == null) return;
+  setGibPropertyIfMissing(root, 'TM', [String(time.mainTime)]);
+  if (time.periodTime != null && time.periods != null) {
+    setGibPropertyIfMissing(root, 'OT', [`${time.periods}x${time.periodTime} byo-yomi`]);
+  }
 }
 
 function readGibResult(line: string, resultRegex: RegExp, scoreRegex: RegExp): string[] | undefined {
@@ -203,6 +271,59 @@ function readGibKomi(line: string, regex: RegExp): string[] | undefined {
 function readGibDate(line: string): string[] | undefined {
   const match = /C(\d\d\d\d):(\d\d):(\d\d)/.exec(line);
   return match == null ? undefined : [match.slice(1, 4).join('-')];
+}
+
+function parseGibFields(value: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const part of value.split(',')) {
+    const separator = part.indexOf(':');
+    if (separator <= 0) continue;
+    result[part.slice(0, separator).trim()] = part.slice(separator + 1).trim();
+  }
+  return result;
+}
+
+function readGibNumber(value: string | null | undefined): string[] | undefined {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? [String(number)] : undefined;
+}
+
+function formatGibDateValue(value: string | null | undefined): string {
+  const match = /^(\d{4})-(\d\d)-(\d\d)/.exec(value ?? '');
+  return match == null ? cleanGibText(value ?? '') : match.slice(1, 4).join('-');
+}
+
+function parseGibTime(value: string | null | undefined): {
+  mainTime: number;
+  periodTime: number | null;
+  periods: number | null;
+} | null {
+  const parts = (value ?? '').split('-').map((part) => Number(part));
+  if (!Number.isFinite(parts[0]) || parts[0] <= 0) return null;
+
+  return {
+    mainTime: parts[0],
+    periodTime: Number.isFinite(parts[1]) && parts[1] > 0 ? parts[1] : null,
+    periods: Number.isFinite(parts[2]) && parts[2] > 0 ? parts[2] : null,
+  };
+}
+
+function reverseGibTime(value: string): string {
+  const parts = value.split('-');
+  return parts.length === 3 ? [parts[2], parts[0], parts[1]].join('-') : value;
+}
+
+function cleanGibText(value: string): string {
+  const trimmed = value.trim();
+  return /^[\x20-\x7E]*$/.test(trimmed) ? trimmed : '';
+}
+
+function firstCleanGibText(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const cleaned = cleanGibText(value ?? '');
+    if (cleaned !== '') return cleaned;
+  }
+  return '';
 }
 
 function removeEmptyProperties(node: SgfNode): void {
