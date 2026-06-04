@@ -316,10 +316,10 @@
 .shudan-vertex .shudan-analysisdot {
   top: 50%;
   left: 50%;
-  width: 0.5em;
-  height: 0.5em;
-  margin-left: -0.25em;
-  margin-top: -0.25em;
+  width: var(--shudan-analysisdot-size, 0.5em);
+  height: var(--shudan-analysisdot-size, 0.5em);
+  margin-left: var(--shudan-analysisdot-offset, -0.25em);
+  margin-top: var(--shudan-analysisdot-offset, -0.25em);
   border-radius: 50%;
   opacity: 0.9;
   pointer-events: none;

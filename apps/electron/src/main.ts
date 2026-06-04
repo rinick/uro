@@ -76,6 +76,7 @@ let katagoProcess: ChildProcessWithoutNullStreams | null = null;
 let katagoOutputBuffer = '';
 let katagoSender: WebContents | null = null;
 let consoleMessageCounter = 0;
+const activeKataGoQueryIds = new Set<string>();
 
 app.disableHardwareAcceleration();
 app.commandLine.appendSwitch('disable-gpu');
@@ -272,7 +273,7 @@ function registerIpc(): void {
     }
   });
   ipcMain.handle('uro:katago:stop-analysis', async () => {
-    stopKataGoEngine();
+    await stopKataGoAnalysis();
   });
   ipcMain.handle('uro:analysis:get-settings', async () => readJson('analysis-settings.json', defaultAnalysisSettings));
   ipcMain.handle('uro:analysis:save-settings', async (_event, settings: AnalysisSettings) =>
@@ -379,12 +380,16 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
       try {
         const payload = JSON.parse(line);
         if (typeof payload.error === 'string') {
+          if (typeof payload.id === 'string') activeKataGoQueryIds.delete(payload.id);
           sendKataGoConsole(katagoSender, 'katago', 'error', payload.error);
           katagoSender?.send('uro:katago:analysis', payload);
           katagoSender?.send('uro:katago:analysis-error', payload.error);
         } else if (typeof payload.warning === 'string') {
           sendKataGoConsole(katagoSender, 'katago', 'warning', payload.warning);
         } else {
+          if (typeof payload.id === 'string' && payload.isDuringSearch !== true) {
+            activeKataGoQueryIds.delete(payload.id);
+          }
           katagoSender?.send('uro:katago:analysis', payload);
         }
       } catch (error) {
@@ -415,10 +420,12 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
     sendKataGoConsole(katagoSender, 'katago', 'error', error.message);
     katagoSender?.send('uro:katago:analysis-error', error.message);
     katagoProcess = null;
+    activeKataGoQueryIds.clear();
   });
 
   katagoProcess.on('exit', (code, signal) => {
     katagoProcess = null;
+    activeKataGoQueryIds.clear();
     sendKataGoConsole(
       katagoSender,
       code === 0 || signal != null ? 'uro' : 'katago',
@@ -431,12 +438,22 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
 }
 
 async function writeKataGoQuery(query: KataGoAnalysisQuery): Promise<void> {
+  activeKataGoQueryIds.add(query.id);
+  try {
+    await writeKataGoMessage(query);
+  } catch (error) {
+    activeKataGoQueryIds.delete(query.id);
+    throw error;
+  }
+}
+
+async function writeKataGoMessage(message: unknown): Promise<void> {
   if (katagoProcess == null || katagoProcess.stdin.destroyed || !katagoProcess.stdin.writable) {
     throw new Error('KataGo is not running.');
   }
 
   await new Promise<void>((resolve, reject) => {
-    katagoProcess?.stdin.write(`${JSON.stringify(query)}\n`, (error) => {
+    katagoProcess?.stdin.write(`${JSON.stringify(message)}\n`, (error) => {
       if (error != null) {
         reject(error);
       } else {
@@ -526,11 +543,16 @@ function normalizeRules(value: unknown): string {
   return aliases[key] ?? 'japanese';
 }
 
-function stopKataGoEngine(): void {
+async function stopKataGoAnalysis(): Promise<void> {
   if (katagoProcess == null) return;
-  sendKataGoConsole(katagoSender, 'uro', 'info', 'Stopping KataGo.');
-  katagoProcess.kill();
-  katagoProcess = null;
+  const queryIds = [...activeKataGoQueryIds];
+  if (queryIds.length === 0) return;
+
+  sendKataGoConsole(katagoSender, 'uro', 'info', 'Stopping KataGo analysis.');
+  activeKataGoQueryIds.clear();
+  await Promise.all(
+    queryIds.map((queryId) => writeKataGoMessage({action: 'terminate', terminateId: queryId}).catch(() => undefined))
+  );
 }
 
 async function withInstalledPaths(kind: 'katago' | 'model', options: DownloadOption[]): Promise<DownloadOption[]> {

@@ -79,6 +79,7 @@ export function GoBoard({
     () =>
       buildAnalysisHeatMap(
         position.size,
+        childMoveSet(document, path, position.size),
         analysis,
         analysisSettings,
         position.nextColor,
@@ -86,7 +87,7 @@ export function GoBoard({
         position.moveNumber,
         stoneScoreDeltas
       ),
-    [analysis, analysisSettings, position, stoneScoreDeltas]
+    [analysis, analysisSettings, document, path, position, stoneScoreDeltas]
   );
   const moveHintMap = useMemo(
     () => buildMoveHintMap(position.size, document, path, analysis, analysisSettings),
@@ -133,6 +134,7 @@ export function GoBoard({
 
 function buildAnalysisHeatMap(
   size: number,
+  childMoves: Set<string>,
   analysis: KataGoAnalysisResult | null,
   settings: AnalysisSettings,
   nextColor: 'B' | 'W',
@@ -145,15 +147,27 @@ function buildAnalysisHeatMap(
   let hasHeat = false;
 
   if (settings.showTopMoves && analysis?.moveInfos != null) {
-    const moves = analysis.moveInfos
-      .filter((move) => gtpMoveToVertex(move.move, size) != null)
-      .slice(0, analysisMoveLimit(settings.maxMoves));
+    const moves = analysis.moveInfos.filter((move) => gtpMoveToVertex(move.move, size) != null);
+    const limit = analysisMoveLimit(settings.maxMoves);
+    let limitedMoveCount = 0;
+    const seenMoves = new Set<string>();
 
-    for (const move of moves) {
+    for (const [index, move] of moves.entries()) {
+      const moveKey = move.move.toLowerCase();
+      if (seenMoves.has(moveKey)) continue;
+      seenMoves.add(moveKey);
+
+      const isChildMove = childMoves.has(moveKey);
+      const hasEnoughVisits = (move.visits ?? 0) >= settings.minVisits;
+      const withinLimit = limit == null || limitedMoveCount < limit;
+      if (!withinLimit && !isChildMove && !hasEnoughVisits) continue;
+      if (withinLimit) limitedMoveCount += 1;
+
       const vertex = gtpMoveToVertex(move.move, size);
       if (vertex == null) continue;
       const [x, y] = vertex;
-      const text = analysisMoveText(move, settings.moveDisplay, analysis, nextColor);
+      const showText = index === 0 || isChildMove || hasEnoughVisits;
+      const text = showText ? analysisMoveText(move, settings.moveDisplay, analysis, nextColor) : '';
       result[y][x] = {
         ...(result[y][x] ?? {}),
         strength: heatStrength(move, analysis, nextColor),
@@ -181,6 +195,7 @@ function buildAnalysisHeatMap(
         strength: evaluationClass(-scoreDelta) + 1,
         heat: false,
         dot: true,
+        dotSize: analysisDotSize(point.moveNumber, currentMoveNumber),
       };
       hasHeat = true;
     }
@@ -231,6 +246,7 @@ function buildOwnershipPaintMap(
   stones: Map<string, 'B' | 'W'>
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
+  const doubleStoneOpacity = (settings.topMoveDisplay ?? (settings.showDots ? 'dot' : 'none')) !== 'number';
 
   return Array.from({length: size}, (_, y) =>
     Array.from({length: size}, (_, x) => {
@@ -241,7 +257,7 @@ function buildOwnershipPaintMap(
       const stone = stones.get(vertexToPoint(x, y));
       if (stone === 'B' && paint > 0) return 0;
       if (stone === 'W' && paint < 0) return 0;
-      if (stone != null) return paint * 2;
+      if (stone != null && doubleStoneOpacity) return paint * 2;
       return paint;
     })
   );
@@ -360,6 +376,26 @@ function gtpMoveToVertex(move: string, size: number): [number, number] | null {
   return [x, y];
 }
 
+function childMoveSet(document: SgfDocument, path: number[], size: number): Set<string> {
+  const node = getNodeAtPath(document, path);
+  return new Set(
+    node.children.flatMap((child) => {
+      const point = child.data.B?.[0] ?? child.data.W?.[0];
+      if (point == null || point === '') return [];
+      const move = pointToGtp(point, size);
+      return move == null ? [] : [move.toLowerCase()];
+    })
+  );
+}
+
+function pointToGtp(point: string, size: number): string | null {
+  const vertex = pointToVertex(point);
+  if (vertex == null) return null;
+  const [x, y] = vertex;
+  const letter = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'[x];
+  return letter == null ? null : `${letter}${size - y}`;
+}
+
 function emptyMap<T>(size: number, value: T): T[][] {
   return Array.from({length: size}, () => Array.from({length: size}, () => value));
 }
@@ -375,6 +411,15 @@ function shouldShowMoveAnalysis(
 ): boolean {
   if (moveLimit === 'all') return true;
   return moveNumber > currentMoveNumber - moveLimit;
+}
+
+function analysisDotSize(moveNumber: number, currentMoveNumber: number): number {
+  const movesAgo = currentMoveNumber - moveNumber;
+  if (movesAgo < 2) return 0.5;
+  if (movesAgo === 2) return 0.45;
+  if (movesAgo === 3) return 0.4;
+  if (movesAgo === 4) return 0.35;
+  return 0.3;
 }
 
 function shouldShowMoveNumber(

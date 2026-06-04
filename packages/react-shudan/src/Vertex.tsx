@@ -19,6 +19,7 @@ export interface HeatVertex {
   strength: number;
   heat?: boolean;
   dot?: boolean;
+  dotSize?: number;
   text?: string | number | null;
 }
 
@@ -207,7 +208,11 @@ export default function Vertex(props: VertexProps) {
         className: classnames('shudan-analysisdot', {
           [`shudan-heat_${heat?.strength}`]: (heat?.strength ?? 0) > 0,
         }),
-        style: absoluteStyle(),
+        style: {
+          ...absoluteStyle(),
+          '--shudan-analysisdot-size': heat.dotSize == null ? undefined : `${heat.dotSize}em`,
+          '--shudan-analysisdot-offset': heat.dotSize == null ? undefined : `${-heat.dotSize / 2}em`,
+        } as CSSProperties,
       }),
 
     !!selected &&

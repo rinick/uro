@@ -145,15 +145,6 @@ function AnalysisChart({
       {scorePoints.length > 0 ? (
         <>
           <path className="analysis-chart-line score" d={pointsPath(scorePoints)} />
-          {scorePoints.map((point) => (
-            <circle
-              key={`s-${point.moveNumber}`}
-              className="analysis-chart-point score"
-              cx={point.x}
-              cy={point.y}
-              r="2.1"
-            />
-          ))}
           <text className="analysis-chart-label score" x="4" y={padding.top + 4}>{`B+${scoreScale}`}</text>
           <text className="analysis-chart-label score" x="4" y={centerY + 4}>
             0
@@ -168,15 +159,6 @@ function AnalysisChart({
       {winratePoints.length > 0 ? (
         <>
           <path className="analysis-chart-line winrate" d={pointsPath(winratePoints)} />
-          {winratePoints.map((point) => (
-            <circle
-              key={`w-${point.moveNumber}`}
-              className="analysis-chart-point winrate"
-              cx={point.x}
-              cy={point.y}
-              r="2.1"
-            />
-          ))}
           <text className="analysis-chart-label winrate" x={width - padding.right + 6} y={padding.top + 4}>
             100%
           </text>

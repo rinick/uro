@@ -93,6 +93,7 @@ import type {EditorTool} from '../features/toolbar/types';
 import {getAppCapabilities} from './capabilities';
 
 const {Header, Content} = Layout;
+const liveAnalysisVisits = 10_000_000;
 
 const languageOptions = [
   {value: 'en', label: 'English'},
@@ -122,6 +123,7 @@ interface CachedAnalysis {
 
 interface AnalysisQueryContext {
   nodeId: string;
+  path: number[];
   version: number;
   mode: 'fast' | 'live';
 }
@@ -277,14 +279,14 @@ export function App() {
         const existing = current[context.nodeId];
         if (existing != null && visits < existing.visits && result.isDuringSearch) return current;
 
-        return {
-          ...current,
-          [context.nodeId]: {
-            result,
-            visits: Math.max(visits, existing?.visits ?? 0),
-            completed: existing?.completed === true || !result.isDuringSearch,
-          },
-        };
+        return updateAnalysisCache({
+          cache: current,
+          document,
+          path: context.path,
+          result,
+          visits,
+          completed: existing?.completed === true || !result.isDuringSearch,
+        });
       });
     });
     const unsubscribeConsole = window.uro.katago.onConsoleMessage(appendKataGoConsoleMessage);
@@ -293,7 +295,7 @@ export function App() {
       unsubscribeAnalysis();
       unsubscribeConsole();
     };
-  }, [appendKataGoConsoleMessage, capabilities.katago]);
+  }, [appendKataGoConsoleMessage, capabilities.katago, document]);
 
   useEffect(() => {
     const element = kataGoConsoleRef.current;
@@ -317,6 +319,7 @@ export function App() {
       const queryId = `uro-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       analysisQueryContextRef.current.set(queryId, {
         nodeId: nodeKey(document, requestPath),
+        path: requestPath,
         version: documentVersionRef.current,
         mode,
       });
@@ -327,7 +330,7 @@ export function App() {
             id: queryId,
             path: requestPath,
             live,
-            maxVisits,
+            maxVisits: live ? liveAnalysisVisits : maxVisits,
           })
         );
       } catch (error) {
@@ -340,25 +343,37 @@ export function App() {
 
   useEffect(() => {
     if (!capabilities.katago || window.uro == null) return;
+    const uro = window.uro;
 
     if (!liveAnalysis) {
-      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void window.uro.katago.stopAnalysis();
+      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void uro.katago.stopAnalysis();
       return;
     }
 
     const targetVisits = Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
-    const cached = analysisCache[nodeKey(document, path)];
-    if ((cached?.visits ?? 0) >= targetVisits && cached?.completed) return;
-    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeKey(document, path))) return;
+    const liveNodeId = nodeKey(document, path);
+    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', liveNodeId)) return;
+    let cancelled = false;
 
-    void requestAnalysis(path, 'live', targetVisits, true).catch((error: unknown) => {
-      appendKataGoConsoleMessage(
-        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
-      );
-      setLiveAnalysis(false);
-    });
+    void (async () => {
+      try {
+        if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
+          clearPendingAnalysisQueries('live');
+          await uro.katago.stopAnalysis();
+        }
+        if (!cancelled) await requestAnalysis(path, 'live', targetVisits, true);
+      } catch (error: unknown) {
+        appendKataGoConsoleMessage(
+          createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
+        );
+        setLiveAnalysis(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
-    analysisCache,
     appendKataGoConsoleMessage,
     capabilities.katago,
     document,
@@ -636,6 +651,17 @@ export function App() {
     });
   }
 
+  function handleLiveAnalysisToggle(): void {
+    setLiveAnalysis((current) => {
+      const next = !current;
+      if (!next) {
+        clearPendingAnalysisQueries('live');
+        if (window.uro != null) void window.uro.katago.stopAnalysis();
+      }
+      return next;
+    });
+  }
+
   function clearPendingAnalysisQueries(mode: AnalysisQueryContext['mode']): void {
     for (const [id, context] of analysisQueryContextRef.current.entries()) {
       if (context.mode === mode) analysisQueryContextRef.current.delete(id);
@@ -905,7 +931,7 @@ export function App() {
                     size="small"
                     type={liveAnalysis ? 'primary' : 'default'}
                     icon={<ThunderboltOutlined />}
-                    onClick={() => setLiveAnalysis((current) => !current)}
+                    onClick={handleLiveAnalysisToggle}
                   >
                     {t('analysis.live')}
                   </Button>
@@ -929,9 +955,11 @@ export function App() {
                 ) : (
                   kataGoConsoleMessages.map((item) => (
                     <div key={item.id} className={`katago-console-line ${item.level}`}>
-                      <span className="katago-console-time">{formatConsoleTime(item.time)}</span>
-                      <span className={`katago-console-source ${item.source}`}>{item.source}</span>
-                      <span className="katago-console-text">{item.text}</span>
+                      <div className="katago-console-meta">
+                        <span className="katago-console-time">{formatConsoleTime(item.time)}</span>
+                        <span className={`katago-console-source ${item.source}`}>{item.source}</span>
+                      </div>
+                      <div className="katago-console-text">{item.text}</div>
                     </div>
                   ))
                 )}
@@ -1096,6 +1124,116 @@ function hasPendingAnalysisQuery(
 
 function getAnalysisVisits(result: KataGoAnalysisResult): number {
   return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
+}
+
+function updateAnalysisCache({
+  cache,
+  document,
+  path,
+  result,
+  visits,
+  completed,
+}: {
+  cache: Record<string, CachedAnalysis>;
+  document: SgfDocument;
+  path: number[];
+  result: KataGoAnalysisResult;
+  visits: number;
+  completed: boolean;
+}): Record<string, CachedAnalysis> {
+  const nodeId = nodeKey(document, path);
+  const existing = cache[nodeId];
+  const nextCache = {
+    ...cache,
+    [nodeId]: {
+      result: mergeAnalysisResult(existing?.result, result),
+      visits: Math.max(visits, existing?.visits ?? 0),
+      completed: existing?.completed === true || completed,
+    },
+  };
+
+  return updateParentMoveAnalysis(nextCache, document, path, result);
+}
+
+function updateParentMoveAnalysis(
+  cache: Record<string, CachedAnalysis>,
+  document: SgfDocument,
+  path: number[],
+  result: KataGoAnalysisResult
+): Record<string, CachedAnalysis> {
+  if (path.length === 0 || result.rootInfo == null) return cache;
+
+  const node = getNodeAtPath(document, path);
+  const color = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
+  const point = color == null ? null : (node.data[color]?.[0] ?? '');
+  if (color == null || point == null) return cache;
+
+  const parentPath = path.slice(0, -1);
+  const parentId = nodeKey(document, parentPath);
+  const parent = cache[parentId];
+  if (parent == null) return cache;
+
+  return {
+    ...cache,
+    [parentId]: {
+      ...parent,
+      result: mergeMoveInfoIntoAnalysis(parent.result, {
+        move: sgfPointToGtp(point, getBoardSize(document)),
+        ...result.rootInfo,
+      }),
+    },
+  };
+}
+
+function mergeAnalysisResult(
+  existing: KataGoAnalysisResult | undefined,
+  result: KataGoAnalysisResult
+): KataGoAnalysisResult {
+  if (existing == null) return result;
+
+  return {
+    ...existing,
+    ...result,
+    rootInfo: result.rootInfo ?? existing.rootInfo,
+    moveInfos: mergeMoveInfos(existing.moveInfos, result.moveInfos),
+    ownership: result.ownership ?? existing.ownership,
+    policy: result.policy ?? existing.policy,
+  };
+}
+
+function mergeMoveInfoIntoAnalysis(analysis: KataGoAnalysisResult, move: KataGoMoveInfo): KataGoAnalysisResult {
+  const moveInfos = analysis.moveInfos ?? [];
+  const index = moveInfos.findIndex((item) => sameMoveInfo(item, move));
+  if (index < 0) return {...analysis, moveInfos: [...moveInfos, move]};
+
+  return {
+    ...analysis,
+    moveInfos: moveInfos.map((item, itemIndex) => (itemIndex === index ? mergeMoveInfo(item, move) : item)),
+  };
+}
+
+function mergeMoveInfos(
+  existing: KataGoMoveInfo[] | undefined,
+  incoming: KataGoMoveInfo[] | undefined
+): KataGoMoveInfo[] | undefined {
+  if (incoming == null) return existing;
+  if (existing == null) return incoming;
+
+  const existingByMove = new Map(existing.map((move) => [move.move.toLowerCase(), move]));
+  const incomingMoves = new Set(incoming.map((move) => move.move.toLowerCase()));
+  return [
+    ...incoming.map((move) => mergeMoveInfo(existingByMove.get(move.move.toLowerCase()), move)),
+    ...existing.filter((move) => !incomingMoves.has(move.move.toLowerCase())),
+  ];
+}
+
+function mergeMoveInfo(existing: KataGoMoveInfo | undefined, incoming: KataGoMoveInfo): KataGoMoveInfo {
+  if (existing == null) return incoming;
+  return (incoming.visits ?? 0) >= (existing.visits ?? 0) ? {...existing, ...incoming} : {...incoming, ...existing};
+}
+
+function sameMoveInfo(first: KataGoMoveInfo, second: KataGoMoveInfo): boolean {
+  return first.move.toLowerCase() === second.move.toLowerCase();
 }
 
 function buildAnalysisChartData(
