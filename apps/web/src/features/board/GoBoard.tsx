@@ -211,26 +211,28 @@ function buildMoveHintMap(
   analysis: KataGoAnalysisResult | null,
   settings: AnalysisSettings
 ): Array<Array<MoveHint | null>> | undefined {
-  if (!settings.showNextMove) return undefined;
+  if (!settings.showNextMove && !settings.showTopMoves) return undefined;
 
   const result = emptyMap<MoveHint | null>(size, null);
   let hasHints = false;
   const node = getNodeAtPath(document, path);
 
-  node.children.forEach((child, index) => {
-    const color = child.data.B != null ? 1 : child.data.W != null ? -1 : 0;
-    const point = child.data.B?.[0] ?? child.data.W?.[0];
-    if (point == null || point === '') return;
-    const vertex = pointToVertex(point);
-    if (vertex == null) return;
+  if (settings.showNextMove) {
+    node.children.forEach((child, index) => {
+      const color = child.data.B != null ? 1 : child.data.W != null ? -1 : 0;
+      const point = child.data.B?.[0] ?? child.data.W?.[0];
+      if (point == null || point === '') return;
+      const vertex = pointToVertex(point);
+      if (vertex == null) return;
 
-    const [x, y] = vertex;
-    result[y][x] = {...(result[y][x] ?? {}), branch: index === 0 ? 'main' : 'variation', sign: color};
-    hasHints = true;
-  });
+      const [x, y] = vertex;
+      result[y][x] = {...(result[y][x] ?? {}), branch: index === 0 ? 'main' : 'variation', sign: color};
+      hasHints = true;
+    });
+  }
 
   const bestVertex = analysis?.moveInfos?.[0] == null ? null : gtpMoveToVertex(analysis.moveInfos[0].move, size);
-  if (bestVertex != null) {
+  if (settings.showTopMoves && bestVertex != null) {
     const [x, y] = bestVertex;
     result[y][x] = {...(result[y][x] ?? {}), best: true};
     hasHints = true;

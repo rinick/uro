@@ -1,4 +1,4 @@
-import {app, BrowserWindow, Menu, dialog, globalShortcut, ipcMain, type WebContents} from 'electron';
+import {app, BrowserWindow, Menu, dialog, ipcMain, type WebContents} from 'electron';
 import extract from 'extract-zip';
 import {spawn, type ChildProcessWithoutNullStreams} from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -162,6 +162,12 @@ async function createWindow(): Promise<void> {
     },
   });
   window.setMenuBarVisibility(false);
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.control && input.shift && input.key.toLowerCase() === 'i') {
+      event.preventDefault();
+      window.webContents.toggleDevTools();
+    }
+  });
 
   if (process.env.URO_WEB_URL != null && process.env.URO_WEB_URL !== '') {
     await window.loadURL(process.env.URO_WEB_URL);
@@ -174,9 +180,6 @@ async function createWindow(): Promise<void> {
 app.whenReady().then(async () => {
   registerIpc();
   await createWindow();
-  globalShortcut.register('CommandOrControl+Shift+I', () => {
-    BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools();
-  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -185,10 +188,6 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
-});
-
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
 });
 
 function registerIpc(): void {
