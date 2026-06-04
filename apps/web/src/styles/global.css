@@ -401,6 +401,11 @@ body {
   padding-top: 36px;
 }
 
+.analysis-chart-wrap {
+  display: grid;
+  gap: 8px;
+}
+
 .analysis-chart {
   display: block;
   width: 100%;
@@ -409,6 +414,7 @@ body {
   background: #fbfdfb;
   border: 1px solid #d8e2dc;
   border-radius: 6px;
+  cursor: pointer;
 }
 
 .analysis-chart-title {
@@ -442,6 +448,19 @@ body {
   stroke-width: 1;
 }
 
+.analysis-chart-selected {
+  stroke: #111827;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  opacity: 0.72;
+}
+
+.analysis-chart-hover {
+  stroke: #111827;
+  stroke-width: 0.75;
+  opacity: 0.45;
+}
+
 .analysis-chart-line {
   fill: none;
   stroke-width: 2;
@@ -453,6 +472,45 @@ body {
 
 .analysis-chart-line.winrate {
   stroke: #1d4ed8;
+}
+
+.analysis-chart-point.score {
+  fill: #276749;
+}
+
+.analysis-chart-point.winrate {
+  fill: #1d4ed8;
+}
+
+.analysis-chart-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-chart-scorebox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 4px;
+}
+
+.analysis-chart-scorebox.black {
+  background: #111827;
+  color: #f8fafc;
+}
+
+.analysis-chart-scorebox.white {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #111827;
 }
 
 .move-tree {
@@ -570,6 +628,11 @@ body {
 .move-tree-node.white {
   color: #151a20;
   background: #f8f7f1;
+}
+
+.move-tree-node.root {
+  color: #f8fafc;
+  background: #7a8580;
 }
 
 .move-tree-node.selected {

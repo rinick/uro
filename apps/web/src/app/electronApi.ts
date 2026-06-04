@@ -38,7 +38,7 @@ export interface UroElectronApi {
     download: (request: {kind: 'katago' | 'model'; optionId: string}) => Promise<KataGoDownloadResult>;
     onDownloadProgress: (callback: (progress: KataGoDownloadProgress) => void) => () => void;
     analyze: (query: KataGoAnalysisQuery) => Promise<void>;
-    stopAnalysis: () => Promise<void>;
+    stopAnalysis: (queryIds?: string[]) => Promise<void>;
     onAnalysis: (callback: (result: KataGoAnalysisResult) => void) => () => void;
     onAnalysisError: (callback: (message: string) => void) => () => void;
     onConsoleMessage: (callback: (message: KataGoConsoleMessage) => void) => () => void;

@@ -23,6 +23,8 @@ interface SgfTreePanelProps {
   onMoveRight: () => void;
   onReplace: () => void;
   onDelete: () => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
 }
 
 export function SgfTreePanel({
@@ -35,6 +37,8 @@ export function SgfTreePanel({
   onMoveRight,
   onReplace,
   onDelete,
+  onPointerEnter,
+  onPointerLeave,
 }: SgfTreePanelProps) {
   const {t} = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -107,7 +111,7 @@ export function SgfTreePanel({
   }, [layout, onSelectPath, selectedPath]);
 
   return (
-    <section className="side-panel tree-panel">
+    <section className="side-panel tree-panel" onPointerEnter={onPointerEnter} onPointerLeave={onPointerLeave}>
       <div className="tree-panel-header">
         <h2>{t('panels.tree')}</h2>
         <Space.Compact>
@@ -219,11 +223,11 @@ function MoveTreeRow({
         {cells.map((cell) => (
           <button
             key={cell.id}
-            className={`move-tree-node ${cell.color === 'B' ? 'black' : 'white'} ${cell.isPass ? 'pass' : ''} ${cell.hasComment ? 'has-comment' : ''} ${cell.hasDrawing ? 'has-drawing' : ''} ${samePath(cell.path, selectedPath) ? 'selected' : ''}`}
+            className={`move-tree-node ${cell.color === 'B' ? 'black' : cell.color === 'W' ? 'white' : 'root'} ${cell.isPass ? 'pass' : ''} ${cell.hasComment ? 'has-comment' : ''} ${cell.hasDrawing ? 'has-drawing' : ''} ${samePath(cell.path, selectedPath) ? 'selected' : ''}`}
             style={{gridColumn: cell.column + 1}}
             type="button"
             data-tree-node-id={cell.id}
-            title={`${row}: ${cell.isPass ? 'pass' : cell.text}`}
+            title={`${row}: ${cell.color == null ? 'Root' : cell.isPass ? 'pass' : cell.text}`}
             onClick={() => onSelectPath(cell.path)}
           >
             <span className="move-tree-node-text">{cell.text}</span>
@@ -256,8 +260,8 @@ function ConnectorLayer({layout}: {layout: TreeLayout}) {
 function connectorPath(connector: TreeConnector): string {
   const x1 = gutterWidth + connector.fromColumn * treeStep + treeStep / 2;
   const x2 = gutterWidth + connector.toColumn * treeStep + treeStep / 2;
-  const y1 = (connector.fromRow - 1) * treeStep + treeStep / 2;
-  const y2 = (connector.toRow - 1) * treeStep + treeStep / 2;
+  const y1 = connector.fromRow * treeStep + treeStep / 2;
+  const y2 = connector.toRow * treeStep + treeStep / 2;
 
   if (x1 === x2) return `M ${x1} ${y1} L ${x2} ${y2}`;
 

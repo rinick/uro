@@ -45,6 +45,7 @@ import {
   buildTree,
   moveBranch,
   moveBranchToMain,
+  parseGib,
   replaceMove,
   samePath,
   parseSgf,
@@ -164,6 +165,7 @@ export function App() {
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
   const fastAnalysisRef = useRef(false);
+  const isSgfTreeHoveredRef = useRef(false);
   const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
   const boardSize = useMemo(() => getBoardSize(document), [document]);
@@ -181,7 +183,10 @@ export function App() {
         : moveNumberLimit;
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
-  const mainLinePaths = useMemo(() => getMainLinePaths(document), [document]);
+  const analysisChartPaths = useMemo(
+    () => getCurrentBranchMovePaths(document, path, branchMemoryRef.current),
+    [document, path]
+  );
   const movePaths = useMemo(() => getMovePaths(document), [document]);
   const analysisPaths = useMemo(() => [[], ...movePaths], [movePaths]);
   const currentAnalysis = useMemo(
@@ -189,18 +194,38 @@ export function App() {
     [analysisCache, document, path]
   );
   const analysisTargetVisits = Math.max(1, kataGoSettings.fastVisits || defaultKataGoSettings.fastVisits);
-  const analysisPendingCount = useMemo(
-    () =>
-      analysisPaths.filter((movePath) => {
-        const cached = analysisCache[nodeKey(document, movePath)];
-        return cached == null || cached.visits < analysisTargetVisits;
-      }).length,
-    [analysisCache, analysisPaths, analysisTargetVisits, document]
-  );
+  const analysisPendingCounts = useMemo(() => {
+    const normal = analysisPaths.filter((movePath) => {
+      const cached = analysisCache[nodeKey(document, movePath)];
+      return cached == null || cached.visits < analysisTargetVisits;
+    }).length;
+    const hiddenPass =
+      analysisSettings.moveDisplay === 'absScore'
+        ? analysisPaths.filter((movePath) =>
+            shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits)
+          ).length
+        : 0;
+    return {normal, hiddenPass};
+  }, [analysisCache, analysisPaths, analysisSettings.moveDisplay, analysisTargetVisits, document]);
+  const analysisPendingDisplayCount =
+    analysisSettings.moveDisplay === 'absScore'
+      ? `${analysisPendingCounts.normal}+${analysisPendingCounts.hiddenPass}`
+      : analysisPendingCounts.normal;
+  const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
   const analysisChartData = useMemo<AnalysisChartPoint[]>(
-    () => buildAnalysisChartData(document, mainLinePaths, analysisCache),
-    [analysisCache, document, mainLinePaths]
+    () => buildAnalysisChartData(document, analysisChartPaths, analysisCache),
+    [analysisCache, analysisChartPaths, document]
   );
+  const selectedChartMoveNumber = useMemo(() => {
+    const index = analysisChartPaths.findIndex((movePath) => samePath(movePath, path));
+    return index < 0 ? null : index;
+  }, [analysisChartPaths, path]);
+  const analysisChartSummary = useMemo(() => {
+    const rootInfo = currentAnalysis?.rootInfo;
+    const scoreLead = rootInfo?.scoreLead ?? rootInfo?.scoreMean ?? null;
+    const winrate = rootInfo?.winrate == null ? null : normalizeWinratePercent(rootInfo.winrate);
+    return scoreLead == null && winrate == null ? null : {scoreLead, winrate};
+  }, [currentAnalysis]);
   const stoneScoreDeltas = useMemo(
     () => buildStoneScoreDeltas(document, path, analysisCache),
     [analysisCache, document, path]
@@ -399,6 +424,15 @@ export function App() {
       return;
     }
 
+    const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
+    if (
+      liveQueryIds.length === 0 &&
+      (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast') ||
+        (fastAnalysis && fastAnalysisPendingCount > 0))
+    ) {
+      return;
+    }
+
     const targetVisits = Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
     const liveNodeId = nodeKey(document, path);
     if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', liveNodeId)) return;
@@ -407,8 +441,9 @@ export function App() {
     void (async () => {
       try {
         if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
+          const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
           clearPendingAnalysisQueries('live');
-          await uro.katago.stopAnalysis();
+          await uro.katago.stopAnalysis(liveQueryIds);
         }
         if (!cancelled) await requestAnalysis(path, 'live', targetVisits, true);
       } catch (error: unknown) {
@@ -426,6 +461,8 @@ export function App() {
     appendKataGoConsoleMessage,
     capabilities.katago,
     document,
+    fastAnalysis,
+    fastAnalysisPendingCount,
     kataGoSettings.maxVisits,
     liveAnalysis,
     path,
@@ -498,8 +535,9 @@ export function App() {
       const nextDocument = await loadStoredGame(selectedStoredGameId);
       branchMemoryRef.current.clear();
       setStoredGameId(selectedStoredGameId);
-      fastAnalysisRef.current = false;
-      setFastAnalysis(false);
+      fastAnalysisRef.current = true;
+      setFastAnalysis(true);
+      setLiveAnalysis(false);
       replaceDocument(nextDocument, [], {clearAnalysisCache: true});
       setOpenGameModalOpen(false);
     } catch (error) {
@@ -560,7 +598,7 @@ export function App() {
     if (file == null) return;
 
     try {
-      const text = await file.text();
+      const text = await readGameRecordFile(file);
       importSgfText(text, file.name);
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('menu.importFailed'));
@@ -570,11 +608,12 @@ export function App() {
   }
 
   function importSgfText(text: string, fileName: string): void {
-    const importedDocument = withImportedGameName(parseSgf(text), fileName);
+    const importedDocument = withImportedGameName(parseGameRecord(text, fileName), fileName);
     branchMemoryRef.current.clear();
     setStoredGameId(null);
     fastAnalysisRef.current = true;
     setFastAnalysis(true);
+    setLiveAnalysis(false);
     replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
 
@@ -618,6 +657,21 @@ export function App() {
     },
     [document]
   );
+
+  const navigateFirstChild = useCallback((steps = 1) => {
+    setPath((current) => {
+      let next = current;
+      for (let index = 0; index < steps; index += 1) {
+        const node = getNodeAtPath(document, next);
+        if (node.children.length === 0) break;
+        next = [...next, 0];
+      }
+      rememberPath(next);
+      return next;
+    });
+    setAutoColorOverride(null);
+    setReplaceMode(false);
+  }, [document]);
 
   const navigateToLast = useCallback(() => {
     setPath((current) => {
@@ -760,24 +814,29 @@ export function App() {
     }
   }
 
-  const canNavigatePrevious = path.length > 1;
+  const canNavigatePrevious = path.length > 0;
   const canNavigateNext = getNodeAtPath(document, path).children.length > 0;
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (isTextInputActive()) return;
-      if (event.key === 'ArrowUp') {
+      const steps = event.shiftKey ? 10 : 1;
+      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
         event.preventDefault();
-        navigatePrevious();
-      } else if (event.key === 'ArrowDown') {
+        if (isSgfTreeHoveredRef.current && event.key === 'ArrowLeft') {
+          navigateBranch(-1);
+        } else {
+          navigatePrevious(steps);
+        }
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
         event.preventDefault();
-        navigateNext();
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        navigateBranch(-1);
-      } else if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        navigateBranch(1);
+        if (isSgfTreeHoveredRef.current) {
+          if (event.key === 'ArrowDown') navigateNext(steps);
+          if (event.key === 'ArrowRight') navigateBranch(1);
+        } else {
+          if (event.key === 'ArrowDown') navigateFirstChild(steps);
+          if (event.key === 'ArrowRight') navigateNext(steps);
+        }
       } else if (capabilities.katago && event.key === ' ') {
         event.preventDefault();
         setLiveAnalysis((current) => !current);
@@ -786,7 +845,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [capabilities.katago, navigateBranch, navigateNext, navigatePrevious]);
+  }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious]);
 
   const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
     setAnalysisSettings(settings);
@@ -1016,7 +1075,7 @@ export function App() {
                     {t('analysis.fast')}
                   </Button>
                   <span className="analysis-pending-count">
-                    {t('analysis.pendingMoves', {count: analysisPendingCount})}
+                    {t('analysis.pendingMoves', {count: analysisPendingDisplayCount})}
                   </span>
                   <Button
                     className="live-analysis-toggle"
@@ -1095,6 +1154,16 @@ export function App() {
               onChange={handleCommentChange}
               showAnalysisControls={capabilities.katago}
               chartData={analysisChartData}
+              selectedMoveNumber={selectedChartMoveNumber}
+              chartSummary={analysisChartSummary}
+              onSelectChartMove={(moveNumber) => {
+                const nextPath = analysisChartPaths[moveNumber];
+                if (nextPath == null) return;
+                rememberPath(nextPath);
+                setPath(nextPath);
+                setAutoColorOverride(null);
+                setReplaceMode(false);
+              }}
             />
             <SgfTreePanel
               document={document}
@@ -1112,6 +1181,12 @@ export function App() {
               onMoveRight={handleMoveBranchRight}
               onReplace={() => setReplaceMode(true)}
               onDelete={handleDeleteNode}
+              onPointerEnter={() => {
+                isSgfTreeHoveredRef.current = true;
+              }}
+              onPointerLeave={() => {
+                isSgfTreeHoveredRef.current = false;
+              }}
             />
           </aside>
         </Content>
@@ -1120,7 +1195,7 @@ export function App() {
         ref={fileInputRef}
         className="hidden-file-input"
         type="file"
-        accept=".sgf,application/x-go-sgf,text/plain"
+        accept=".sgf,.gib,application/x-go-sgf,text/plain"
         onChange={(event) => void handleImportSgf(event.target.files?.[0])}
       />
       {capabilities.storage === 'indexeddb' ? (
@@ -1168,15 +1243,26 @@ function pathKey(path: number[]): string {
   return path.join('.');
 }
 
-function getMainLinePaths(document: SgfDocument): number[][] {
-  const paths: number[][] = [];
-  let node = document.root;
+function getCurrentBranchMovePaths(
+  document: SgfDocument,
+  selectedPath: number[],
+  branchMemory: Map<string, number>
+): number[][] {
+  const paths: number[][] = [[]];
   let path: number[] = [];
 
-  while (node.children[0] != null) {
-    path = [...path, 0];
+  for (const index of selectedPath) {
+    path = [...path, index];
     paths.push(path);
-    node = node.children[0];
+  }
+
+  let node = getNodeAtPath(document, path);
+  while (node.children.length > 0) {
+    const rememberedChild = branchMemory.get(pathKey(path)) ?? 0;
+    const nextIndex = rememberedChild < node.children.length ? rememberedChild : 0;
+    path = [...path, nextIndex];
+    paths.push(path);
+    node = node.children[nextIndex];
   }
 
   return paths;
@@ -1216,6 +1302,13 @@ function hasPendingAnalysisQuery(
   return false;
 }
 
+function getPendingAnalysisQueryIds(
+  contexts: Map<string, AnalysisQueryContext>,
+  mode: AnalysisQueryContext['mode']
+): string[] {
+  return [...contexts.entries()].filter(([, context]) => context.mode === mode).map(([id]) => id);
+}
+
 function getAnalysisVisits(result: KataGoAnalysisResult): number {
   return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
 }
@@ -1236,7 +1329,17 @@ function shouldRequestHiddenPassAnalysis(
   const analysis = cache[nodeKey(document, path)]?.result;
   if (analysis?.rootInfo == null) return false;
 
-  const passMove = analysis.moveInfos?.find((move) => move.move.toLowerCase() === 'pass');
+  return shouldCountHiddenPassAnalysis(document, path, cache, targetVisits);
+}
+
+function shouldCountHiddenPassAnalysis(
+  document: SgfDocument,
+  path: number[],
+  cache: Record<string, CachedAnalysis>,
+  targetVisits: number
+): boolean {
+  const analysis = cache[nodeKey(document, path)]?.result;
+  const passMove = analysis?.moveInfos?.find((move) => move.move.toLowerCase() === 'pass');
   return (passMove?.visits ?? 0) < targetVisits;
 }
 
@@ -1393,12 +1496,36 @@ function buildAnalysisChartData(
 
   paths.forEach((path, index) => {
     const rootInfo = cache[nodeKey(document, path)]?.result.rootInfo;
-    if (rootInfo?.scoreLead != null) data.push({moveNumber: index + 1, series: 'score', value: rootInfo.scoreLead});
+    if (rootInfo?.scoreLead != null) data.push({moveNumber: index, series: 'score', value: rootInfo.scoreLead});
     if (rootInfo?.winrate != null)
-      data.push({moveNumber: index + 1, series: 'winrate', value: normalizeWinratePercent(rootInfo.winrate)});
+      data.push({moveNumber: index, series: 'winrate', value: normalizeWinratePercent(rootInfo.winrate)});
   });
 
   return data;
+}
+
+function parseGameRecord(text: string, fileName: string): SgfDocument {
+  return isGibFile(fileName) ? parseGib(text) : parseSgf(text);
+}
+
+async function readGameRecordFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  return decodeGameRecordBytes(buffer, isGibFile(file.name));
+}
+
+function decodeGameRecordBytes(buffer: ArrayBuffer, preferKorean: boolean): string {
+  const utf8 = new TextDecoder('utf-8').decode(buffer);
+  if (!preferKorean || !utf8.includes('\uFFFD')) return utf8;
+
+  try {
+    return new TextDecoder('euc-kr').decode(buffer);
+  } catch {
+    return utf8;
+  }
+}
+
+function isGibFile(fileName: string): boolean {
+  return fileName.toLowerCase().endsWith('.gib');
 }
 
 function buildStoneScoreDeltas(
@@ -1465,6 +1592,7 @@ function normalizeWinratePercent(value: number): number {
 }
 
 function normalizeSelectedPath(document: SgfDocument, path: number[]): number[] {
+  if (path.length === 0) return [];
   if (document.root.children.length === 0) return [];
 
   const normalized: number[] = [];
@@ -1476,7 +1604,7 @@ function normalizeSelectedPath(document: SgfDocument, path: number[]): number[] 
     node = node.children[nextIndex];
   }
 
-  return normalized.length === 0 ? [0] : normalized;
+  return normalized;
 }
 
 function withImportedGameName(document: SgfDocument, fileName: string): SgfDocument {

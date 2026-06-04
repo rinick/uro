@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('uro', {
       return () => ipcRenderer.off('uro:katago:download-progress', listener);
     },
     analyze: (query: unknown) => ipcRenderer.invoke('uro:katago:analyze', query),
-    stopAnalysis: () => ipcRenderer.invoke('uro:katago:stop-analysis'),
+    stopAnalysis: (queryIds?: string[]) => ipcRenderer.invoke('uro:katago:stop-analysis', queryIds),
     onAnalysis: (callback: (result: unknown) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, result: unknown) => callback(result);
       ipcRenderer.on('uro:katago:analysis', listener);

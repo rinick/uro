@@ -1,4 +1,4 @@
-import {app, BrowserWindow, Menu, dialog, ipcMain, type WebContents} from 'electron';
+import {app, BrowserWindow, Menu, dialog, globalShortcut, ipcMain, type WebContents} from 'electron';
 import extract from 'extract-zip';
 import {spawn, type ChildProcessWithoutNullStreams} from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -165,17 +165,18 @@ async function createWindow(): Promise<void> {
 
   if (process.env.URO_WEB_URL != null && process.env.URO_WEB_URL !== '') {
     await window.loadURL(process.env.URO_WEB_URL);
-    if (!app.isPackaged) window.webContents.openDevTools();
     return;
   }
 
   await window.loadFile(path.join(__dirname, '../../web/dist/index.html'));
-  if (!app.isPackaged) window.webContents.openDevTools();
 }
 
 app.whenReady().then(async () => {
   registerIpc();
   await createWindow();
+  globalShortcut.register('CommandOrControl+Shift+I', () => {
+    BrowserWindow.getFocusedWindow()?.webContents.toggleDevTools();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) void createWindow();
@@ -186,17 +187,22 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });
 
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
 function registerIpc(): void {
   ipcMain.handle('uro:import-sgf', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
-      filters: [{name: 'SGF files', extensions: ['sgf']}],
+      filters: [{name: 'Game records', extensions: ['sgf', 'gib']}],
     });
     if (result.canceled || result.filePaths[0] == null) return null;
 
     const filePath = result.filePaths[0];
+    const buffer = await fs.readFile(filePath);
     return {
-      content: await fs.readFile(filePath, 'utf8'),
+      content: decodeGameRecordBuffer(buffer, filePath.toLowerCase().endsWith('.gib')),
       fileName: path.basename(filePath),
     };
   });
@@ -271,8 +277,10 @@ function registerIpc(): void {
       event.sender.send('uro:katago:analysis-error', message);
     }
   });
-  ipcMain.handle('uro:katago:stop-analysis', async () => {
-    await stopKataGoAnalysis();
+  ipcMain.handle('uro:katago:stop-analysis', async (_event, queryIds?: unknown) => {
+    await stopKataGoAnalysis(
+      Array.isArray(queryIds) ? queryIds.filter((queryId): queryId is string => typeof queryId === 'string') : undefined
+    );
   });
   ipcMain.handle('uro:analysis:get-settings', async () => readJson('analysis-settings.json', defaultAnalysisSettings));
   ipcMain.handle('uro:analysis:save-settings', async (_event, settings: AnalysisSettings) =>
@@ -345,6 +353,17 @@ function defaultKataGoConfigText(): string {
     'nnRandomize = true',
     '',
   ].join('\n');
+}
+
+function decodeGameRecordBuffer(buffer: Uint8Array, preferKorean: boolean): string {
+  const utf8 = new TextDecoder('utf-8').decode(buffer);
+  if (!preferKorean || !utf8.includes('\uFFFD')) return utf8;
+
+  try {
+    return new TextDecoder('euc-kr').decode(buffer);
+  } catch {
+    return utf8;
+  }
 }
 
 async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents): Promise<void> {
@@ -542,14 +561,18 @@ function normalizeRules(value: unknown): string {
   return aliases[key] ?? 'japanese';
 }
 
-async function stopKataGoAnalysis(): Promise<void> {
+async function stopKataGoAnalysis(queryIds?: string[]): Promise<void> {
   if (katagoProcess == null) return;
-  const queryIds = [...activeKataGoQueryIds];
-  if (queryIds.length === 0) return;
+  const idsToTerminate = queryIds ?? [...activeKataGoQueryIds];
+  if (idsToTerminate.length === 0) return;
 
-  activeKataGoQueryIds.clear();
+  if (queryIds == null) {
+    activeKataGoQueryIds.clear();
+  } else {
+    for (const queryId of queryIds) activeKataGoQueryIds.delete(queryId);
+  }
   await Promise.all(
-    queryIds.map((queryId) =>
+    idsToTerminate.map((queryId) =>
       writeKataGoMessage({
         id: `uro-terminate-${queryId}`,
         action: 'terminate',

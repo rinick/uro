@@ -277,9 +277,9 @@ function analysisMoveText(
   }
 
   const scoreDelta = moveScoreDelta(move, analysis, nextColor, mode);
-  if (scoreDelta != null) return formatScore(scoreDelta);
+  if (scoreDelta != null) return mode === 'absScore' ? formatValue(scoreDelta) : formatScore(scoreDelta);
 
-  if (move.pointsLost != null) return formatScore(-move.pointsLost);
+  if (move.pointsLost != null) return mode === 'absScore' ? formatValue(-move.pointsLost) : formatScore(-move.pointsLost);
 
   return '';
 }
@@ -355,6 +355,11 @@ function formatPercentDelta(value: number): string {
 
 function formatScore(value: number): string {
   return `${value > 0 ? '+' : ''}${formatPrecision(value)}`;
+}
+
+function formatValue(value: number): string {
+  const normalized = Object.is(value, -0) ? 0 : value;
+  return normalized.toFixed(1);
 }
 
 function formatPrecision(value: number): string {

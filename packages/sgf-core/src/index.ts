@@ -16,7 +16,7 @@ export interface TreeItem {
   id: string;
   path: number[];
   label: string;
-  moveNumber: number | null;
+  moveNumber: number;
   color: SgfColor | null;
   point: SgfPoint | null;
   hasMetadata: boolean;
@@ -73,11 +73,165 @@ export function parseSgf(input: string): SgfDocument {
   return {root};
 }
 
+export function parseGib(input: string): SgfDocument {
+  const root = createNode({
+    GM: ['1'],
+    FF: ['4'],
+    CA: ['UTF-8'],
+    SZ: ['19'],
+  });
+  let lastNode = root;
+  let hasGibContent = false;
+
+  for (const rawLine of input.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (line === '') continue;
+
+    const blackName = readGibTag(line, 'GAMEBLACKNAME');
+    if (blackName != null) {
+      const [name, rank] = parseGibPlayerName(blackName);
+      if (name !== '') root.data.PB = [name];
+      if (rank !== '') root.data.BR = [rank];
+      hasGibContent = true;
+      continue;
+    }
+
+    const whiteName = readGibTag(line, 'GAMEWHITENAME');
+    if (whiteName != null) {
+      const [name, rank] = parseGibPlayerName(whiteName);
+      if (name !== '') root.data.PW = [name];
+      if (rank !== '') root.data.WR = [rank];
+      hasGibContent = true;
+      continue;
+    }
+
+    const gameInfoMain = readGibTag(line, 'GAMEINFOMAIN');
+    if (gameInfoMain != null) {
+      setGibPropertyIfMissing(root, 'RE', readGibResult(gameInfoMain, /GRLT:(\d+),/, /ZIPSU:(\d+),/));
+      setGibPropertyIfMissing(root, 'KM', readGibKomi(gameInfoMain, /GONGJE:(\d+),/));
+      hasGibContent = true;
+      continue;
+    }
+
+    const gameTag = readGibTag(line, 'GAMETAG');
+    if (gameTag != null) {
+      setGibPropertyIfMissing(root, 'DT', readGibDate(gameTag));
+      setGibPropertyIfMissing(root, 'RE', readGibResult(gameTag, /,W(\d+),/, /,Z(\d+),/));
+      setGibPropertyIfMissing(root, 'KM', readGibKomi(gameTag, /,G(\d+),/));
+      hasGibContent = true;
+      continue;
+    }
+
+    if (line.startsWith('INI')) {
+      const parts = line.split(/\s+/);
+      const handicap = Math.floor(Number(parts[3]));
+      if (handicap >= 2 && handicap <= 9) {
+        root.data.HA = [String(handicap)];
+        root.data.AB = tygemHandicapPoints(handicap).map(([x, y]) => vertexToPoint(x, y));
+      }
+      hasGibContent = true;
+      continue;
+    }
+
+    if (line.startsWith('STO')) {
+      const parts = line.split(/\s+/);
+      const color = parts[3] === '1' ? 'B' : parts[3] === '2' ? 'W' : null;
+      const x = Math.floor(Number(parts[4]));
+      const y = Math.floor(Number(parts[5]));
+      if (color == null || !isBoardVertex(x, y, 19)) continue;
+
+      const child = createNode({[color]: [vertexToPoint(x, y)]});
+      lastNode.children.push(child);
+      lastNode = child;
+      hasGibContent = true;
+    }
+  }
+
+  if (!hasGibContent) throw new Error('GIB file does not contain a supported game record.');
+  removeEmptyProperties(root);
+  return {root};
+}
+
 function normalizeRootProperties(root: SgfNode): void {
   if (Number(root.data.KM?.[0]?.trim().replace(',', '.')) !== 375) return;
 
   root.data.KM = ['7.5'];
   if (root.data.RU?.[0]?.trim() == null || root.data.RU[0].trim() === '') root.data.RU = ['Chinese'];
+}
+
+function readGibTag(line: string, key: string): string | null {
+  const match = new RegExp(`^\\\\+\\[${key}=([\\s\\S]*?)\\\\+\\]$`).exec(line);
+  return match?.[1] ?? null;
+}
+
+function parseGibPlayerName(raw: string): [string, string] {
+  const match = /^(.*)\(([^()]*)\)$/.exec(raw);
+  if (match == null) return [raw.trim(), ''];
+  return [match[1].trim(), match[2].trim()];
+}
+
+function setGibPropertyIfMissing(node: SgfNode, key: string, values: string[] | undefined): void {
+  if (node.data[key] == null && values != null) node.data[key] = values;
+}
+
+function readGibResult(line: string, resultRegex: RegExp, scoreRegex: RegExp): string[] | undefined {
+  const resultMatch = resultRegex.exec(line);
+  const scoreMatch = scoreRegex.exec(line);
+  if (resultMatch == null || scoreMatch == null) return undefined;
+
+  const result = formatGibResult(Number(resultMatch[1]), Number(scoreMatch[1]));
+  return result === '' ? undefined : [result];
+}
+
+function formatGibResult(resultType: number, score: number): string {
+  if (resultType === 3) return 'B+R';
+  if (resultType === 4) return 'W+R';
+  if (resultType === 7) return 'B+T';
+  if (resultType === 8) return 'W+T';
+  if (resultType === 0 || resultType === 1) return `${resultType === 0 ? 'B' : 'W'}+${score / 10}`;
+  return '';
+}
+
+function readGibKomi(line: string, regex: RegExp): string[] | undefined {
+  const match = regex.exec(line);
+  if (match == null) return undefined;
+
+  const komi = Number(match[1]) / 10;
+  return Number.isFinite(komi) ? [String(komi)] : undefined;
+}
+
+function readGibDate(line: string): string[] | undefined {
+  const match = /C(\d\d\d\d):(\d\d):(\d\d)/.exec(line);
+  return match == null ? undefined : [match.slice(1, 4).join('-')];
+}
+
+function removeEmptyProperties(node: SgfNode): void {
+  for (const [key, values] of Object.entries(node.data)) {
+    if (values == null || values.length === 0) delete node.data[key];
+  }
+}
+
+function isBoardVertex(x: number, y: number, size: number): boolean {
+  return Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < size && y >= 0 && y < size;
+}
+
+function tygemHandicapPoints(count: number): Array<[number, number]> {
+  const near = 3;
+  const far = 15;
+  const middle = 9;
+  const points: Array<[number, number]> = [
+    [near, far],
+    [far, near],
+    [near, near],
+    [far, far],
+  ];
+
+  if (count === 5) points.push([middle, middle]);
+  points.push([near, middle], [far, middle]);
+  if (count === 7) points.push([middle, middle]);
+  points.push([middle, near], [middle, far], [middle, middle]);
+
+  return points.slice(0, count);
 }
 
 export function serializeSgf(document: SgfDocument): string {
@@ -293,13 +447,13 @@ export function buildTree(document: SgfDocument): TreeItem[] {
     const color: SgfColor | null = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
     const point = color == null ? null : (node.data[color]?.[0] ?? '');
     const nextMoveNumber = color == null ? moveNumber : moveNumber + 1;
-    const label = color == null ? 'Root' : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
+    const label = color == null ? '0 Root' : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
 
     return {
       id: node.id,
       path,
       label,
-      moveNumber: color == null ? null : nextMoveNumber,
+      moveNumber: color == null ? 0 : nextMoveNumber,
       color,
       point: color == null ? null : point,
       hasMetadata: hasNodeMetadata(node),

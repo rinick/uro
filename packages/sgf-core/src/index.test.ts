@@ -9,6 +9,7 @@ import {
   formatPoint,
   moveBranch,
   moveBranchToMain,
+  parseGib,
   parseSgf,
   replaceMove,
   serializeSgf,
@@ -33,6 +34,37 @@ describe('sgf-core', () => {
     const document = parseSgf('(;GM[1]SZ[19];B[dd](;W[pp])(;W[dp]))');
     expect(document.root.children[0].children).toHaveLength(2);
     expect(serializeSgf(document)).toBe('(;GM[1]SZ[19];B[dd](;W[pp])(;W[dp]))');
+  });
+
+  it('parses Tygem GIB files into SGF documents', () => {
+    const document = parseGib(
+      [
+        '\\\\[GAMEBLACKNAME=Black Player(1d)\\\\]',
+        '\\\\[GAMEWHITENAME=White Player(2d)\\\\]',
+        '\\\\[GAMEINFOMAIN=GONGJE:65,GRLT:3,ZIPSU:0,\\\\]',
+        '\\\\[GAMETAG=C2024:06:04,W3,Z0,G65,\\\\]',
+        'INI 0 0 2',
+        'STO 0 0 1 4 4',
+        'STO 0 0 2 15 15',
+      ].join('\n')
+    );
+
+    expect(document.root.data).toMatchObject({
+      GM: ['1'],
+      FF: ['4'],
+      CA: ['UTF-8'],
+      SZ: ['19'],
+      PB: ['Black Player'],
+      BR: ['1d'],
+      PW: ['White Player'],
+      WR: ['2d'],
+      KM: ['6.5'],
+      RE: ['B+R'],
+      DT: ['2024-06-04'],
+      HA: ['2'],
+      AB: ['dp', 'pd'],
+    });
+    expect(serializeSgf(document)).toContain(';B[ee];W[pp]');
   });
 
   it('normalizes Chinese stone komi during parsing', () => {
