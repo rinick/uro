@@ -596,6 +596,18 @@ body {
   background: #7a8580;
 }
 
+.move-tree-node.setup {
+  font-size: 14px;
+}
+
+.move-tree-node.has-comment {
+  border-bottom-left-radius: 0;
+}
+
+.move-tree-node.has-drawing {
+  border-top-right-radius: 0;
+}
+
 .move-tree-node.selected {
   outline: 3px solid #64b5f6;
   outline-offset: 1px;

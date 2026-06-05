@@ -35,7 +35,6 @@ import {
   addMarkup,
   addMove,
   cloneDocument,
-  createNode,
   createNewGame,
   deleteNode,
   erasePoint,
@@ -269,19 +268,13 @@ export function App() {
     rememberPath(normalizedPath);
   }
 
-  function selectPath(nextPath: number[]): void {
+  function selectPath(nextPath: number[], options: {keepAutoColorOverride?: boolean} = {}): void {
     const normalizedPath = normalizeSelectedPath(document, nextPath);
-    const finalized = finalizePendingSetup(document, pendingSetupPathRef.current, normalizedPath);
     pendingSetupPathRef.current = null;
-
-    if (finalized.document !== document) {
-      replaceDocument(finalized.document, finalized.path);
-      return;
-    }
 
     rememberPath(normalizedPath);
     setPath(normalizedPath);
-    setAutoColorOverride(null);
+    if (!options.keepAutoColorOverride) setAutoColorOverride(null);
     setReplaceMode(false);
   }
 
@@ -694,7 +687,7 @@ export function App() {
   );
 
   function handleToolChange(nextTool: EditorTool): void {
-    if (nextTool !== tool) selectPath(path);
+    if (nextTool !== tool) selectPath(path, {keepAutoColorOverride: nextTool === 'auto'});
     setReplaceMode(false);
     setTool(nextTool);
     if (nextTool !== 'auto') setAutoColorOverride(null);
@@ -839,7 +832,7 @@ export function App() {
     setAnalysisSettings(settings);
   }, []);
 
-  function handleBoardClick(point: string): void {
+  function handleBoardClick(point: string, colorOverride?: SgfColor): void {
     if (replaceMode) {
       const result = replaceMove(document, path, point);
       replaceDocument(result.document, result.path, {invalidatePath: result.path});
@@ -860,13 +853,26 @@ export function App() {
       return;
     }
 
-    if (tool === 'black' || tool === 'white') {
-      const setupPath = editableSetupPath(document, path);
-      if (position.stones.has(point) && (setupPath == null || !isCurrentSetupStone(document, setupPath, point))) return;
+    if (tool === 'black' || tool === 'white' || colorOverride != null) {
+      const color = colorOverride ?? (tool === 'black' ? 'B' : 'W');
+      if (path.length === 0 && getNodeAtPath(document, path).children.length === 0) {
+        if (position.stones.has(point) && !isCurrentSetupStone(document, path, point)) return;
 
-      const color = tool === 'black' ? 'B' : 'W';
-      const result = addSetupStoneMove(document, setupPath ?? path, color, point, setupPath != null);
-      replaceDocument(result.document, result.path, {invalidatePath: result.path, pendingSetupPath: result.path});
+        const result = addSetupStoneToPath(document, path, color, point);
+        replaceDocument(result.document, result.path, {invalidatePath: result.path, pendingSetupPath: result.path});
+        if (result.placed) setAutoColorOverride(oppositeColor(color));
+        return;
+      }
+
+      if (position.stones.has(point)) return;
+      const existingChildPath = findChildMovePath(document, path, color, point);
+      if (existingChildPath != null) {
+        selectPath(existingChildPath);
+        return;
+      }
+
+      const result = addMove(document, path, color, point);
+      replaceDocument(result.document, result.path);
       return;
     }
 
@@ -887,6 +893,11 @@ export function App() {
 
     const markup = toolToMarkup(tool);
     if (markup != null) replaceDocument(addMarkup(document, path, markup, point), path);
+  }
+
+  function handleBoardRightClick(point: string): void {
+    if (tool !== 'black' && tool !== 'white') return;
+    handleBoardClick(point, tool === 'black' ? 'W' : 'B');
   }
 
   function handlePass(): void {
@@ -1133,6 +1144,7 @@ export function App() {
               stoneScoreDeltas={stoneScoreDeltas}
               analysisSettings={analysisSettings}
               onVertexClick={handleBoardClick}
+              onVertexRightClick={handleBoardRightClick}
             />
           </main>
           <aside className="right-region">
@@ -1231,40 +1243,29 @@ function pathKey(path: number[]): string {
   return path.join('.');
 }
 
-function addSetupStoneMove(
+function addSetupStoneToPath(
   document: SgfDocument,
   path: number[],
   color: SgfColor,
-  point: string,
-  editExisting: boolean
-): {document: SgfDocument; path: number[]} {
+  point: string
+): {document: SgfDocument; path: number[]; placed: boolean} {
   const next = cloneDocument(document);
   const node = getNodeAtPath(next, path);
-
-  if (editExisting) {
-    addSetupStoneToNode(node, color, point);
-    return {document: next, path};
-  }
-
-  const child = createNode();
-  addSetupStoneToNode(child, color, point);
-  node.children.push(child);
-  return {document: next, path: [...path, node.children.length - 1]};
+  const placed = addSetupStoneToNode(node, color, point);
+  return {document: next, path, placed};
 }
 
-function addSetupStoneToNode(node: SgfNode, color: SgfColor, point: string): void {
+function addSetupStoneToNode(node: SgfNode, color: SgfColor, point: string): boolean {
   const prop = color === 'B' ? 'AB' : 'AW';
   const opposite = color === 'B' ? 'AW' : 'AB';
+  if ((node.data[prop] ?? []).includes(point)) {
+    removePointValues(node, [prop], point);
+    return false;
+  }
+
   removePointValues(node, [opposite, 'AE'], point);
   addUniqueValue(node, prop, point);
-}
-
-function editableSetupPath(document: SgfDocument, path: number[]): number[] | null {
-  if (path.length === 0) return path;
-
-  const node = getNodeAtPath(document, path);
-  if (!isSetupNode(node) || node.children.length > 0) return null;
-  return path;
+  return true;
 }
 
 function findChildMovePath(document: SgfDocument, path: number[], color: SgfColor, point: string): number[] | null {
@@ -1278,65 +1279,8 @@ function isCurrentSetupStone(document: SgfDocument, path: number[], point: strin
   return (node.data.AB ?? []).includes(point) || (node.data.AW ?? []).includes(point);
 }
 
-function finalizePendingSetup(
-  document: SgfDocument,
-  pendingPath: number[] | null,
-  nextPath: number[]
-): {document: SgfDocument; path: number[]} {
-  if (pendingPath == null) return {document, path: nextPath};
-
-  const pendingNode = safeNodeAtPath(document, pendingPath);
-  if (pendingNode == null || !isSetupNode(pendingNode) || pendingPath.length === 0) return {document, path: nextPath};
-
-  const parentPath = pendingPath.slice(0, -1);
-  const pendingIndex = pendingPath[pendingPath.length - 1];
-  const parent = getNodeAtPath(document, parentPath);
-  const signature = setupSignature(pendingNode);
-  const duplicateIndex = parent.children.findIndex(
-    (child, index) => index !== pendingIndex && isSetupNode(child) && setupSignature(child) === signature
-  );
-  if (duplicateIndex < 0) return {document, path: nextPath};
-
-  const next = cloneDocument(document);
-  const nextParent = getNodeAtPath(next, parentPath);
-  nextParent.children.splice(pendingIndex, 1);
-  return {
-    document: next,
-    path: adjustPathAfterSiblingRemoval(nextPath, parentPath, pendingIndex, duplicateIndex),
-  };
-}
-
-function adjustPathAfterSiblingRemoval(
-  path: number[],
-  parentPath: number[],
-  removedIndex: number,
-  duplicateIndex: number
-): number[] {
-  if (path.length <= parentPath.length || !samePath(path.slice(0, parentPath.length), parentPath)) return path;
-
-  const index = path[parentPath.length];
-  const adjustedDuplicateIndex = duplicateIndex > removedIndex ? duplicateIndex - 1 : duplicateIndex;
-  if (index === removedIndex) return [...parentPath, adjustedDuplicateIndex, ...path.slice(parentPath.length + 1)];
-  if (index > removedIndex) return [...parentPath, index - 1, ...path.slice(parentPath.length + 1)];
-  return path;
-}
-
-function safeNodeAtPath(document: SgfDocument, path: number[]): SgfNode | null {
-  try {
-    return getNodeAtPath(document, path);
-  } catch {
-    return null;
-  }
-}
-
-function isSetupNode(node: SgfNode): boolean {
-  return node.data.B == null && node.data.W == null && ['AB', 'AW', 'AE'].some((key) => (node.data[key] ?? []).length > 0);
-}
-
-function setupSignature(node: SgfNode): string {
-  return ['AB', 'AW', 'AE']
-    .map((key) => `${key}:${[...(node.data[key] ?? [])].sort().join(',')}`)
-    .join('|');
+function oppositeColor(color: SgfColor): SgfColor {
+  return color === 'B' ? 'W' : 'B';
 }
 
 function removePointValues(node: SgfNode, keys: string[], point: string): void {

@@ -18,7 +18,9 @@ export interface TreeItem {
   label: string;
   moveNumber: number;
   color: SgfColor | null;
+  setupColor: SgfColor | null;
   point: SgfPoint | null;
+  isSetup: boolean;
   hasMetadata: boolean;
   hasComment: boolean;
   hasDrawing: boolean;
@@ -568,16 +570,22 @@ export function buildTree(document: SgfDocument): TreeItem[] {
   function walk(node: SgfNode, path: number[], moveNumber: number): TreeItem {
     const color: SgfColor | null = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
     const point = color == null ? null : (node.data[color]?.[0] ?? '');
-    const nextMoveNumber = color == null ? moveNumber : moveNumber + 1;
-    const label = color == null ? '0 Root' : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
+    const isRoot = path.length === 0;
+    const isSetup = color == null && hasSetupProperties(node);
+    const setupColor = setupNodeColor(node);
+    const nextMoveNumber = color != null || (isSetup && !isRoot) ? moveNumber + 1 : moveNumber;
+    const displayMoveNumber = isRoot ? 0 : nextMoveNumber;
+    const label = color == null ? (isSetup ? `${displayMoveNumber} +` : '0 Root') : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
 
     return {
       id: node.id,
       path,
       label,
-      moveNumber: color == null ? 0 : nextMoveNumber,
+      moveNumber: displayMoveNumber,
       color,
+      setupColor,
       point: color == null ? null : point,
+      isSetup,
       hasMetadata: hasNodeMetadata(node),
       hasComment: hasNodeComment(node),
       hasDrawing: hasNodeDrawing(node),
@@ -588,6 +596,17 @@ export function buildTree(document: SgfDocument): TreeItem[] {
 
   items.push(walk(document.root, [], 0));
   return items;
+}
+
+function hasSetupProperties(node: SgfNode): boolean {
+  return ['AB', 'AW', 'AE'].some((key) => (node.data[key] ?? []).length > 0);
+}
+
+function setupNodeColor(node: SgfNode): SgfColor | null {
+  const hasBlack = (node.data.AB ?? []).length > 0;
+  const hasWhite = (node.data.AW ?? []).length > 0;
+  if (hasBlack === hasWhite) return null;
+  return hasBlack ? 'B' : 'W';
 }
 
 function hasNodeMetadata(node: SgfNode): boolean {

@@ -7,6 +7,7 @@ export interface TreeCell {
   column: number;
   color: SgfColor | null;
   text: string;
+  isSetup: boolean;
   isPass: boolean;
   hasMetadata: boolean;
   hasComment: boolean;
@@ -44,7 +45,8 @@ export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
     row: root.moveNumber,
     column: 0,
     color: rootCellColor(root),
-    text: '',
+    text: root.isSetup ? '+' : '',
+    isSetup: root.isSetup,
     isPass: false,
     hasMetadata: root.hasMetadata,
     hasComment: root.hasComment,
@@ -70,9 +72,10 @@ export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
         path: child.path,
         row: child.moveNumber,
         column: childColumn,
-        color: child.color,
-        text: child.point === '' ? '' : formatPoint(child.point, boardSize),
-        isPass: child.point === '',
+        color: child.color ?? child.setupColor,
+        text: child.isSetup ? '+' : child.point === '' ? '' : formatPoint(child.point, boardSize),
+        isSetup: child.isSetup,
+        isPass: !child.isSetup && child.point === '',
         hasMetadata: child.hasMetadata,
         hasComment: child.hasComment,
         hasDrawing: child.hasDrawing,
@@ -93,5 +96,6 @@ export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
 }
 
 function rootCellColor(root: TreeItem): SgfColor | null {
-  return root.color == null && root.hasInitialBlackStones ? 'B' : root.color;
+  if (root.isSetup) return root.setupColor;
+  return root.color ?? root.setupColor ?? (root.hasInitialBlackStones ? 'B' : null);
 }

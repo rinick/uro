@@ -3,6 +3,7 @@ import {
   addLabel,
   addMarkup,
   addMove,
+  buildTree,
   countMoves,
   createNewGame,
   deleteNode,
@@ -106,6 +107,17 @@ describe('sgf-core', () => {
 
   it('counts moves across variations', () => {
     expect(countMoves(parseSgf('(;GM[1]SZ[19];B[dd](;W[pp])(;W[dp];B[pq]))'))).toBe(4);
+  });
+
+  it('gives setup nodes their own tree step after moves', () => {
+    const tree = buildTree(parseSgf('(;GM[1]SZ[19];B[dd];AB[pq];W[pp])'))[0];
+    expect(tree.children[0].moveNumber).toBe(1);
+    expect(tree.children[0].children[0]).toMatchObject({
+      moveNumber: 2,
+      isSetup: true,
+      setupColor: 'B',
+    });
+    expect(tree.children[0].children[0].children[0].moveNumber).toBe(3);
   });
 
   it('reorders branches', () => {

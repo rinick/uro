@@ -13,6 +13,7 @@ interface GoBoardProps {
   stoneScoreDeltas: Map<string, number>;
   analysisSettings: AnalysisSettings;
   onVertexClick: (point: string) => void;
+  onVertexRightClick: (point: string) => void;
 }
 
 export type MoveNumberLimit = 0 | 1 | 5 | 20 | 'all';
@@ -39,6 +40,7 @@ export function GoBoard({
   stoneScoreDeltas,
   analysisSettings,
   onVertexClick,
+  onVertexRightClick,
 }: GoBoardProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
@@ -114,7 +116,7 @@ export function GoBoard({
 
   return (
     <div className="board-frame" ref={frameRef}>
-      <div className="board-surface">
+      <div className="board-surface" onContextMenu={(event) => event.preventDefault()}>
         <Goban
           className="uro-goban"
           vertexSize={vertexSize}
@@ -126,6 +128,11 @@ export function GoBoard({
           paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
           onVertexClick={(_event, vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1]))}
+          onVertexMouseDown={(event, vertex) => {
+            if (event.button !== 2) return;
+            event.preventDefault();
+            onVertexRightClick(vertexToPoint(vertex[0], vertex[1]));
+          }}
         />
       </div>
     </div>
