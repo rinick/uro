@@ -272,7 +272,7 @@ body {
 
 .right-region {
   display: grid;
-  grid-template-rows: auto minmax(160px, 38%) 1fr;
+  grid-template-rows: auto 277px 1fr;
   min-height: 0;
   border-left: 1px solid #c4d2ca;
   background: #f8faf9;
@@ -378,6 +378,7 @@ body {
 
 .comments-panel {
   border-bottom: 1px solid #d8e2dc;
+  overflow: hidden;
 }
 
 .comments-panel-header {
@@ -578,38 +579,6 @@ body {
   position: relative;
   display: inline-block;
   min-width: 12px;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-
-.move-tree-node.has-comment .move-tree-node-text,
-.move-tree-node.has-drawing .move-tree-node-text {
-  text-decoration-line: underline;
-}
-
-.move-tree-node.pass.has-comment .move-tree-node-text,
-.move-tree-node.pass.has-drawing .move-tree-node-text {
-  text-decoration-line: none;
-}
-
-.move-tree-node.pass.has-comment .move-tree-node-text::after,
-.move-tree-node.pass.has-drawing .move-tree-node-text::after {
-  position: absolute;
-  left: 50%;
-  bottom: -3px;
-  width: 12px;
-  height: 2px;
-  transform: translateX(-50%);
-  background: currentColor;
-  content: '';
-}
-
-.move-tree-node.has-comment {
-  border-bottom-left-radius: 3px;
-}
-
-.move-tree-node.has-drawing {
-  border-top-right-radius: 3px;
 }
 
 .move-tree-node.black {

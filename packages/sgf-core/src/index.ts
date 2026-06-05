@@ -22,6 +22,7 @@ export interface TreeItem {
   hasMetadata: boolean;
   hasComment: boolean;
   hasDrawing: boolean;
+  hasInitialBlackStones: boolean;
   children: TreeItem[];
 }
 
@@ -580,6 +581,7 @@ export function buildTree(document: SgfDocument): TreeItem[] {
       hasMetadata: hasNodeMetadata(node),
       hasComment: hasNodeComment(node),
       hasDrawing: hasNodeDrawing(node),
+      hasInitialBlackStones: color == null && (node.data.AB ?? []).length > 0,
       children: node.children.map((child, index) => walk(child, [...path, index], nextMoveNumber)),
     };
   }

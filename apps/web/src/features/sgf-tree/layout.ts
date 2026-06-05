@@ -43,8 +43,8 @@ export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
     path: root.path,
     row: root.moveNumber,
     column: 0,
-    color: null,
-    text: '0',
+    color: rootCellColor(root),
+    text: '',
     isPass: false,
     hasMetadata: root.hasMetadata,
     hasComment: root.hasComment,
@@ -90,4 +90,8 @@ export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
     cells,
     connectors,
   };
+}
+
+function rootCellColor(root: TreeItem): SgfColor | null {
+  return root.color == null && root.hasInitialBlackStones ? 'B' : root.color;
 }

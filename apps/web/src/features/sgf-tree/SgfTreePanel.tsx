@@ -223,7 +223,7 @@ function MoveTreeRow({
         {cells.map((cell) => (
           <button
             key={cell.id}
-            className={`move-tree-node ${cell.color === 'B' ? 'black' : cell.color === 'W' ? 'white' : 'root'} ${cell.isPass ? 'pass' : ''} ${cell.hasComment ? 'has-comment' : ''} ${cell.hasDrawing ? 'has-drawing' : ''} ${samePath(cell.path, selectedPath) ? 'selected' : ''}`}
+            className={`move-tree-node ${cell.color === 'B' ? 'black' : cell.color === 'W' ? 'white' : 'root'} ${cell.isPass ? 'pass' : ''} ${samePath(cell.path, selectedPath) ? 'selected' : ''}`}
             style={{gridColumn: cell.column + 1}}
             type="button"
             data-tree-node-id={cell.id}
