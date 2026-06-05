@@ -34,7 +34,8 @@ import {
   addLabel,
   addMarkup,
   addMove,
-  addSetupStone,
+  cloneDocument,
+  createNode,
   createNewGame,
   deleteNode,
   erasePoint,
@@ -134,6 +135,7 @@ interface AnalysisQueryContext {
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
   invalidatePath?: number[];
+  pendingSetupPath?: number[] | null;
 }
 
 export function App() {
@@ -165,6 +167,7 @@ export function App() {
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
   const fastAnalysisRef = useRef(false);
+  const pendingSetupPathRef = useRef<number[] | null>(null);
   const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
   const boardSize = useMemo(() => getBoardSize(document), [document]);
@@ -262,7 +265,24 @@ export function App() {
     setPath(normalizedPath);
     setAutoColorOverride(null);
     setReplaceMode(false);
+    pendingSetupPathRef.current = options.pendingSetupPath ?? null;
     rememberPath(normalizedPath);
+  }
+
+  function selectPath(nextPath: number[]): void {
+    const normalizedPath = normalizeSelectedPath(document, nextPath);
+    const finalized = finalizePendingSetup(document, pendingSetupPathRef.current, normalizedPath);
+    pendingSetupPathRef.current = null;
+
+    if (finalized.document !== document) {
+      replaceDocument(finalized.document, finalized.path);
+      return;
+    }
+
+    rememberPath(normalizedPath);
+    setPath(normalizedPath);
+    setAutoColorOverride(null);
+    setReplaceMode(false);
   }
 
   const updateAnalysisSettings = useCallback((values: Partial<AnalysisSettings>): void => {
@@ -422,6 +442,7 @@ export function App() {
       if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void uro.katago.stopAnalysis();
       return;
     }
+    if (pendingSetupPathRef.current != null && samePath(pendingSetupPathRef.current, path)) return;
 
     const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
     if (
@@ -621,102 +642,59 @@ export function App() {
   }
 
   const navigateToFirst = useCallback(() => {
-    setPath(normalizeSelectedPath(document, []));
-    setAutoColorOverride(null);
-    setReplaceMode(false);
-  }, [document]);
+    selectPath([]);
+  }, [document, path]);
 
   const navigatePrevious = useCallback(
     (steps = 1) => {
-      setPath((current) => {
-        rememberPath(current);
-        return normalizeSelectedPath(document, current.slice(0, Math.max(0, current.length - steps)));
-      });
-      setAutoColorOverride(null);
-      setReplaceMode(false);
+      rememberPath(path);
+      selectPath(path.slice(0, Math.max(0, path.length - steps)));
     },
-    [document]
+    [document, path]
   );
 
   const navigateNext = useCallback(
     (steps = 1) => {
-      setPath((current) => {
-        let next = current;
-        for (let index = 0; index < steps; index += 1) {
-          const node = getNodeAtPath(document, next);
-          if (node.children.length === 0) break;
-          const rememberedChild = branchMemoryRef.current.get(pathKey(next)) ?? 0;
-          next = [...next, rememberedChild < node.children.length ? rememberedChild : 0];
-        }
-        rememberPath(next);
-        return next;
-      });
-      setAutoColorOverride(null);
-      setReplaceMode(false);
+      selectPath(nextRememberedPath(document, path, steps, branchMemoryRef.current));
     },
-    [document]
+    [document, path]
   );
 
   const navigateFirstChild = useCallback(
     (steps = 1) => {
-      setPath((current) => {
-        let next = current;
-        for (let index = 0; index < steps; index += 1) {
-          const node = getNodeAtPath(document, next);
-          if (node.children.length === 0) break;
-          next = [...next, 0];
-        }
-        rememberPath(next);
-        return next;
-      });
-      setAutoColorOverride(null);
-      setReplaceMode(false);
+      selectPath(nextFirstChildPath(document, path, steps));
     },
-    [document]
+    [document, path]
   );
 
   const navigateToLast = useCallback(() => {
-    setPath((current) => {
-      let next = current;
-      while (true) {
-        const node = getNodeAtPath(document, next);
-        if (node.children.length === 0) return next;
-        const rememberedChild = branchMemoryRef.current.get(pathKey(next)) ?? 0;
-        next = [...next, rememberedChild < node.children.length ? rememberedChild : 0];
-      }
-    });
-    setAutoColorOverride(null);
-    setReplaceMode(false);
-  }, [document]);
+    selectPath(nextRememberedPath(document, path, Infinity, branchMemoryRef.current));
+  }, [document, path]);
 
   const navigateBranch = useCallback(
     (direction: -1 | 1, steps = 1) => {
-      setPath((current) => {
-        const currentCell = treeLayout.cells.find((cell) => samePath(cell.path, current));
-        if (currentCell == null) return current;
+      const currentCell = treeLayout.cells.find((cell) => samePath(cell.path, path));
+      if (currentCell == null) return;
 
-        const rowCells = treeLayout.cells
-          .filter((cell) => cell.row === currentCell.row)
-          .sort((left, right) => left.column - right.column);
-        const index = rowCells.findIndex((cell) => samePath(cell.path, current));
-        const nextIndex = !Number.isFinite(steps)
-          ? direction < 0
-            ? 0
-            : rowCells.length - 1
-          : Math.max(0, Math.min(rowCells.length - 1, index + direction * steps));
-        const nextPath = rowCells[nextIndex]?.path;
-        if (nextPath == null) return current;
+      const rowCells = treeLayout.cells
+        .filter((cell) => cell.row === currentCell.row)
+        .sort((left, right) => left.column - right.column);
+      const index = rowCells.findIndex((cell) => samePath(cell.path, path));
+      const nextIndex = !Number.isFinite(steps)
+        ? direction < 0
+          ? 0
+          : rowCells.length - 1
+        : Math.max(0, Math.min(rowCells.length - 1, index + direction * steps));
+      const nextPath = rowCells[nextIndex]?.path;
+      if (nextPath == null) return;
 
-        rememberPath(nextPath);
-        return nextPath;
-      });
-      setAutoColorOverride(null);
-      setReplaceMode(false);
+      selectPath(nextPath);
     },
-    [treeLayout]
+    [document, path, treeLayout]
   );
 
   function handleToolChange(nextTool: EditorTool): void {
+    if (nextTool !== tool) selectPath(path);
     setReplaceMode(false);
     setTool(nextTool);
     if (nextTool !== 'auto') setAutoColorOverride(null);
@@ -725,6 +703,7 @@ export function App() {
   function handleAutoToolClick(): void {
     setReplaceMode(false);
     if (tool !== 'auto') {
+      selectPath(path);
       setTool('auto');
       return;
     }
@@ -872,10 +851,7 @@ export function App() {
       const color = nextAutoColor;
       const existingChildPath = findChildMovePath(document, path, color, point);
       if (existingChildPath != null) {
-        rememberPath(existingChildPath);
-        setPath(existingChildPath);
-        setAutoColorOverride(null);
-        setReplaceMode(false);
+        selectPath(existingChildPath);
         return;
       }
 
@@ -885,9 +861,12 @@ export function App() {
     }
 
     if (tool === 'black' || tool === 'white') {
-      if (position.stones.has(point) && !isCurrentSetupStone(document, path, point)) return;
+      const setupPath = editableSetupPath(document, path);
+      if (position.stones.has(point) && (setupPath == null || !isCurrentSetupStone(document, setupPath, point))) return;
+
       const color = tool === 'black' ? 'B' : 'W';
-      replaceDocument(addSetupStone(document, path, color, point), path, {invalidatePath: path});
+      const result = addSetupStoneMove(document, setupPath ?? path, color, point, setupPath != null);
+      replaceDocument(result.document, result.path, {invalidatePath: result.path, pendingSetupPath: result.path});
       return;
     }
 
@@ -1181,10 +1160,7 @@ export function App() {
               onSelectChartMove={(moveNumber) => {
                 const nextPath = analysisChartPaths[moveNumber];
                 if (nextPath == null) return;
-                rememberPath(nextPath);
-                setPath(nextPath);
-                setAutoColorOverride(null);
-                setReplaceMode(false);
+                selectPath(nextPath);
               }}
             />
             <SgfTreePanel
@@ -1192,11 +1168,7 @@ export function App() {
               selectedPath={path}
               replaceActive={replaceMode}
               onSelectPath={(nextPath) => {
-                const normalizedPath = normalizeSelectedPath(document, nextPath);
-                rememberPath(normalizedPath);
-                setPath(normalizedPath);
-                setAutoColorOverride(null);
-                setReplaceMode(false);
+                selectPath(nextPath);
               }}
               onMoveToMain={handleMoveBranchToMain}
               onMoveLeft={handleMoveBranchLeft}
@@ -1259,6 +1231,42 @@ function pathKey(path: number[]): string {
   return path.join('.');
 }
 
+function addSetupStoneMove(
+  document: SgfDocument,
+  path: number[],
+  color: SgfColor,
+  point: string,
+  editExisting: boolean
+): {document: SgfDocument; path: number[]} {
+  const next = cloneDocument(document);
+  const node = getNodeAtPath(next, path);
+
+  if (editExisting) {
+    addSetupStoneToNode(node, color, point);
+    return {document: next, path};
+  }
+
+  const child = createNode();
+  addSetupStoneToNode(child, color, point);
+  node.children.push(child);
+  return {document: next, path: [...path, node.children.length - 1]};
+}
+
+function addSetupStoneToNode(node: SgfNode, color: SgfColor, point: string): void {
+  const prop = color === 'B' ? 'AB' : 'AW';
+  const opposite = color === 'B' ? 'AW' : 'AB';
+  removePointValues(node, [opposite, 'AE'], point);
+  addUniqueValue(node, prop, point);
+}
+
+function editableSetupPath(document: SgfDocument, path: number[]): number[] | null {
+  if (path.length === 0) return path;
+
+  const node = getNodeAtPath(document, path);
+  if (!isSetupNode(node) || node.children.length > 0) return null;
+  return path;
+}
+
 function findChildMovePath(document: SgfDocument, path: number[], color: SgfColor, point: string): number[] | null {
   const node = getNodeAtPath(document, path);
   const index = node.children.findIndex((child) => child.data[color]?.[0] === point);
@@ -1268,6 +1276,111 @@ function findChildMovePath(document: SgfDocument, path: number[], color: SgfColo
 function isCurrentSetupStone(document: SgfDocument, path: number[], point: string): boolean {
   const node = getNodeAtPath(document, path);
   return (node.data.AB ?? []).includes(point) || (node.data.AW ?? []).includes(point);
+}
+
+function finalizePendingSetup(
+  document: SgfDocument,
+  pendingPath: number[] | null,
+  nextPath: number[]
+): {document: SgfDocument; path: number[]} {
+  if (pendingPath == null) return {document, path: nextPath};
+
+  const pendingNode = safeNodeAtPath(document, pendingPath);
+  if (pendingNode == null || !isSetupNode(pendingNode) || pendingPath.length === 0) return {document, path: nextPath};
+
+  const parentPath = pendingPath.slice(0, -1);
+  const pendingIndex = pendingPath[pendingPath.length - 1];
+  const parent = getNodeAtPath(document, parentPath);
+  const signature = setupSignature(pendingNode);
+  const duplicateIndex = parent.children.findIndex(
+    (child, index) => index !== pendingIndex && isSetupNode(child) && setupSignature(child) === signature
+  );
+  if (duplicateIndex < 0) return {document, path: nextPath};
+
+  const next = cloneDocument(document);
+  const nextParent = getNodeAtPath(next, parentPath);
+  nextParent.children.splice(pendingIndex, 1);
+  return {
+    document: next,
+    path: adjustPathAfterSiblingRemoval(nextPath, parentPath, pendingIndex, duplicateIndex),
+  };
+}
+
+function adjustPathAfterSiblingRemoval(
+  path: number[],
+  parentPath: number[],
+  removedIndex: number,
+  duplicateIndex: number
+): number[] {
+  if (path.length <= parentPath.length || !samePath(path.slice(0, parentPath.length), parentPath)) return path;
+
+  const index = path[parentPath.length];
+  const adjustedDuplicateIndex = duplicateIndex > removedIndex ? duplicateIndex - 1 : duplicateIndex;
+  if (index === removedIndex) return [...parentPath, adjustedDuplicateIndex, ...path.slice(parentPath.length + 1)];
+  if (index > removedIndex) return [...parentPath, index - 1, ...path.slice(parentPath.length + 1)];
+  return path;
+}
+
+function safeNodeAtPath(document: SgfDocument, path: number[]): SgfNode | null {
+  try {
+    return getNodeAtPath(document, path);
+  } catch {
+    return null;
+  }
+}
+
+function isSetupNode(node: SgfNode): boolean {
+  return node.data.B == null && node.data.W == null && ['AB', 'AW', 'AE'].some((key) => (node.data[key] ?? []).length > 0);
+}
+
+function setupSignature(node: SgfNode): string {
+  return ['AB', 'AW', 'AE']
+    .map((key) => `${key}:${[...(node.data[key] ?? [])].sort().join(',')}`)
+    .join('|');
+}
+
+function removePointValues(node: SgfNode, keys: string[], point: string): void {
+  for (const key of keys) {
+    const values = node.data[key];
+    if (values == null) continue;
+    const next = values.filter((value) => value !== point);
+    if (next.length === 0) {
+      delete node.data[key];
+    } else {
+      node.data[key] = next;
+    }
+  }
+}
+
+function addUniqueValue(node: SgfNode, key: string, value: string): void {
+  const values = node.data[key] ?? [];
+  if (!values.includes(value)) node.data[key] = [...values, value];
+}
+
+function nextRememberedPath(
+  document: SgfDocument,
+  path: number[],
+  steps: number,
+  branchMemory: Map<string, number>
+): number[] {
+  let next = path;
+  for (let index = 0; index < steps; index += 1) {
+    const node = getNodeAtPath(document, next);
+    if (node.children.length === 0) break;
+    const rememberedChild = branchMemory.get(pathKey(next)) ?? 0;
+    next = [...next, rememberedChild < node.children.length ? rememberedChild : 0];
+  }
+  return next;
+}
+
+function nextFirstChildPath(document: SgfDocument, path: number[], steps: number): number[] {
+  let next = path;
+  for (let index = 0; index < steps; index += 1) {
+    const node = getNodeAtPath(document, next);
+    if (node.children.length === 0) break;
+    next = [...next, 0];
+  }
+  return next;
 }
 
 function getCurrentBranchMovePaths(
