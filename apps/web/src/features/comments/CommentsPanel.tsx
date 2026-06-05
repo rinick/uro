@@ -1,6 +1,6 @@
 import {Button, Empty, Input, Space} from 'antd';
 import {useMemo, useState} from 'react';
-import type {MouseEvent} from 'react';
+import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {AnalysisChartPoint} from '@uro/analysis-core';
 
@@ -11,6 +11,8 @@ interface CommentsPanelProps {
   chartData?: AnalysisChartPoint[];
   selectedMoveNumber?: number | null;
   chartSummary?: AnalysisChartSummary | null;
+  onPreviousMove?: () => void;
+  onNextMove?: () => void;
   onSelectChartMove?: (moveNumber: number) => void;
 }
 
@@ -33,6 +35,8 @@ export function CommentsPanel({
   chartData = [],
   selectedMoveNumber = null,
   chartSummary = null,
+  onPreviousMove,
+  onNextMove,
   onSelectChartMove,
 }: CommentsPanelProps) {
   const {t} = useTranslation();
@@ -85,6 +89,8 @@ export function CommentsPanel({
             scoreLabel={t('analysis.score')}
             selectedMoveNumber={selectedMoveNumber}
             summary={chartSummary}
+            onPreviousMove={onPreviousMove}
+            onNextMove={onNextMove}
             onSelectMove={onSelectChartMove}
           />
         ) : (
@@ -109,6 +115,8 @@ function AnalysisChart({
   scoreLabel,
   selectedMoveNumber,
   summary,
+  onPreviousMove,
+  onNextMove,
   onSelectMove,
 }: {
   scoreData: AnalysisChartPoint[];
@@ -117,6 +125,8 @@ function AnalysisChart({
   scoreLabel: string;
   selectedMoveNumber: number | null;
   summary: AnalysisChartSummary | null;
+  onPreviousMove?: () => void;
+  onNextMove?: () => void;
   onSelectMove?: (moveNumber: number) => void;
 }) {
   const [hoverMoveNumber, setHoverMoveNumber] = useState<number | null>(null);
@@ -161,6 +171,12 @@ function AnalysisChart({
     setHoverMoveNumber(xToHoverMoveNumber(point.x, point.y, maxMove, width, height, padding));
   }
 
+  function handleWheel(event: WheelEvent<SVGSVGElement>): void {
+    event.preventDefault();
+    if (event.deltaY > 0) onNextMove?.();
+    if (event.deltaY < 0) onPreviousMove?.();
+  }
+
   return (
     <div className="analysis-chart-wrap">
       <svg
@@ -171,6 +187,7 @@ function AnalysisChart({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoverMoveNumber(null)}
+        onWheel={handleWheel}
       >
         <line
           className="analysis-chart-grid"

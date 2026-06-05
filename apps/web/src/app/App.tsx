@@ -821,21 +821,28 @@ export function App() {
     function handleKeyDown(event: KeyboardEvent): void {
       if (isTextInputActive()) return;
       const steps = event.shiftKey ? 10 : 1;
-      if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      const key = event.key.toLowerCase();
+      if (key === 'q') {
         event.preventDefault();
-        if (isSgfTreeHoveredRef.current && event.key === 'ArrowLeft') {
+        navigateBranch(-1);
+      } else if (key === 'e') {
+        event.preventDefault();
+        navigateBranch(1);
+      } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft' || key === 'w' || key === 'a') {
+        event.preventDefault();
+        if (isSgfTreeHoveredRef.current && (event.key === 'ArrowLeft' || key === 'a')) {
           navigateBranch(-1);
         } else {
           navigatePrevious(steps);
         }
-      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowRight' || key === 's' || key === 'd') {
         event.preventDefault();
         if (isSgfTreeHoveredRef.current) {
-          if (event.key === 'ArrowDown') navigateNext(steps);
-          if (event.key === 'ArrowRight') navigateBranch(1);
+          if (event.key === 'ArrowDown' || key === 's') navigateNext(steps);
+          if (event.key === 'ArrowRight' || key === 'd') navigateBranch(1);
         } else {
-          if (event.key === 'ArrowDown') navigateFirstChild(steps);
-          if (event.key === 'ArrowRight') navigateNext(steps);
+          if (event.key === 'ArrowDown' || key === 's') navigateFirstChild(steps);
+          if (event.key === 'ArrowRight' || key === 'd') navigateNext(steps);
         }
       } else if (capabilities.katago && event.key === ' ') {
         event.preventDefault();
@@ -1156,6 +1163,8 @@ export function App() {
               chartData={analysisChartData}
               selectedMoveNumber={selectedChartMoveNumber}
               chartSummary={analysisChartSummary}
+              onPreviousMove={() => navigatePrevious()}
+              onNextMove={() => navigateNext()}
               onSelectChartMove={(moveNumber) => {
                 const nextPath = analysisChartPaths[moveNumber];
                 if (nextPath == null) return;
