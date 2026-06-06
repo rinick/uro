@@ -5,6 +5,9 @@ import path from 'node:path';
 export default defineConfig({
   base: './',
   plugins: [react()],
+  server: {
+    hmr: false,
+  },
   resolve: {
     alias: [
       {find: '@uro/sgf-core', replacement: path.resolve(__dirname, '../../packages/sgf-core/src')},
