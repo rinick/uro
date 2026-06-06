@@ -30,68 +30,94 @@ export interface TreeLayout {
 }
 
 export const gutterWidth = 42;
-export const treeStep = 30;
-export const cornerRadius = 6;
+export const treeColumnStep = 30;
+export const treeRowStep = 36;
+export const cornerRadius = 11;
 
 export function layoutTree(root: TreeItem, boardSize = 19): TreeLayout {
-  const cells: TreeCell[] = [];
+  const cells: LayoutCell[] = [];
   const connectors: TreeConnector[] = [];
-  let nextColumn = 1;
-  let maxColumn = 0;
-  let maxRow = root.moveNumber;
-  cells.push({
-    id: root.id,
-    path: root.path,
-    row: root.moveNumber,
-    column: 0,
-    color: rootCellColor(root),
-    text: root.isSetup ? '+' : '',
-    isSetup: root.isSetup,
-    isPass: false,
-    hasMetadata: root.hasMetadata,
-    hasComment: root.hasComment,
-    hasDrawing: root.hasDrawing,
-  });
+  const occupied = new Set<string>();
 
-  function walk(item: TreeItem, column: number): void {
-    item.children.forEach((child, index) => {
-      const childColumn = index === 0 ? column : nextColumn++;
-      maxColumn = Math.max(maxColumn, childColumn);
+  addCell(cells, occupied, root, 0);
+  walkTree(root, 0, cells, connectors, occupied);
 
-      connectors.push({
-        id: `${item.id}-${child.id}`,
-        fromRow: item.moveNumber,
-        fromColumn: column,
-        toRow: child.moveNumber,
-        toColumn: childColumn,
-      });
-
-      maxRow = Math.max(maxRow, child.moveNumber);
-      cells.push({
-        id: child.id,
-        path: child.path,
-        row: child.moveNumber,
-        column: childColumn,
-        color: child.color ?? child.setupColor,
-        text: child.isSetup ? '+' : child.point === '' ? '' : formatPoint(child.point, boardSize),
-        isSetup: child.isSetup,
-        isPass: !child.isSetup && child.point === '',
-        hasMetadata: child.hasMetadata,
-        hasComment: child.hasComment,
-        hasDrawing: child.hasDrawing,
-      });
-
-      walk(child, childColumn);
-    });
-  }
-
-  walk(root, 0);
+  const maxRow = Math.max(...cells.map((cell) => cell.row));
+  const maxColumn = Math.max(...cells.map((cell) => cell.column));
 
   return {
     rows: Array.from({length: maxRow + 1}, (_, index) => index),
     columns: Math.max(maxColumn + 1, 1),
-    cells,
+    cells: cells.map((cell) => treeCell(cell.item, cell.column, boardSize)),
     connectors,
+  };
+}
+
+interface LayoutCell {
+  item: TreeItem;
+  row: number;
+  column: number;
+}
+
+function walkTree(
+  item: TreeItem,
+  column: number,
+  cells: LayoutCell[],
+  connectors: TreeConnector[],
+  occupied: Set<string>
+): void {
+  item.children.forEach((child, index) => {
+    const childColumn = firstAvailableColumn(child.moveNumber, occupied, index === 0 ? column : column + 1);
+
+    connectors.push({
+      id: `${item.id}-${child.id}`,
+      fromRow: item.moveNumber,
+      fromColumn: column,
+      toRow: child.moveNumber,
+      toColumn: childColumn,
+    });
+    addCell(cells, occupied, child, childColumn);
+    walkTree(child, childColumn, cells, connectors, occupied);
+  });
+}
+
+function addCell(cells: LayoutCell[], occupied: Set<string>, item: TreeItem, column: number): void {
+  cells.push({item, row: item.moveNumber, column});
+  occupied.add(layoutKey(item.moveNumber, column));
+}
+
+function firstAvailableColumn(row: number, occupied: Set<string>, minColumn: number): number {
+  let column = minColumn;
+  while (occupied.has(layoutKey(row, column))) column += 1;
+  return column;
+}
+
+function layoutKey(row: number, column: number): string {
+  return `${row}:${column}`;
+}
+
+function treeCell(item: TreeItem, column: number, boardSize: number): TreeCell {
+  return {
+    id: item.id,
+    path: item.path,
+    row: item.moveNumber,
+    column,
+    color: item.path.length === 0 ? rootCellColor(item) : (item.color ?? item.setupColor),
+    text:
+      item.path.length === 0
+        ? item.isSetup
+          ? '+'
+          : ''
+        : item.isSetup
+          ? '+'
+          : item.point === ''
+            ? ''
+            : formatPoint(item.point, boardSize),
+    isSetup: item.isSetup,
+    isPass: item.path.length > 0 && !item.isSetup && item.point === '',
+    hasMetadata: item.hasMetadata,
+    hasComment: item.hasComment,
+    hasDrawing: item.hasDrawing,
   };
 }
 

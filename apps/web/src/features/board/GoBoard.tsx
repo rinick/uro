@@ -1,7 +1,7 @@
-import {Goban, type HeatVertex, type Marker, type MoveHint} from '@uro/react-shudan';
+import {Goban, type HeatVertex, type Marker, type MoveHint, type Vertex} from '@uro/react-shudan';
 import {deriveBoardPosition, type BoardPoint} from '@uro/go-core';
 import {getNodeAtPath, pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@uro/sgf-core';
-import {useLayoutEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent} from 'react';
 import type {AnalysisSettings, KataGoAnalysisResult, KataGoMoveInfo} from '@uro/analysis-core';
 
 interface GoBoardProps {
@@ -99,6 +99,18 @@ export function GoBoard({
     () => buildOwnershipPaintMap(position.size, analysis, analysisSettings, position.stones),
     [analysis, analysisSettings, position.size, position.stones]
   );
+  const handleVertexClick = useCallback(
+    (_event: VertexEvent, vertex: Vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1])),
+    [onVertexClick]
+  );
+  const handleVertexMouseDown = useCallback(
+    (event: VertexEvent, vertex: Vertex) => {
+      if (event.button !== 2) return;
+      event.preventDefault();
+      onVertexRightClick(vertexToPoint(vertex[0], vertex[1]));
+    },
+    [onVertexRightClick]
+  );
 
   useLayoutEffect(() => {
     const element = frameRef.current;
@@ -127,17 +139,15 @@ export function GoBoard({
           moveHintMap={moveHintMap}
           paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
-          onVertexClick={(_event, vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1]))}
-          onVertexMouseDown={(event, vertex) => {
-            if (event.button !== 2) return;
-            event.preventDefault();
-            onVertexRightClick(vertexToPoint(vertex[0], vertex[1]));
-          }}
+          onVertexClick={handleVertexClick}
+          onVertexMouseDown={handleVertexMouseDown}
         />
       </div>
     </div>
   );
 }
+
+type VertexEvent = MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>;
 
 function buildAnalysisHeatMap(
   size: number,

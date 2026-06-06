@@ -509,7 +509,7 @@ body {
 .move-tree {
   position: relative;
   display: grid;
-  grid-auto-rows: 30px;
+  grid-auto-rows: 36px;
   align-items: center;
   min-width: max-content;
   padding: 4px 0 12px;
@@ -549,11 +549,8 @@ body {
   display: grid;
   grid-column: 2 / -1;
   grid-row: span 1;
-  height: 30px;
+  height: 36px;
   align-items: center;
-  background-image: linear-gradient(to right, rgba(104, 124, 114, 0.16) 1px, transparent 1px);
-  background-position: 15px 0;
-  background-size: 30px 100%;
 }
 
 .move-tree-node {

@@ -7,7 +7,8 @@ import {
   cornerRadius,
   gutterWidth,
   layoutTree,
-  treeStep,
+  treeColumnStep,
+  treeRowStep,
   type TreeCell,
   type TreeConnector,
   type TreeLayout,
@@ -148,7 +149,7 @@ export function SgfTreePanel({
       <div className="tree-scroll" ref={scrollRef} onScroll={handleScroll}>
         <div
           className="move-tree"
-          style={{gridTemplateColumns: `${gutterWidth}px repeat(${layout.columns}, ${treeStep}px)`}}
+          style={{gridTemplateColumns: `${gutterWidth}px repeat(${layout.columns}, ${treeColumnStep}px)`}}
         >
           <ConnectorLayer layout={layout} />
           {layout.rows.map((row) => (
@@ -215,7 +216,7 @@ function MoveTreeRow({
   return (
     <>
       <div className="move-row-number">{row}</div>
-      <div className="move-row-cells" style={{gridTemplateColumns: `repeat(${columns}, ${treeStep}px)`}}>
+      <div className="move-row-cells" style={{gridTemplateColumns: `repeat(${columns}, ${treeColumnStep}px)`}}>
         {cells.map((cell) => (
           <button
             key={cell.id}
@@ -235,8 +236,8 @@ function MoveTreeRow({
 }
 
 function ConnectorLayer({layout}: {layout: TreeLayout}) {
-  const width = gutterWidth + layout.columns * treeStep;
-  const height = layout.rows.length * treeStep;
+  const width = gutterWidth + layout.columns * treeColumnStep;
+  const height = layout.rows.length * treeRowStep;
 
   return (
     <svg
@@ -254,10 +255,10 @@ function ConnectorLayer({layout}: {layout: TreeLayout}) {
 }
 
 function connectorPath(connector: TreeConnector): string {
-  const x1 = gutterWidth + connector.fromColumn * treeStep + treeStep / 2;
-  const x2 = gutterWidth + connector.toColumn * treeStep + treeStep / 2;
-  const y1 = connector.fromRow * treeStep + treeStep / 2;
-  const y2 = connector.toRow * treeStep + treeStep / 2;
+  const x1 = gutterWidth + connector.fromColumn * treeColumnStep + treeColumnStep / 2;
+  const x2 = gutterWidth + connector.toColumn * treeColumnStep + treeColumnStep / 2;
+  const y1 = connector.fromRow * treeRowStep + treeRowStep / 2;
+  const y2 = connector.toRow * treeRowStep + treeRowStep / 2;
 
   if (x1 === x2) return `M ${x1} ${y1} L ${x2} ${y2}`;
 

@@ -1130,7 +1130,6 @@ export function App() {
           <main
             className="board-region"
             onWheel={(event) => {
-              event.preventDefault();
               if (event.deltaY > 0) navigateNext();
               if (event.deltaY < 0) navigatePrevious();
             }}

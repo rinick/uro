@@ -1,4 +1,4 @@
-import {createElement as h, useCallback} from 'react';
+import {createElement as h, memo, useCallback} from 'react';
 import type {CSSProperties, MouseEvent, PointerEvent} from 'react';
 import classnames from 'classnames';
 
@@ -54,7 +54,7 @@ const absoluteStyle = (): CSSProperties => ({
   position: 'absolute',
 });
 
-export default function Vertex(props: VertexProps) {
+function Vertex(props: VertexProps) {
   let {
     position,
     shift,
@@ -230,6 +230,66 @@ export default function Vertex(props: VertexProps) {
           style: absoluteStyle(),
         },
         heat.text && heat.text.toString()
-      )
+    )
+  );
+}
+
+export default memo(Vertex, sameVertexProps);
+
+function sameVertexProps(previous: VertexProps, next: VertexProps): boolean {
+  return (
+    previous.position[0] === next.position[0] &&
+    previous.position[1] === next.position[1] &&
+    previous.shift === next.shift &&
+    previous.random === next.random &&
+    previous.sign === next.sign &&
+    sameHeat(previous.heat, next.heat) &&
+    sameMoveHint(previous.moveHint, next.moveHint) &&
+    sameMarker(previous.marker, next.marker) &&
+    sameGhostStone(previous.ghostStone, next.ghostStone) &&
+    previous.paint === next.paint &&
+    previous.dimmed === next.dimmed &&
+    previous.animate === next.animate &&
+    previous.selected === next.selected &&
+    previous.selectedLeft === next.selectedLeft &&
+    previous.selectedRight === next.selectedRight &&
+    previous.selectedTop === next.selectedTop &&
+    previous.selectedBottom === next.selectedBottom &&
+    vertexEvents.every((eventName) => previous[`on${eventName}`] === next[`on${eventName}`])
+  );
+}
+
+function sameHeat(left: HeatVertex | null | undefined, right: HeatVertex | null | undefined): boolean {
+  return (
+    left === right ||
+    (left != null &&
+      right != null &&
+      left.strength === right.strength &&
+      left.heat === right.heat &&
+      left.dot === right.dot &&
+      left.dotSize === right.dotSize &&
+      left.text === right.text)
+  );
+}
+
+function sameMoveHint(left: MoveHint | null | undefined, right: MoveHint | null | undefined): boolean {
+  return (
+    left === right ||
+    (left != null && right != null && left.best === right.best && left.branch === right.branch && left.sign === right.sign)
+  );
+}
+
+function sameMarker(left: MarkerData | null | undefined, right: MarkerData | null | undefined): boolean {
+  return left === right || (left != null && right != null && left.type === right.type && left.label === right.label);
+}
+
+function sameGhostStone(left: GhostStone | null | undefined, right: GhostStone | null | undefined): boolean {
+  return (
+    left === right ||
+    (left != null &&
+      right != null &&
+      left.sign === right.sign &&
+      left.type === right.type &&
+      left.faint === right.faint)
   );
 }
