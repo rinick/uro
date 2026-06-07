@@ -56,6 +56,11 @@ body {
   flex: 0 0 auto;
 }
 
+.navigation-tools .ant-btn-sm {
+  width: 30px;
+  font-size: 16px;
+}
+
 .analysis-toolbar-options {
   margin-left: auto;
   font-size: 12px;
@@ -513,6 +518,11 @@ body {
   align-items: center;
   min-width: max-content;
   padding: 4px 0 12px;
+}
+
+.tree-panel-header .ant-btn-sm {
+  width: 30px;
+  font-size: 16px;
 }
 
 .move-tree-connectors {

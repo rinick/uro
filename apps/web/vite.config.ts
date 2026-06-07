@@ -5,6 +5,9 @@ import path from 'node:path';
 export default defineConfig({
   base: './',
   plugins: [react()],
+  build: {
+    minify: true,
+  },
   server: {
     hmr: false,
   },
