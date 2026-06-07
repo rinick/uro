@@ -190,7 +190,6 @@ function AnalysisChart({
         className="analysis-chart"
         viewBox={`0 0 ${width} ${height}`}
         role="img"
-        aria-label="Analysis chart"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHoverMoveNumber(null)}

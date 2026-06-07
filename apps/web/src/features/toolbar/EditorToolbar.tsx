@@ -133,7 +133,7 @@ function AutoPlayIcon({nextColor, onClick}: {nextColor: 'B' | 'W'; onClick: () =
 
 function PalmIcon() {
   return (
-    <svg className="palm-icon" viewBox="0 0 24 24" aria-hidden="true">
+    <svg className="palm-icon" viewBox="0 0 24 24">
       <path d="M8 11V6.5a1.2 1.2 0 0 1 2.4 0V11" />
       <path d="M10.4 11V4.5a1.2 1.2 0 0 1 2.4 0V11" />
       <path d="M12.8 11V5.5a1.2 1.2 0 0 1 2.4 0V12" />
@@ -155,7 +155,7 @@ function NavButton({
 }) {
   return (
     <Tooltip title={title}>
-      <Button size="small" aria-label={title} disabled={disabled} icon={icon} onClick={onClick} />
+      <Button size="small" disabled={disabled} icon={icon} onClick={onClick} />
     </Tooltip>
   );
 }

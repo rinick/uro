@@ -185,15 +185,7 @@ function TreeActionButton({
 }) {
   return (
     <Tooltip title={title}>
-      <Button
-        size="small"
-        aria-label={title}
-        disabled={disabled}
-        danger={danger}
-        type={type}
-        icon={icon}
-        onClick={onClick}
-      />
+      <Button size="small" disabled={disabled} danger={danger} type={type} icon={icon} onClick={onClick} />
     </Tooltip>
   );
 }
@@ -222,7 +214,6 @@ function MoveTreeRow({
             style={{gridColumn: cell.column + 1}}
             type="button"
             data-tree-node-id={cell.id}
-            title={`${row}: ${cell.isSetup ? 'setup' : cell.color == null ? 'Root' : cell.isPass ? 'pass' : cell.text}`}
             onClick={() => onSelectPath(cell.path)}
           >
             <span className="move-tree-node-text">{cell.text}</span>
@@ -238,13 +229,7 @@ function ConnectorLayer({layout}: {layout: TreeLayout}) {
   const height = layout.rows.length * treeRowStep;
 
   return (
-    <svg
-      className="move-tree-connectors"
-      width={width}
-      height={height}
-      viewBox={`0 0 ${width} ${height}`}
-      aria-hidden="true"
-    >
+    <svg className="move-tree-connectors" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
       {layout.connectors.map((connector) => (
         <path key={connector.id} d={connectorPath(connector)} />
       ))}

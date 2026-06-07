@@ -87,12 +87,7 @@ import {
   toolToMarkup,
   withImportedGameName,
 } from './appSgfUtils';
-import {
-  antdLocales,
-  formatConsoleTime,
-  languageOptions,
-  normalizeLanguage,
-} from './appUiUtils';
+import {antdLocales, formatConsoleTime, languageOptions, normalizeLanguage} from './appUiUtils';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
@@ -432,18 +427,14 @@ export function App() {
 
     window.document.body.addEventListener('keydown', handleKeyDown);
     return () => window.document.body.removeEventListener('keydown', handleKeyDown);
-  }, [
-    capabilities.katago,
-    navigateBranch,
-    navigateFirstChild,
-    navigateNext,
-    navigatePrevious,
-    toggleAnalysisMode,
-  ]);
+  }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious, toggleAnalysisMode]);
 
-  const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
-    onAnalysisSettingsSave(settings);
-  }, [onAnalysisSettingsSave]);
+  const handleAnalysisSettingsSave = useCallback(
+    (settings: AnalysisSettings) => {
+      onAnalysisSettingsSave(settings);
+    },
+    [onAnalysisSettingsSave]
+  );
 
   function handleBoardClick(point: string, colorOverride?: SgfColor): void {
     if (replaceMode) {
@@ -625,7 +616,6 @@ export function App() {
               </Space>
               <Select
                 size="small"
-                aria-label={t('menu.language')}
                 value={currentLanguage}
                 suffixIcon={<TranslationOutlined />}
                 popupMatchSelectWidth={false}
