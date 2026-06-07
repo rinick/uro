@@ -23,19 +23,11 @@ import {
   message,
   theme,
 } from 'antd';
-import deDE from 'antd/locale/de_DE';
-import enUS from 'antd/locale/en_US';
-import frFR from 'antd/locale/fr_FR';
-import jaJP from 'antd/locale/ja_JP';
-import koKR from 'antd/locale/ko_KR';
-import ruRU from 'antd/locale/ru_RU';
-import zhCN from 'antd/locale/zh_CN';
 import type {MenuProps} from 'antd';
 import {
   addLabel,
   addMarkup,
   addMove,
-  cloneDocument,
   createNewGame,
   deleteNode,
   erasePoint,
@@ -46,17 +38,13 @@ import {
   buildTree,
   moveBranch,
   moveBranchToMain,
-  parseGib,
   replaceMove,
   samePath,
-  parseSgf,
   serializeSgf,
   updateComment,
   updateGameInfo,
   type SgfColor,
-  type MarkupKind,
   type SgfDocument,
-  type SgfNode,
 } from '@uro/sgf-core';
 import {boardSizes, type BoardSize} from '@uro/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -66,10 +54,7 @@ import {
   defaultAnalysisSettings,
   type AnalysisSettings,
   type AnalysisChartPoint,
-  type KataGoAnalysisResult,
-  type KataGoMoveInfo,
 } from '@uro/analysis-core';
-import {sgfPointToGtp} from '@uro/sgf-analysis-tree';
 import {
   buildKataGoQuery,
   defaultKataGoSettings,
@@ -94,43 +79,52 @@ import {
 import {EditorToolbar} from '../features/toolbar/EditorToolbar';
 import type {EditorTool} from '../features/toolbar/types';
 import {getAppCapabilities} from './capabilities';
+import {
+  buildAnalysisChartData,
+  buildStoneScoreDeltas,
+  getAnalysisVisits,
+  getPendingAnalysisQueryIds,
+  hasPendingAnalysisQuery,
+  hiddenPassVisits,
+  nextColorForPath,
+  normalizeWinratePercent,
+  shouldCountHiddenPassAnalysis,
+  shouldRequestHiddenPassAnalysis,
+  updateAnalysisCache,
+  updateHiddenMoveAnalysisCache,
+  type AnalysisQueryContext,
+  type CachedAnalysis,
+} from './appAnalysisUtils';
+import {
+  addSetupStoneToPath,
+  collectNodeIds,
+  findChildMovePath,
+  getCurrentBranchMovePaths,
+  getMovePaths,
+  isCurrentSetupStone,
+  isTextInputActive,
+  nextFirstChildPath,
+  nextRememberedPath,
+  nodeKey,
+  normalizeSelectedPath,
+  oppositeColor,
+  parseGameRecord,
+  pathKey,
+  readGameRecordFile,
+  safeFileName,
+  toolToMarkup,
+  withImportedGameName,
+} from './appSgfUtils';
+import {
+  antdLocales,
+  createLocalConsoleMessage,
+  formatConsoleTime,
+  languageOptions,
+  normalizeLanguage,
+} from './appUiUtils';
 
 const {Header, Content} = Layout;
 const liveAnalysisVisits = 10_000_000;
-
-const languageOptions = [
-  {value: 'en', label: 'English'},
-  {value: 'zh', label: '中文'},
-  {value: 'ja', label: '日本語'},
-  {value: 'ko', label: '한국어'},
-  {value: 'fr', label: 'Français'},
-  {value: 'de', label: 'Deutsch'},
-  {value: 'ru', label: 'Русский'},
-];
-
-const antdLocales = {
-  de: deDE,
-  en: enUS,
-  fr: frFR,
-  ja: jaJP,
-  ko: koKR,
-  ru: ruRU,
-  zh: zhCN,
-} as const;
-
-interface CachedAnalysis {
-  result: KataGoAnalysisResult;
-  visits: number;
-  completed: boolean;
-}
-
-interface AnalysisQueryContext {
-  nodeId: string;
-  path: number[];
-  version: number;
-  mode: 'fast' | 'live';
-  hiddenMove?: string;
-}
 
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
@@ -1236,527 +1230,4 @@ export function App() {
       />
     </ConfigProvider>
   );
-}
-
-function pathKey(path: number[]): string {
-  return path.join('.');
-}
-
-function addSetupStoneToPath(
-  document: SgfDocument,
-  path: number[],
-  color: SgfColor,
-  point: string
-): {document: SgfDocument; path: number[]; placed: boolean} {
-  const next = cloneDocument(document);
-  const node = getNodeAtPath(next, path);
-  const placed = addSetupStoneToNode(node, color, point);
-  return {document: next, path, placed};
-}
-
-function addSetupStoneToNode(node: SgfNode, color: SgfColor, point: string): boolean {
-  const prop = color === 'B' ? 'AB' : 'AW';
-  const opposite = color === 'B' ? 'AW' : 'AB';
-  if ((node.data[prop] ?? []).includes(point)) {
-    removePointValues(node, [prop], point);
-    return false;
-  }
-
-  removePointValues(node, [opposite, 'AE'], point);
-  addUniqueValue(node, prop, point);
-  return true;
-}
-
-function findChildMovePath(document: SgfDocument, path: number[], color: SgfColor, point: string): number[] | null {
-  const node = getNodeAtPath(document, path);
-  const index = node.children.findIndex((child) => child.data[color]?.[0] === point);
-  return index < 0 ? null : [...path, index];
-}
-
-function isCurrentSetupStone(document: SgfDocument, path: number[], point: string): boolean {
-  const node = getNodeAtPath(document, path);
-  return (node.data.AB ?? []).includes(point) || (node.data.AW ?? []).includes(point);
-}
-
-function oppositeColor(color: SgfColor): SgfColor {
-  return color === 'B' ? 'W' : 'B';
-}
-
-function removePointValues(node: SgfNode, keys: string[], point: string): void {
-  for (const key of keys) {
-    const values = node.data[key];
-    if (values == null) continue;
-    const next = values.filter((value) => value !== point);
-    if (next.length === 0) {
-      delete node.data[key];
-    } else {
-      node.data[key] = next;
-    }
-  }
-}
-
-function addUniqueValue(node: SgfNode, key: string, value: string): void {
-  const values = node.data[key] ?? [];
-  if (!values.includes(value)) node.data[key] = [...values, value];
-}
-
-function nextRememberedPath(
-  document: SgfDocument,
-  path: number[],
-  steps: number,
-  branchMemory: Map<string, number>
-): number[] {
-  let next = path;
-  for (let index = 0; index < steps; index += 1) {
-    const node = getNodeAtPath(document, next);
-    if (node.children.length === 0) break;
-    const rememberedChild = branchMemory.get(pathKey(next)) ?? 0;
-    next = [...next, rememberedChild < node.children.length ? rememberedChild : 0];
-  }
-  return next;
-}
-
-function nextFirstChildPath(document: SgfDocument, path: number[], steps: number): number[] {
-  let next = path;
-  for (let index = 0; index < steps; index += 1) {
-    const node = getNodeAtPath(document, next);
-    if (node.children.length === 0) break;
-    next = [...next, 0];
-  }
-  return next;
-}
-
-function getCurrentBranchMovePaths(
-  document: SgfDocument,
-  selectedPath: number[],
-  branchMemory: Map<string, number>
-): number[][] {
-  const paths: number[][] = [[]];
-  let path: number[] = [];
-
-  for (const index of selectedPath) {
-    path = [...path, index];
-    paths.push(path);
-  }
-
-  let node = getNodeAtPath(document, path);
-  while (node.children.length > 0) {
-    const rememberedChild = branchMemory.get(pathKey(path)) ?? 0;
-    const nextIndex = rememberedChild < node.children.length ? rememberedChild : 0;
-    path = [...path, nextIndex];
-    paths.push(path);
-    node = node.children[nextIndex];
-  }
-
-  return paths;
-}
-
-function getMovePaths(document: SgfDocument): number[][] {
-  const paths: number[][] = [];
-
-  function walk(node: SgfNode, path: number[]): void {
-    if (node.data.B != null || node.data.W != null) paths.push(path);
-    node.children.forEach((child, index) => walk(child, [...path, index]));
-  }
-
-  walk(document.root, []);
-  return paths;
-}
-
-function nodeKey(document: SgfDocument, path: number[]): string {
-  return getNodeAtPath(document, path).id;
-}
-
-function collectNodeIds(node: SgfNode): string[] {
-  return [node.id, ...node.children.flatMap(collectNodeIds)];
-}
-
-function hasPendingAnalysisQuery(
-  contexts: Map<string, AnalysisQueryContext>,
-  mode: AnalysisQueryContext['mode'],
-  nodeId?: string,
-  hiddenMove?: string | null
-): boolean {
-  for (const context of contexts.values()) {
-    if (context.mode !== mode) continue;
-    if (hiddenMove !== undefined && (context.hiddenMove ?? null) !== hiddenMove) continue;
-    if (nodeId == null || context.nodeId === nodeId) return true;
-  }
-  return false;
-}
-
-function getPendingAnalysisQueryIds(
-  contexts: Map<string, AnalysisQueryContext>,
-  mode: AnalysisQueryContext['mode']
-): string[] {
-  return [...contexts.entries()].filter(([, context]) => context.mode === mode).map(([id]) => id);
-}
-
-function getAnalysisVisits(result: KataGoAnalysisResult): number {
-  return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
-}
-
-function hiddenPassVisits(settings: KataGoSettings, live: boolean): number {
-  if (!live) return Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
-
-  const maxVisits = Math.max(1, settings.maxVisits || defaultKataGoSettings.maxVisits);
-  return Math.max(1, Math.ceil(maxVisits * 0.5));
-}
-
-function shouldRequestHiddenPassAnalysis(
-  document: SgfDocument,
-  path: number[],
-  cache: Record<string, CachedAnalysis>,
-  targetVisits: number
-): boolean {
-  const analysis = cache[nodeKey(document, path)]?.result;
-  if (analysis?.rootInfo == null) return false;
-
-  return shouldCountHiddenPassAnalysis(document, path, cache, targetVisits);
-}
-
-function shouldCountHiddenPassAnalysis(
-  document: SgfDocument,
-  path: number[],
-  cache: Record<string, CachedAnalysis>,
-  targetVisits: number
-): boolean {
-  const analysis = cache[nodeKey(document, path)]?.result;
-  const passMove = analysis?.moveInfos?.find((move) => move.move.toLowerCase() === 'pass');
-  return (passMove?.visits ?? 0) < targetVisits;
-}
-
-function nextColorForPath(document: SgfDocument, path: number[]): SgfColor {
-  return deriveBoardPosition(document, path).nextColor;
-}
-
-function updateAnalysisCache({
-  cache,
-  document,
-  path,
-  result,
-  visits,
-  completed,
-}: {
-  cache: Record<string, CachedAnalysis>;
-  document: SgfDocument;
-  path: number[];
-  result: KataGoAnalysisResult;
-  visits: number;
-  completed: boolean;
-}): Record<string, CachedAnalysis> {
-  const nodeId = nodeKey(document, path);
-  const existing = cache[nodeId];
-  const nextCache = {
-    ...cache,
-    [nodeId]: {
-      result: mergeAnalysisResult(existing?.result, result),
-      visits: Math.max(visits, existing?.visits ?? 0),
-      completed: existing?.completed === true || completed,
-    },
-  };
-
-  return updateParentMoveAnalysis(nextCache, document, path, result);
-}
-
-function updateHiddenMoveAnalysisCache({
-  cache,
-  document,
-  path,
-  move,
-  result,
-  completed,
-}: {
-  cache: Record<string, CachedAnalysis>;
-  document: SgfDocument;
-  path: number[];
-  move: string;
-  result: KataGoAnalysisResult;
-  completed: boolean;
-}): Record<string, CachedAnalysis> {
-  if (result.rootInfo == null) return cache;
-
-  const nodeId = nodeKey(document, path);
-  const existing = cache[nodeId];
-  const analysis = existing?.result ?? {id: result.id};
-  return {
-    ...cache,
-    [nodeId]: {
-      result: mergeMoveInfoIntoAnalysis(analysis, {move, ...result.rootInfo}),
-      visits: existing?.visits ?? 0,
-      completed: existing?.completed === true || completed,
-    },
-  };
-}
-
-function updateParentMoveAnalysis(
-  cache: Record<string, CachedAnalysis>,
-  document: SgfDocument,
-  path: number[],
-  result: KataGoAnalysisResult
-): Record<string, CachedAnalysis> {
-  if (path.length === 0 || result.rootInfo == null) return cache;
-
-  const node = getNodeAtPath(document, path);
-  const color = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
-  const point = color == null ? null : (node.data[color]?.[0] ?? '');
-  if (color == null || point == null) return cache;
-
-  const parentPath = path.slice(0, -1);
-  const parentId = nodeKey(document, parentPath);
-  const parent = cache[parentId];
-  if (parent == null) return cache;
-
-  return {
-    ...cache,
-    [parentId]: {
-      ...parent,
-      result: mergeMoveInfoIntoAnalysis(parent.result, {
-        move: sgfPointToGtp(point, getBoardSize(document)),
-        ...result.rootInfo,
-      }),
-    },
-  };
-}
-
-function mergeAnalysisResult(
-  existing: KataGoAnalysisResult | undefined,
-  result: KataGoAnalysisResult
-): KataGoAnalysisResult {
-  if (existing == null) return result;
-
-  return {
-    ...existing,
-    ...result,
-    rootInfo: result.rootInfo ?? existing.rootInfo,
-    moveInfos: mergeMoveInfos(existing.moveInfos, result.moveInfos),
-    ownership: result.ownership ?? existing.ownership,
-    policy: result.policy ?? existing.policy,
-  };
-}
-
-function mergeMoveInfoIntoAnalysis(analysis: KataGoAnalysisResult, move: KataGoMoveInfo): KataGoAnalysisResult {
-  const moveInfos = analysis.moveInfos ?? [];
-  const index = moveInfos.findIndex((item) => sameMoveInfo(item, move));
-  if (index < 0) return {...analysis, moveInfos: [...moveInfos, move]};
-
-  return {
-    ...analysis,
-    moveInfos: moveInfos.map((item, itemIndex) => (itemIndex === index ? mergeMoveInfo(item, move) : item)),
-  };
-}
-
-function mergeMoveInfos(
-  existing: KataGoMoveInfo[] | undefined,
-  incoming: KataGoMoveInfo[] | undefined
-): KataGoMoveInfo[] | undefined {
-  if (incoming == null) return existing;
-  if (existing == null) return incoming;
-
-  const existingByMove = new Map(existing.map((move) => [move.move.toLowerCase(), move]));
-  const incomingMoves = new Set(incoming.map((move) => move.move.toLowerCase()));
-  return [
-    ...incoming.map((move) => mergeMoveInfo(existingByMove.get(move.move.toLowerCase()), move)),
-    ...existing.filter((move) => !incomingMoves.has(move.move.toLowerCase())),
-  ];
-}
-
-function mergeMoveInfo(existing: KataGoMoveInfo | undefined, incoming: KataGoMoveInfo): KataGoMoveInfo {
-  if (existing == null) return incoming;
-  return (incoming.visits ?? 0) >= (existing.visits ?? 0) ? {...existing, ...incoming} : {...incoming, ...existing};
-}
-
-function sameMoveInfo(first: KataGoMoveInfo, second: KataGoMoveInfo): boolean {
-  return first.move.toLowerCase() === second.move.toLowerCase();
-}
-
-function buildAnalysisChartData(
-  document: SgfDocument,
-  paths: number[][],
-  cache: Record<string, CachedAnalysis>
-): AnalysisChartPoint[] {
-  const data: AnalysisChartPoint[] = [];
-
-  paths.forEach((path, index) => {
-    const rootInfo = cache[nodeKey(document, path)]?.result.rootInfo;
-    if (rootInfo?.scoreLead != null) data.push({moveNumber: index, series: 'score', value: rootInfo.scoreLead});
-    if (rootInfo?.winrate != null)
-      data.push({moveNumber: index, series: 'winrate', value: normalizeWinratePercent(rootInfo.winrate)});
-  });
-
-  return data;
-}
-
-function parseGameRecord(text: string, fileName: string): SgfDocument {
-  return isGibFile(fileName) ? parseGib(text) : parseSgf(text);
-}
-
-async function readGameRecordFile(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer();
-  return decodeGameRecordBytes(buffer, isGibFile(file.name));
-}
-
-function decodeGameRecordBytes(buffer: ArrayBuffer, preferKorean: boolean): string {
-  const utf8 = new TextDecoder('utf-8').decode(buffer);
-  if (!preferKorean || !utf8.includes('\uFFFD')) return utf8;
-
-  try {
-    return new TextDecoder('euc-kr').decode(buffer);
-  } catch {
-    return utf8;
-  }
-}
-
-function isGibFile(fileName: string): boolean {
-  return fileName.toLowerCase().endsWith('.gib');
-}
-
-function buildStoneScoreDeltas(
-  document: SgfDocument,
-  path: number[],
-  cache: Record<string, CachedAnalysis>
-): Map<string, number> {
-  const result = new Map<string, number>();
-  const boardSize = getBoardSize(document);
-
-  for (const movePath of getLinePaths(path)) {
-    const node = getNodeAtPath(document, movePath);
-    const color = node.data.B != null ? 'B' : node.data.W != null ? 'W' : null;
-    const point = color == null ? null : (node.data[color]?.[0] ?? '');
-    if (color == null || point == null || point === '') continue;
-
-    const parentPath = movePath.slice(0, -1);
-    const parentAnalysis = cache[nodeKey(document, parentPath)]?.result;
-    const childAnalysis = cache[nodeKey(document, movePath)]?.result;
-    const move = parentAnalysis?.moveInfos?.find(
-      (item) => item.move.toLowerCase() === sgfPointToGtp(point, boardSize).toLowerCase()
-    );
-
-    const moveVisits = move?.visits ?? 0;
-    const childVisits = childAnalysis?.rootInfo?.visits ?? 0;
-    const scoreDelta =
-      childVisits > moveVisits
-        ? analysisRootScoreDelta(parentAnalysis, childAnalysis, color)
-        : parentAnalysis != null && move != null
-          ? analysisMoveScoreDelta(move, parentAnalysis, color)
-          : analysisRootScoreDelta(parentAnalysis, childAnalysis, color);
-    if (scoreDelta != null) result.set(point, scoreDelta);
-  }
-
-  return result;
-}
-
-function getLinePaths(path: number[]): number[][] {
-  return [[], ...path.map((_, index) => path.slice(0, index + 1))];
-}
-
-function analysisMoveScoreDelta(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, color: 'B' | 'W'): number | null {
-  const score = move.scoreLead ?? move.scoreMean ?? null;
-  const rootScore = analysis.rootInfo?.scoreLead ?? analysis.rootInfo?.scoreMean ?? 0;
-  if (score == null) return null;
-
-  return (score - rootScore) * (color === 'B' ? 1 : -1);
-}
-
-function analysisRootScoreDelta(
-  parent: KataGoAnalysisResult | undefined,
-  child: KataGoAnalysisResult | undefined,
-  color: 'B' | 'W'
-): number | null {
-  const parentScore = parent?.rootInfo?.scoreLead ?? parent?.rootInfo?.scoreMean ?? null;
-  const childScore = child?.rootInfo?.scoreLead ?? child?.rootInfo?.scoreMean ?? null;
-  if (parentScore == null || childScore == null) return null;
-
-  return (childScore - parentScore) * (color === 'B' ? 1 : -1);
-}
-
-function normalizeWinratePercent(value: number): number {
-  return value > 1 ? value : value * 100;
-}
-
-function normalizeSelectedPath(document: SgfDocument, path: number[]): number[] {
-  if (path.length === 0) return [];
-  if (document.root.children.length === 0) return [];
-
-  const normalized: number[] = [];
-  let node = document.root;
-  for (const index of path) {
-    if (node.children.length === 0) break;
-    const nextIndex = Math.min(Math.max(index, 0), node.children.length - 1);
-    normalized.push(nextIndex);
-    node = node.children[nextIndex];
-  }
-
-  return normalized;
-}
-
-function withImportedGameName(document: SgfDocument, fileName: string): SgfDocument {
-  const info = getGameInfo(document);
-  if (info.GN.trim() !== '') return document;
-
-  return updateGameInfo(document, {...info, GN: gameNameFromSgfFile(fileName)});
-}
-
-function gameNameFromSgfFile(fileName: string): string {
-  const name = fileName.replace(/\.sgf$/i, '').trim();
-  return name === '' ? 'Imported game' : name;
-}
-
-function safeFileName(value: string): string {
-  const name = value.trim().replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_');
-  return name === '' ? 'game' : name;
-}
-
-function createLocalConsoleMessage(
-  source: 'uro' | 'katago',
-  level: 'info' | 'warning' | 'error',
-  text: string
-): KataGoConsoleMessage {
-  return {
-    id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    time: new Date().toISOString(),
-    source,
-    level,
-    text,
-  };
-}
-
-function formatConsoleTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
-}
-
-function normalizeLanguage(language: string): keyof typeof antdLocales {
-  const baseLanguage = language.split('-')[0];
-  return baseLanguage in antdLocales ? (baseLanguage as keyof typeof antdLocales) : 'en';
-}
-
-function isTextInputActive(): boolean {
-  const element = window.document.activeElement;
-  if (element == null) return false;
-  if (
-    element instanceof HTMLInputElement ||
-    element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement
-  )
-    return true;
-  return element instanceof HTMLElement && element.isContentEditable;
-}
-
-function toolToMarkup(tool: EditorTool): MarkupKind | null {
-  switch (tool) {
-    case 'circle':
-      return 'CR';
-    case 'square':
-      return 'SQ';
-    case 'triangle':
-      return 'TR';
-    case 'cross':
-      return 'MA';
-    case 'selected':
-      return 'SL';
-    default:
-      return null;
-  }
 }
