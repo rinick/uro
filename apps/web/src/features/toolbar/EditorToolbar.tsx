@@ -81,7 +81,6 @@ export function EditorToolbar({
           {value: 'square', icon: withTip(<BorderOutlined />, t('tools.square'))},
           {value: 'triangle', label: withTip(<span className="tool-triangle" />, t('tools.triangle'))},
           {value: 'cross', icon: withTip(<CloseOutlined />, t('tools.cross'))},
-          {value: 'selected', label: withTip(<span className="tool-point" />, t('tools.selected'))},
         ]}
       />
       <Space.Compact className="navigation-tools">

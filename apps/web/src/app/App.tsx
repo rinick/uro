@@ -50,13 +50,7 @@ import {boardSizes, type BoardSize} from '@uro/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
-import {defaultAnalysisSettings, type AnalysisSettings, type AnalysisChartPoint} from '@uro/analysis-core';
-import {
-  buildKataGoQuery,
-  defaultKataGoSettings,
-  type KataGoConsoleMessage,
-  type KataGoSettings,
-} from '@uro/katago-core';
+import type {AnalysisSettings} from '@uro/analysis-core';
 import {GoBoard, type MoveNumberLimit} from '../features/board/GoBoard';
 import {CommentsPanel} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
@@ -76,24 +70,7 @@ import {EditorToolbar} from '../features/toolbar/EditorToolbar';
 import type {EditorTool} from '../features/toolbar/types';
 import {getAppCapabilities} from './capabilities';
 import {
-  buildAnalysisChartData,
-  buildStoneScoreDeltas,
-  getAnalysisVisits,
-  getPendingAnalysisQueryIds,
-  hasPendingAnalysisQuery,
-  hiddenPassVisits,
-  nextColorForPath,
-  normalizeWinratePercent,
-  shouldCountHiddenPassAnalysis,
-  shouldRequestHiddenPassAnalysis,
-  updateAnalysisCache,
-  updateHiddenMoveAnalysisCache,
-  type AnalysisQueryContext,
-  type CachedAnalysis,
-} from './appAnalysisUtils';
-import {
   addSetupStoneToPath,
-  collectNodeIds,
   findChildMovePath,
   getCurrentBranchMovePaths,
   getMovePaths,
@@ -101,7 +78,6 @@ import {
   isTextInputActive,
   nextFirstChildPath,
   nextRememberedPath,
-  nodeKey,
   normalizeSelectedPath,
   oppositeColor,
   parseGameRecord,
@@ -113,14 +89,13 @@ import {
 } from './appSgfUtils';
 import {
   antdLocales,
-  createLocalConsoleMessage,
   formatConsoleTime,
   languageOptions,
   normalizeLanguage,
 } from './appUiUtils';
+import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
-const liveAnalysisVisits = 10_000_000;
 
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
@@ -146,18 +121,9 @@ export function App() {
   const [storedGamesLoading, setStoredGamesLoading] = useState(false);
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
-  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(defaultAnalysisSettings);
-  const [kataGoSettings, setKataGoSettings] = useState<KataGoSettings>(defaultKataGoSettings);
-  const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
-  const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
-  const [analysisMode, setAnalysisMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const branchMemoryRef = useRef(new Map<string, number>());
-  const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
-  const documentVersionRef = useRef(0);
-  const analysisModeRef = useRef(false);
   const pendingSetupPathRef = useRef<number[] | null>(null);
-  const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
   const boardSize = useMemo(() => getBoardSize(document), [document]);
   const position = useMemo(() => deriveBoardPosition(document, path), [document, path]);
@@ -165,6 +131,40 @@ export function App() {
   const nextAutoColor = autoColorOverride ?? position.nextColor;
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const antdLocale = antdLocales[currentLanguage];
+  const analysisChartPaths = useMemo(
+    () => getCurrentBranchMovePaths(document, path, branchMemoryRef.current),
+    [document, path]
+  );
+  const movePaths = useMemo(() => getMovePaths(document), [document]);
+  const analysisPaths = useMemo(() => [[], ...movePaths], [movePaths]);
+  const {
+    analysisSettings,
+    updateAnalysisSettings,
+    onAnalysisSettingsSave,
+    analysisMode,
+    setAnalysisModeActive,
+    toggleAnalysisMode,
+    currentAnalysis,
+    stoneScoreDeltas,
+    analysisChartData,
+    selectedChartMoveNumber,
+    analysisChartSummary,
+    fastAnalysisPendingCount,
+    waitingForFastAnalysis,
+    kataGoConsoleMessages,
+    setKataGoConsoleMessages,
+    kataGoConsoleRef,
+    refreshKataGoSettings,
+    resetAnalysisForDocumentChange,
+  } = useKataGoAnalysis({
+    enabled: capabilities.katago,
+    document,
+    path,
+    analysisPaths,
+    analysisChartPaths,
+    pendingSetupPathRef,
+    startFailedMessage: t('analysis.startFailed'),
+  });
   const stoneOverlayDisplay = analysisSettings.topMoveDisplay;
   const boardMoveNumberLimit =
     capabilities.katago && stoneOverlayDisplay === 'number'
@@ -174,67 +174,11 @@ export function App() {
         : moveNumberLimit;
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
-  const analysisChartPaths = useMemo(
-    () => getCurrentBranchMovePaths(document, path, branchMemoryRef.current),
-    [document, path]
-  );
-  const movePaths = useMemo(() => getMovePaths(document), [document]);
-  const analysisPaths = useMemo(() => [[], ...movePaths], [movePaths]);
-  const currentAnalysis = useMemo(
-    () => analysisCache[nodeKey(document, path)]?.result ?? null,
-    [analysisCache, document, path]
-  );
-  const analysisTargetVisits = Math.max(1, kataGoSettings.fastVisits || defaultKataGoSettings.fastVisits);
-  const analysisPendingCounts = useMemo(() => {
-    const normal = analysisPaths.filter((movePath) => {
-      const nodeId = nodeKey(document, movePath);
-      const cached = analysisCache[nodeId];
-      return (
-        (cached == null || cached.visits < analysisTargetVisits) &&
-        !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-      );
-    }).length;
-    const hiddenPass =
-      analysisSettings.moveDisplay === 'absScore'
-        ? analysisPaths.filter((movePath) => {
-            const nodeId = nodeKey(document, movePath);
-            return (
-              shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits) &&
-              !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-            );
-          }).length
-        : 0;
-    return {normal, hiddenPass};
-  }, [analysisCache, analysisPaths, analysisSettings.moveDisplay, analysisTargetVisits, document]);
-  const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
-  const waitingForFastAnalysis = analysisMode && fastAnalysisPendingCount > 0;
-  const analysisChartData = useMemo<AnalysisChartPoint[]>(
-    () => buildAnalysisChartData(document, analysisChartPaths, analysisCache),
-    [analysisCache, analysisChartPaths, document]
-  );
-  const selectedChartMoveNumber = useMemo(() => {
-    const index = analysisChartPaths.findIndex((movePath) => samePath(movePath, path));
-    return index < 0 ? null : index;
-  }, [analysisChartPaths, path]);
-  const analysisChartSummary = useMemo(() => {
-    const rootInfo = currentAnalysis?.rootInfo;
-    const scoreLead = rootInfo?.scoreLead ?? rootInfo?.scoreMean ?? null;
-    const winrate = rootInfo?.winrate == null ? null : normalizeWinratePercent(rootInfo.winrate);
-    return scoreLead == null && winrate == null ? null : {scoreLead, winrate};
-  }, [currentAnalysis]);
-  const stoneScoreDeltas = useMemo(
-    () => buildStoneScoreDeltas(document, path, analysisCache),
-    [analysisCache, document, path]
-  );
 
   const newMenuItems: MenuProps['items'] = boardSizes.map((size) => ({
     key: String(size),
     label: t(`menu.new${size}`),
   }));
-
-  const appendKataGoConsoleMessage = useCallback((message: KataGoConsoleMessage): void => {
-    setKataGoConsoleMessages((current) => [...current.slice(-499), message]);
-  }, []);
 
   function rememberPath(nextPath: number[]): void {
     for (let index = 0; index < nextPath.length; index += 1) {
@@ -245,16 +189,7 @@ export function App() {
 
   function replaceDocument(next: SgfDocument, nextPath: number[] = [], options: ReplaceDocumentOptions = {}): void {
     const normalizedPath = normalizeSelectedPath(next, nextPath);
-    documentVersionRef.current += 1;
-    analysisQueryContextRef.current.clear();
-    if (options.clearAnalysisCache === true) {
-      setAnalysisCache({});
-    } else if (options.invalidatePath != null) {
-      const invalidatedNodeIds = new Set(collectNodeIds(getNodeAtPath(next, options.invalidatePath)));
-      setAnalysisCache((current) =>
-        Object.fromEntries(Object.entries(current).filter(([nodeId]) => !invalidatedNodeIds.has(nodeId)))
-      );
-    }
+    resetAnalysisForDocumentChange(next, options);
     setDocument(next);
     setPath(normalizedPath);
     setAutoColorOverride(null);
@@ -273,242 +208,10 @@ export function App() {
     setReplaceMode(false);
   }
 
-  const updateAnalysisSettings = useCallback((values: Partial<AnalysisSettings>): void => {
-    setAnalysisSettings((current) => {
-      const next = {...current, ...values};
-      if (window.uro != null) void window.uro.analysis.saveSettings(next);
-      return next;
-    });
-  }, []);
-
-  const refreshKataGoSettings = useCallback(async (): Promise<KataGoSettings> => {
-    if (window.uro == null) return defaultKataGoSettings;
-    const settings = await window.uro.katago.getSettings();
-    setKataGoSettings(settings);
-    return settings;
-  }, []);
-
-  useEffect(() => {
-    if (!capabilities.katago || window.uro == null) return;
-    void refreshKataGoSettings();
-    window.uro.analysis
-      .getSettings()
-      .then((settings) => setAnalysisSettings({...defaultAnalysisSettings, ...settings}))
-      .catch(() => undefined);
-  }, [capabilities.katago, refreshKataGoSettings]);
-
-  useEffect(() => {
-    if (!capabilities.katago || window.uro == null) return;
-
-    const unsubscribeAnalysis = window.uro.katago.onAnalysis((result) => {
-      const context = analysisQueryContextRef.current.get(result.id);
-      if (context == null) return;
-      if (!result.isDuringSearch) analysisQueryContextRef.current.delete(result.id);
-
-      if (context.version !== documentVersionRef.current) return;
-      if (result.error != null) return;
-
-      const visits = getAnalysisVisits(result);
-      setAnalysisCache((current) => {
-        const existing = current[context.nodeId];
-        if (context.hiddenMove == null && existing != null && visits < existing.visits && result.isDuringSearch)
-          return current;
-        if (context.hiddenMove != null) {
-          return updateHiddenMoveAnalysisCache({
-            cache: current,
-            document,
-            path: context.path,
-            move: context.hiddenMove,
-            result,
-            completed: existing?.completed === true || !result.isDuringSearch,
-          });
-        }
-
-        return updateAnalysisCache({
-          cache: current,
-          document,
-          path: context.path,
-          result,
-          visits,
-          completed: existing?.completed === true || !result.isDuringSearch,
-        });
-      });
-    });
-    const unsubscribeConsole = window.uro.katago.onConsoleMessage(appendKataGoConsoleMessage);
-
-    return () => {
-      unsubscribeAnalysis();
-      unsubscribeConsole();
-    };
-  }, [appendKataGoConsoleMessage, capabilities.katago, document]);
-
-  useEffect(() => {
-    const element = kataGoConsoleRef.current;
-    if (element == null) return;
-    element.scrollTop = element.scrollHeight;
-  }, [kataGoConsoleMessages]);
-
-  useEffect(() => {
-    analysisModeRef.current = analysisMode;
-  }, [analysisMode]);
-
-  const requestAnalysis = useCallback(
-    async (
-      requestPath: number[],
-      mode: AnalysisQueryContext['mode'],
-      maxVisits: number,
-      live = false
-    ): Promise<void> => {
-      if (window.uro == null) return;
-
-      const queryId = `uro-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      analysisQueryContextRef.current.set(queryId, {
-        nodeId: nodeKey(document, requestPath),
-        path: requestPath,
-        version: documentVersionRef.current,
-        mode,
-      });
-
-      try {
-        await window.uro.katago.analyze(
-          buildKataGoQuery(document, {
-            id: queryId,
-            path: requestPath,
-            live,
-            maxVisits: live ? liveAnalysisVisits : maxVisits,
-          })
-        );
-      } catch (error) {
-        analysisQueryContextRef.current.delete(queryId);
-        throw error;
-      }
-    },
-    [document]
-  );
-
-  const requestHiddenPassAnalysis = useCallback(
-    async (
-      requestPath: number[],
-      mode: AnalysisQueryContext['mode'],
-      maxVisits: number,
-      priority: number
-    ): Promise<void> => {
-      if (window.uro == null) return;
-
-      const queryId = `uro-${mode}-pass-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      analysisQueryContextRef.current.set(queryId, {
-        nodeId: nodeKey(document, requestPath),
-        path: requestPath,
-        version: documentVersionRef.current,
-        mode,
-        hiddenMove: 'pass',
-      });
-
-      try {
-        await window.uro.katago.analyze(
-          buildKataGoQuery(document, {
-            id: queryId,
-            path: requestPath,
-            maxVisits,
-            priority,
-            nextMove: {color: nextColorForPath(document, requestPath), point: ''},
-          })
-        );
-      } catch (error) {
-        analysisQueryContextRef.current.delete(queryId);
-        throw error;
-      }
-    },
-    [document]
-  );
-
-  useEffect(() => {
-    if (!capabilities.katago || window.uro == null) return;
-    const uro = window.uro;
-
-    if (!analysisMode) {
-      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void uro.katago.stopAnalysis();
-      return;
-    }
-    if (pendingSetupPathRef.current != null && samePath(pendingSetupPathRef.current, path)) return;
-
-    const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
-    if (
-      liveQueryIds.length === 0 &&
-      (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast') ||
-        (analysisMode && fastAnalysisPendingCount > 0))
-    ) {
-      return;
-    }
-
-    const targetVisits = Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
-    const liveNodeId = nodeKey(document, path);
-    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', liveNodeId)) return;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
-          const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
-          clearPendingAnalysisQueries('live');
-          await uro.katago.stopAnalysis(liveQueryIds);
-        }
-        if (!cancelled) await requestAnalysis(path, 'live', targetVisits, true);
-      } catch (error: unknown) {
-        appendKataGoConsoleMessage(
-          createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
-        );
-        analysisModeRef.current = false;
-        setAnalysisMode(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    appendKataGoConsoleMessage,
-    capabilities.katago,
-    document,
-    fastAnalysisPendingCount,
-    analysisMode,
-    kataGoSettings.maxVisits,
-    path,
-    requestAnalysis,
-    t,
-  ]);
-
-  useEffect(() => {
-    if (!capabilities.katago || window.uro == null || analysisSettings.moveDisplay !== 'absScore') return;
-
-    const targetVisits = hiddenPassVisits(kataGoSettings, analysisMode);
-    const nodeId = nodeKey(document, path);
-    if (!shouldRequestHiddenPassAnalysis(document, path, analysisCache, targetVisits)) return;
-    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')) return;
-
-    void requestHiddenPassAnalysis(path, 'fast', targetVisits, 100).catch((error: unknown) => {
-      appendKataGoConsoleMessage(
-        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
-      );
-    });
-  }, [
-    analysisCache,
-    analysisSettings.moveDisplay,
-    appendKataGoConsoleMessage,
-    capabilities.katago,
-    document,
-    kataGoSettings,
-    analysisMode,
-    path,
-    requestHiddenPassAnalysis,
-    t,
-  ]);
-
   function handleNew(size: BoardSize = 19): void {
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    analysisModeRef.current = false;
-    setAnalysisMode(false);
+    setAnalysisModeActive(false);
     replaceDocument(createNewGame(size), [], {clearAnalysisCache: true});
   }
 
@@ -543,8 +246,7 @@ export function App() {
       const nextDocument = await loadStoredGame(selectedStoredGameId);
       branchMemoryRef.current.clear();
       setStoredGameId(selectedStoredGameId);
-      analysisModeRef.current = true;
-      setAnalysisMode(true);
+      setAnalysisModeActive(true);
       replaceDocument(nextDocument, [], {clearAnalysisCache: true});
       setOpenGameModalOpen(false);
     } catch (error) {
@@ -618,8 +320,7 @@ export function App() {
     const importedDocument = withImportedGameName(parseGameRecord(text, fileName), fileName);
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    analysisModeRef.current = true;
-    setAnalysisMode(true);
+    setAnalysisModeActive(true);
     replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
 
@@ -700,84 +401,6 @@ export function App() {
     });
   }
 
-  const handleFastAnalysis = useCallback(async (): Promise<void> => {
-    if (!capabilities.katago || window.uro == null || !analysisMode) return;
-
-    try {
-      const settings = await refreshKataGoSettings();
-      const targetVisits = Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
-      const runVersion = documentVersionRef.current;
-      const pathsToAnalyze = analysisPaths.filter((movePath) => {
-        const nodeId = nodeKey(document, movePath);
-        const cached = analysisCache[nodeId];
-        return (
-          (cached == null || cached.visits < targetVisits) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-        );
-      });
-
-      for (const movePath of pathsToAnalyze) {
-        if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
-        await requestAnalysis(movePath, 'fast', targetVisits);
-      }
-
-      if (analysisSettings.moveDisplay === 'absScore') {
-        const passPathsToAnalyze = analysisPaths.filter((movePath) => {
-          const nodeId = nodeKey(document, movePath);
-          return (
-            shouldRequestHiddenPassAnalysis(document, movePath, analysisCache, targetVisits) &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass') &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-          );
-        });
-
-        for (const movePath of passPathsToAnalyze) {
-          if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
-          await requestHiddenPassAnalysis(movePath, 'fast', targetVisits, -100);
-        }
-      }
-    } catch (error) {
-      appendKataGoConsoleMessage(
-        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
-      );
-    }
-  }, [
-    analysisCache,
-    analysisSettings.moveDisplay,
-    appendKataGoConsoleMessage,
-    analysisPaths,
-    capabilities.katago,
-    document,
-    analysisMode,
-    refreshKataGoSettings,
-    requestAnalysis,
-    requestHiddenPassAnalysis,
-    t,
-  ]);
-
-  useEffect(() => {
-    if (!analysisMode || analysisPaths.length === 0) return;
-    void handleFastAnalysis();
-  }, [analysisPaths.length, analysisMode, handleFastAnalysis]);
-
-  const handleAnalysisModeToggle = useCallback((): void => {
-    const next = !analysisMode;
-    analysisModeRef.current = next;
-    setAnalysisMode(next);
-    if (!next) {
-      clearPendingAnalysisQueries('fast');
-      clearPendingAnalysisQueries('live');
-      if (window.uro != null) void window.uro.katago.stopAnalysis();
-    }
-  }, [analysisMode]);
-
-  function clearPendingAnalysisQueries(mode: AnalysisQueryContext['mode']): void {
-    for (const [id, context] of analysisQueryContextRef.current.entries()) {
-      if (context.mode === mode) analysisQueryContextRef.current.delete(id);
-    }
-  }
-
   const canNavigatePrevious = path.length > 0;
   const canNavigateNext = getNodeAtPath(document, path).children.length > 0;
 
@@ -803,7 +426,7 @@ export function App() {
         navigateFirstChild(steps);
       } else if (capabilities.katago && event.key === ' ') {
         event.preventDefault();
-        handleAnalysisModeToggle();
+        toggleAnalysisMode();
       }
     }
 
@@ -811,16 +434,16 @@ export function App() {
     return () => window.document.body.removeEventListener('keydown', handleKeyDown);
   }, [
     capabilities.katago,
-    handleAnalysisModeToggle,
     navigateBranch,
     navigateFirstChild,
     navigateNext,
     navigatePrevious,
+    toggleAnalysisMode,
   ]);
 
   const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
-    setAnalysisSettings(settings);
-  }, []);
+    onAnalysisSettingsSave(settings);
+  }, [onAnalysisSettingsSave]);
 
   function handleBoardClick(point: string, colorOverride?: SgfColor): void {
     if (replaceMode) {
@@ -1119,22 +742,24 @@ export function App() {
               onVertexClick={handleBoardClick}
               onVertexRightClick={handleBoardRightClick}
             />
-            <Tooltip title={t('analysis.button')}>
-              <Button
-                className={[
-                  'analysis-button',
-                  analysisMode ? 'glow-button' : '',
-                  waitingForFastAnalysis ? 'glow-fast' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                icon={<ThunderboltOutlined />}
-                type={analysisMode ? 'primary' : 'default'}
-                onClick={handleAnalysisModeToggle}
-              >
-                {analysisMode ? <span>{fastAnalysisPendingCount}</span> : null}
-              </Button>
-            </Tooltip>
+            {capabilities.katago ? (
+              <Tooltip title={t('analysis.button')}>
+                <Button
+                  className={[
+                    'analysis-button',
+                    analysisMode ? 'glow-button' : '',
+                    waitingForFastAnalysis ? 'glow-fast' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  icon={<ThunderboltOutlined />}
+                  type={analysisMode ? 'primary' : 'default'}
+                  onClick={toggleAnalysisMode}
+                >
+                  {analysisMode ? <span>{fastAnalysisPendingCount}</span> : ''}
+                </Button>
+              </Tooltip>
+            ) : null}
           </main>
           <aside className="right-region">
             <section className="capture-summary">
@@ -1153,6 +778,7 @@ export function App() {
               value={getComment(document, path)}
               onChange={handleCommentChange}
               showAnalysisControls={capabilities.katago}
+              analysisActive={analysisMode}
               chartData={analysisChartData}
               selectedMoveNumber={selectedChartMoveNumber}
               chartSummary={analysisChartSummary}

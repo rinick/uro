@@ -431,7 +431,7 @@ body {
 
 .analysis-chart-title.winrate,
 .analysis-chart-label.winrate {
-  fill: #1d4ed8;
+  fill: #1d3ea8;
 }
 
 .analysis-chart-label {
@@ -468,11 +468,11 @@ body {
 }
 
 .analysis-chart-line.score {
-  stroke: #274967;
+  stroke: #379759;
 }
 
 .analysis-chart-line.winrate {
-  stroke: #1d4ed8;
+  stroke: #2d5ef8;
 }
 
 .analysis-chart-summary {
@@ -695,7 +695,7 @@ body {
   display: none;
 }
 
-.analysis-button {
+button.ant-btn.analysis-button {
   position: absolute;
   width: 60px;
   right: 8px;

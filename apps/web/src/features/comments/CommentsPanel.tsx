@@ -1,5 +1,5 @@
 import {Button, Empty, Input, Space} from 'antd';
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {AnalysisChartPoint} from '@uro/analysis-core';
@@ -8,6 +8,7 @@ interface CommentsPanelProps {
   value: string;
   onChange: (value: string) => void;
   showAnalysisControls?: boolean;
+  analysisActive?: boolean;
   chartData?: AnalysisChartPoint[];
   selectedMoveNumber?: number | null;
   chartSummary?: AnalysisChartSummary | null;
@@ -32,6 +33,7 @@ export function CommentsPanel({
   value,
   onChange,
   showAnalysisControls = false,
+  analysisActive = false,
   chartData = [],
   selectedMoveNumber = null,
   chartSummary = null,
@@ -42,10 +44,16 @@ export function CommentsPanel({
   const {t} = useTranslation();
   const [showScore, setShowScore] = useState(false);
   const [showWinrate, setShowWinrate] = useState(false);
+  const previousAnalysisActiveRef = useRef(false);
   const showChart = showAnalysisControls && (showScore || showWinrate);
   const scoreData = useMemo(() => chartData.filter((item) => item.series === 'score'), [chartData]);
   const winrateData = useMemo(() => chartData.filter((item) => item.series === 'winrate'), [chartData]);
   const hasVisibleData = (showScore && scoreData.length > 0) || (showWinrate && winrateData.length > 0);
+
+  useEffect(() => {
+    if (analysisActive && !previousAnalysisActiveRef.current && !showScore && !showWinrate) setShowScore(true);
+    previousAnalysisActiveRef.current = analysisActive;
+  }, [analysisActive, showScore, showWinrate]);
 
   return (
     <section className="side-panel comments-panel">
@@ -86,7 +94,6 @@ export function CommentsPanel({
             scoreData={showScore ? scoreData : []}
             winrateData={showWinrate ? winrateData : []}
             allData={chartData}
-            scoreLabel={t('analysis.score')}
             selectedMoveNumber={selectedMoveNumber}
             summary={chartSummary}
             onPreviousMove={onPreviousMove}
@@ -112,7 +119,6 @@ function AnalysisChart({
   scoreData,
   winrateData,
   allData,
-  scoreLabel,
   selectedMoveNumber,
   summary,
   onPreviousMove,
@@ -122,7 +128,6 @@ function AnalysisChart({
   scoreData: AnalysisChartPoint[];
   winrateData: AnalysisChartPoint[];
   allData: AnalysisChartPoint[];
-  scoreLabel: string;
   selectedMoveNumber: number | null;
   summary: AnalysisChartSummary | null;
   onPreviousMove?: () => void;
@@ -267,15 +272,25 @@ function AnalysisChart({
               x="2"
               y={height - padding.bottom + 4}
             >{`W+${scoreScale}`}</text>
-            <text className="analysis-chart-title score" x={padding.left} y="11">
-              {scoreLabel}
-            </text>
           </>
         ) : null}
 
         {winratePoints.length > 0 ? (
           <>
             <path className="analysis-chart-line winrate" d={pointsPath(winratePoints)} />
+            {scorePoints.length === 0 ? (
+              <>
+                <text className="analysis-chart-label winrate" x="2" y={padding.top + 4}>
+                  100%
+                </text>
+                <text className="analysis-chart-label winrate" x="2" y={centerY + 4}>
+                  50%
+                </text>
+                <text className="analysis-chart-label winrate" x="2" y={height - padding.bottom + 4}>
+                  0%
+                </text>
+              </>
+            ) : null}
           </>
         ) : null}
 

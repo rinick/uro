@@ -1,4 +1,4 @@
-import {ArrowLeftOutlined, ArrowRightOutlined, DeleteOutlined, SwapOutlined, ToTopOutlined} from '@ant-design/icons';
+import {LeftOutlined, RightOutlined, DeleteOutlined, SwapOutlined, DoubleLeftOutlined} from '@ant-design/icons';
 import {Button, Space, Tooltip} from 'antd';
 import {buildTree, getBoardSize, samePath, type SgfDocument} from '@uro/sgf-core';
 import {useCallback, useEffect, useMemo, useRef, type ReactNode} from 'react';
@@ -115,19 +115,19 @@ export function SgfTreePanel({
           <TreeActionButton
             title={t('treeActions.moveToMain')}
             disabled={selectedPath.length === 0}
-            icon={<ToTopOutlined />}
+            icon={<DoubleLeftOutlined />}
             onClick={onMoveToMain}
           />
           <TreeActionButton
             title={t('treeActions.moveLeft')}
             disabled={selectedPath.length === 0}
-            icon={<ArrowLeftOutlined />}
+            icon={<LeftOutlined />}
             onClick={onMoveLeft}
           />
           <TreeActionButton
             title={t('treeActions.moveRight')}
             disabled={selectedPath.length === 0}
-            icon={<ArrowRightOutlined />}
+            icon={<RightOutlined />}
             onClick={onMoveRight}
           />
           <TreeActionButton

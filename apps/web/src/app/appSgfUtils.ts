@@ -233,8 +233,6 @@ export function toolToMarkup(tool: EditorTool): MarkupKind | null {
       return 'TR';
     case 'cross':
       return 'MA';
-    case 'selected':
-      return 'SL';
     default:
       return null;
   }

@@ -9,5 +9,4 @@ export type EditorTool =
   | 'circle'
   | 'square'
   | 'triangle'
-  | 'cross'
-  | 'selected';
+  | 'cross';
