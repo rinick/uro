@@ -156,9 +156,7 @@ function NavButton({
 }) {
   return (
     <Tooltip title={title}>
-      <span>
-        <Button size="small" aria-label={title} disabled={disabled} icon={icon} onClick={onClick} />
-      </span>
+      <Button size="small" aria-label={title} disabled={disabled} icon={icon} onClick={onClick} />
     </Tooltip>
   );
 }

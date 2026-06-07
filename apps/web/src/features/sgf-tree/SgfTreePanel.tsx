@@ -185,17 +185,15 @@ function TreeActionButton({
 }) {
   return (
     <Tooltip title={title}>
-      <span>
-        <Button
-          size="small"
-          aria-label={title}
-          disabled={disabled}
-          danger={danger}
-          type={type}
-          icon={icon}
-          onClick={onClick}
-        />
-      </span>
+      <Button
+        size="small"
+        aria-label={title}
+        disabled={disabled}
+        danger={danger}
+        type={type}
+        icon={icon}
+        onClick={onClick}
+      />
     </Tooltip>
   );
 }

@@ -1145,17 +1145,18 @@ export function App() {
               onVertexClick={handleBoardClick}
               onVertexRightClick={handleBoardRightClick}
             />
+            <button className="glow-button"></button>
           </main>
           <aside className="right-region">
             <section className="capture-summary">
               <span className="capture-player">
                 <span className="capture-name">{blackPlayerName}</span>
-                <span className="capture-loss">-</span>
+                <span className="capture-loss">−</span>
                 <span className="capture-count capture-count-black">{position.captures.W}</span>
               </span>
               <span className="capture-player">
                 <span className="capture-name">{whitePlayerName}</span>
-                <span className="capture-loss">-</span>
+                <span className="capture-loss">−</span>
                 <span className="capture-count capture-count-white">{position.captures.B}</span>
               </span>
             </section>

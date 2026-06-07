@@ -154,7 +154,9 @@ function AnalysisChart({
       ? null
       : moveNumberToX(Math.max(0, Math.min(maxMove, selectedMoveNumber)), maxMove, width, padding);
   const hoverX =
-    hoverMoveNumber == null ? null : moveNumberToX(Math.max(0, Math.min(maxMove, hoverMoveNumber)), maxMove, width, padding);
+    hoverMoveNumber == null
+      ? null
+      : moveNumberToX(Math.max(0, Math.min(maxMove, hoverMoveNumber)), maxMove, width, padding);
   const hoverSummary = hoverMoveNumber == null ? null : chartSummaryForMove(allData, hoverMoveNumber);
 
   function handleMouseDown(event: MouseEvent<SVGSVGElement>): void {
@@ -260,7 +262,11 @@ function AnalysisChart({
               0
             </text>
             <text className="analysis-chart-label score" x="2" y={negativeHalfScoreY + 4}>{`W+${halfScoreScale}`}</text>
-            <text className="analysis-chart-label score" x="2" y={height - padding.bottom + 4}>{`W+${scoreScale}`}</text>
+            <text
+              className="analysis-chart-label score"
+              x="2"
+              y={height - padding.bottom + 4}
+            >{`W+${scoreScale}`}</text>
             <text className="analysis-chart-title score" x={padding.left} y="11">
               {scoreLabel}
             </text>
@@ -332,7 +338,11 @@ function chartSummaryForMove(data: AnalysisChartPoint[], moveNumber: number): An
   return scoreLead == null && winrate == null ? null : {scoreLead, winrate};
 }
 
-function mouseEventToViewBoxPoint(event: MouseEvent<SVGSVGElement>, width: number, height: number): {x: number; y: number} {
+function mouseEventToViewBoxPoint(
+  event: MouseEvent<SVGSVGElement>,
+  width: number,
+  height: number
+): {x: number; y: number} {
   const rect = event.currentTarget.getBoundingClientRect();
   return {
     x: ((event.clientX - rect.left) / rect.width) * width,
@@ -350,12 +360,7 @@ function moveNumberToX(
   return padding.left + (moveNumber / Math.max(1, maxMove)) * plotWidth;
 }
 
-function xToMoveNumber(
-  x: number,
-  maxMove: number,
-  width: number,
-  padding: {left: number; right: number}
-): number {
+function xToMoveNumber(x: number, maxMove: number, width: number, padding: {left: number; right: number}): number {
   const plotWidth = width - padding.left - padding.right;
   const ratio = (Math.max(padding.left, Math.min(width - padding.right, x)) - padding.left) / plotWidth;
   return Math.max(0, Math.min(maxMove, Math.round(ratio * maxMove)));
@@ -406,7 +411,7 @@ function scoreScaleFor(data: AnalysisChartPoint[]): number {
 
 function formatSignedScore(value: number): string {
   const normalized = Object.is(value, -0) ? 0 : value;
-  return normalized > 0 ? `+${normalized.toFixed(1)}` : normalized.toFixed(1);
+  return normalized > 0 ? `+${normalized.toFixed(1)}` : normalized.toFixed(1).replace('-', '−');
 }
 
 function formatWinrate(value: number | null): string {
