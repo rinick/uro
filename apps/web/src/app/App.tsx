@@ -19,6 +19,7 @@ import {
   Select,
   Space,
   Switch,
+  Tooltip,
   message,
   theme,
 } from 'antd';
@@ -159,13 +160,12 @@ export function App() {
   const [kataGoSettings, setKataGoSettings] = useState<KataGoSettings>(defaultKataGoSettings);
   const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
   const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
-  const [fastAnalysis, setFastAnalysis] = useState(false);
-  const [liveAnalysis, setLiveAnalysis] = useState(false);
+  const [analysisMode, setAnalysisMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const branchMemoryRef = useRef(new Map<string, number>());
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
-  const fastAnalysisRef = useRef(false);
+  const analysisModeRef = useRef(false);
   const pendingSetupPathRef = useRef<number[] | null>(null);
   const kataGoConsoleRef = useRef<HTMLDivElement>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
@@ -197,22 +197,27 @@ export function App() {
   const analysisTargetVisits = Math.max(1, kataGoSettings.fastVisits || defaultKataGoSettings.fastVisits);
   const analysisPendingCounts = useMemo(() => {
     const normal = analysisPaths.filter((movePath) => {
-      const cached = analysisCache[nodeKey(document, movePath)];
-      return cached == null || cached.visits < analysisTargetVisits;
+      const nodeId = nodeKey(document, movePath);
+      const cached = analysisCache[nodeId];
+      return (
+        (cached == null || cached.visits < analysisTargetVisits) &&
+        !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
+      );
     }).length;
     const hiddenPass =
       analysisSettings.moveDisplay === 'absScore'
-        ? analysisPaths.filter((movePath) =>
-            shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits)
-          ).length
+        ? analysisPaths.filter((movePath) => {
+            const nodeId = nodeKey(document, movePath);
+            return (
+              shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits) &&
+              !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
+            );
+          }).length
         : 0;
     return {normal, hiddenPass};
   }, [analysisCache, analysisPaths, analysisSettings.moveDisplay, analysisTargetVisits, document]);
-  const analysisPendingDisplayCount =
-    analysisSettings.moveDisplay === 'absScore'
-      ? `${analysisPendingCounts.normal}+${analysisPendingCounts.hiddenPass}`
-      : analysisPendingCounts.normal;
   const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
+  const waitingForFastAnalysis = analysisMode && fastAnalysisPendingCount > 0;
   const analysisChartData = useMemo<AnalysisChartPoint[]>(
     () => buildAnalysisChartData(document, analysisChartPaths, analysisCache),
     [analysisCache, analysisChartPaths, document]
@@ -354,8 +359,8 @@ export function App() {
   }, [kataGoConsoleMessages]);
 
   useEffect(() => {
-    fastAnalysisRef.current = fastAnalysis;
-  }, [fastAnalysis]);
+    analysisModeRef.current = analysisMode;
+  }, [analysisMode]);
 
   const requestAnalysis = useCallback(
     async (
@@ -431,7 +436,7 @@ export function App() {
     if (!capabilities.katago || window.uro == null) return;
     const uro = window.uro;
 
-    if (!liveAnalysis) {
+    if (!analysisMode) {
       if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void uro.katago.stopAnalysis();
       return;
     }
@@ -441,7 +446,7 @@ export function App() {
     if (
       liveQueryIds.length === 0 &&
       (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast') ||
-        (fastAnalysis && fastAnalysisPendingCount > 0))
+        (analysisMode && fastAnalysisPendingCount > 0))
     ) {
       return;
     }
@@ -463,7 +468,8 @@ export function App() {
         appendKataGoConsoleMessage(
           createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : t('analysis.startFailed'))
         );
-        setLiveAnalysis(false);
+        analysisModeRef.current = false;
+        setAnalysisMode(false);
       }
     })();
 
@@ -474,10 +480,9 @@ export function App() {
     appendKataGoConsoleMessage,
     capabilities.katago,
     document,
-    fastAnalysis,
     fastAnalysisPendingCount,
+    analysisMode,
     kataGoSettings.maxVisits,
-    liveAnalysis,
     path,
     requestAnalysis,
     t,
@@ -486,7 +491,7 @@ export function App() {
   useEffect(() => {
     if (!capabilities.katago || window.uro == null || analysisSettings.moveDisplay !== 'absScore') return;
 
-    const targetVisits = hiddenPassVisits(kataGoSettings, liveAnalysis);
+    const targetVisits = hiddenPassVisits(kataGoSettings, analysisMode);
     const nodeId = nodeKey(document, path);
     if (!shouldRequestHiddenPassAnalysis(document, path, analysisCache, targetVisits)) return;
     if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')) return;
@@ -503,7 +508,7 @@ export function App() {
     capabilities.katago,
     document,
     kataGoSettings,
-    liveAnalysis,
+    analysisMode,
     path,
     requestHiddenPassAnalysis,
     t,
@@ -512,8 +517,8 @@ export function App() {
   function handleNew(size: BoardSize = 19): void {
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    fastAnalysisRef.current = false;
-    setFastAnalysis(false);
+    analysisModeRef.current = false;
+    setAnalysisMode(false);
     replaceDocument(createNewGame(size), [], {clearAnalysisCache: true});
   }
 
@@ -548,9 +553,8 @@ export function App() {
       const nextDocument = await loadStoredGame(selectedStoredGameId);
       branchMemoryRef.current.clear();
       setStoredGameId(selectedStoredGameId);
-      fastAnalysisRef.current = true;
-      setFastAnalysis(true);
-      setLiveAnalysis(false);
+      analysisModeRef.current = true;
+      setAnalysisMode(true);
       replaceDocument(nextDocument, [], {clearAnalysisCache: true});
       setOpenGameModalOpen(false);
     } catch (error) {
@@ -624,9 +628,8 @@ export function App() {
     const importedDocument = withImportedGameName(parseGameRecord(text, fileName), fileName);
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    fastAnalysisRef.current = true;
-    setFastAnalysis(true);
-    setLiveAnalysis(false);
+    analysisModeRef.current = true;
+    setAnalysisMode(true);
     replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
 
@@ -708,7 +711,7 @@ export function App() {
   }
 
   const handleFastAnalysis = useCallback(async (): Promise<void> => {
-    if (!capabilities.katago || window.uro == null || !fastAnalysis) return;
+    if (!capabilities.katago || window.uro == null || !analysisMode) return;
 
     try {
       const settings = await refreshKataGoSettings();
@@ -719,12 +722,13 @@ export function App() {
         const cached = analysisCache[nodeId];
         return (
           (cached == null || cached.visits < targetVisits) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null)
+          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null) &&
+          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
         );
       });
 
       for (const movePath of pathsToAnalyze) {
-        if (!fastAnalysisRef.current || runVersion !== documentVersionRef.current) break;
+        if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
         await requestAnalysis(movePath, 'fast', targetVisits);
       }
 
@@ -733,12 +737,13 @@ export function App() {
           const nodeId = nodeKey(document, movePath);
           return (
             shouldRequestHiddenPassAnalysis(document, movePath, analysisCache, targetVisits) &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')
+            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass') &&
+            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
           );
         });
 
         for (const movePath of passPathsToAnalyze) {
-          if (!fastAnalysisRef.current || runVersion !== documentVersionRef.current) break;
+          if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
           await requestHiddenPassAnalysis(movePath, 'fast', targetVisits, -100);
         }
       }
@@ -754,7 +759,7 @@ export function App() {
     analysisPaths,
     capabilities.katago,
     document,
-    fastAnalysis,
+    analysisMode,
     refreshKataGoSettings,
     requestAnalysis,
     requestHiddenPassAnalysis,
@@ -762,32 +767,20 @@ export function App() {
   ]);
 
   useEffect(() => {
-    if (!fastAnalysis || analysisPaths.length === 0) return;
+    if (!analysisMode || analysisPaths.length === 0) return;
     void handleFastAnalysis();
-  }, [analysisPaths.length, fastAnalysis, handleFastAnalysis]);
+  }, [analysisPaths.length, analysisMode, handleFastAnalysis]);
 
-  function handleFastAnalysisToggle(): void {
-    setFastAnalysis((current) => {
-      const next = !current;
-      fastAnalysisRef.current = next;
-      if (!next) {
-        clearPendingAnalysisQueries('fast');
-        if (!liveAnalysis && window.uro != null) void window.uro.katago.stopAnalysis();
-      }
-      return next;
-    });
-  }
-
-  function handleLiveAnalysisToggle(): void {
-    setLiveAnalysis((current) => {
-      const next = !current;
-      if (!next) {
-        clearPendingAnalysisQueries('live');
-        if (window.uro != null) void window.uro.katago.stopAnalysis();
-      }
-      return next;
-    });
-  }
+  const handleAnalysisModeToggle = useCallback((): void => {
+    const next = !analysisMode;
+    analysisModeRef.current = next;
+    setAnalysisMode(next);
+    if (!next) {
+      clearPendingAnalysisQueries('fast');
+      clearPendingAnalysisQueries('live');
+      if (window.uro != null) void window.uro.katago.stopAnalysis();
+    }
+  }, [analysisMode]);
 
   function clearPendingAnalysisQueries(mode: AnalysisQueryContext['mode']): void {
     for (const [id, context] of analysisQueryContextRef.current.entries()) {
@@ -820,13 +813,20 @@ export function App() {
         navigateFirstChild(steps);
       } else if (capabilities.katago && event.key === ' ') {
         event.preventDefault();
-        setLiveAnalysis((current) => !current);
+        handleAnalysisModeToggle();
       }
     }
 
     window.document.body.addEventListener('keydown', handleKeyDown);
     return () => window.document.body.removeEventListener('keydown', handleKeyDown);
-  }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious]);
+  }, [
+    capabilities.katago,
+    handleAnalysisModeToggle,
+    navigateBranch,
+    navigateFirstChild,
+    navigateNext,
+    navigatePrevious,
+  ]);
 
   const handleAnalysisSettingsSave = useCallback((settings: AnalysisSettings) => {
     setAnalysisSettings(settings);
@@ -1080,21 +1080,6 @@ export function App() {
                   >
                     {t('analysis.expectedTerritory')}
                   </Checkbox>
-                  <Button size="small" type={fastAnalysis ? 'primary' : 'default'} onClick={handleFastAnalysisToggle}>
-                    {t('analysis.fast')}
-                  </Button>
-                  <span className="analysis-pending-count">
-                    {t('analysis.pendingMoves', {count: analysisPendingDisplayCount})}
-                  </span>
-                  <Button
-                    className="live-analysis-toggle"
-                    size="small"
-                    type={liveAnalysis ? 'primary' : 'default'}
-                    icon={<ThunderboltOutlined />}
-                    onClick={handleLiveAnalysisToggle}
-                  >
-                    {t('analysis.live')}
-                  </Button>
                 </Space>
               ) : null
             }
@@ -1144,9 +1129,22 @@ export function App() {
               onVertexClick={handleBoardClick}
               onVertexRightClick={handleBoardRightClick}
             />
-            <Button className="analysis-button" icon={<ThunderboltOutlined />} type="primary">
-              live
-            </Button>
+            <Tooltip title={t('analysis.button')}>
+              <Button
+                className={[
+                  'analysis-button',
+                  analysisMode ? 'glow-button' : '',
+                  waitingForFastAnalysis ? 'glow-fast' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                icon={<ThunderboltOutlined />}
+                type={analysisMode ? 'primary' : 'default'}
+                onClick={handleAnalysisModeToggle}
+              >
+                {analysisMode ? <span>{fastAnalysisPendingCount}</span> : null}
+              </Button>
+            </Tooltip>
           </main>
           <aside className="right-region">
             <section className="capture-summary">

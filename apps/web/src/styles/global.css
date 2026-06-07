@@ -697,16 +697,26 @@ body {
 
 .analysis-button {
   position: absolute;
-  width: 80px;
+  width: 60px;
   right: 8px;
   bottom: 8px;
   border-radius: 20px;
   transition: background 0.5s;
 }
 .glow-button {
-  background: linear-gradient(90deg, #fa7161, #f0ae42, #e43603, #fa7161);
+  color: white;
+  background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);
   background-size: 400%;
 }
+
+.glow-button > * {
+  z-index: 2;
+}
+
+.glow-fast {
+  background: linear-gradient(100deg, #1677ff, #35c2a6, #1677ff);
+}
+
 .glow-button:before {
   content: '';
   position: absolute;
