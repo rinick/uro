@@ -298,7 +298,8 @@ function analysisMoveText(
   const scoreDelta = moveScoreDelta(move, analysis, nextColor, mode);
   if (scoreDelta != null) return mode === 'absScore' ? formatValue(scoreDelta) : formatScore(scoreDelta);
 
-  if (move.pointsLost != null) return mode === 'absScore' ? formatValue(-move.pointsLost) : formatScore(-move.pointsLost);
+  if (move.pointsLost != null)
+    return mode === 'absScore' ? formatValue(-move.pointsLost) : formatScore(-move.pointsLost);
 
   return '';
 }

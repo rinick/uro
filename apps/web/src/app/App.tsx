@@ -50,11 +50,7 @@ import {boardSizes, type BoardSize} from '@uro/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
-import {
-  defaultAnalysisSettings,
-  type AnalysisSettings,
-  type AnalysisChartPoint,
-} from '@uro/analysis-core';
+import {defaultAnalysisSettings, type AnalysisSettings, type AnalysisChartPoint} from '@uro/analysis-core';
 import {
   buildKataGoQuery,
   defaultKataGoSettings,

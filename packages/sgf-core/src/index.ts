@@ -575,7 +575,12 @@ export function buildTree(document: SgfDocument): TreeItem[] {
     const setupColor = setupNodeColor(node);
     const nextMoveNumber = color != null || (isSetup && !isRoot) ? moveNumber + 1 : moveNumber;
     const displayMoveNumber = isRoot ? 0 : nextMoveNumber;
-    const label = color == null ? (isSetup ? `${displayMoveNumber} +` : '0 Root') : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
+    const label =
+      color == null
+        ? isSetup
+          ? `${displayMoveNumber} +`
+          : '0 Root'
+        : `${color}${nextMoveNumber} ${formatPoint(point, boardSize)}`;
 
     return {
       id: node.id,

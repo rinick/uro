@@ -41,7 +41,12 @@ function addSetupStoneToNode(node: SgfNode, color: SgfColor, point: string): boo
   return true;
 }
 
-export function findChildMovePath(document: SgfDocument, path: number[], color: SgfColor, point: string): number[] | null {
+export function findChildMovePath(
+  document: SgfDocument,
+  path: number[],
+  color: SgfColor,
+  point: string
+): number[] | null {
   const node = getNodeAtPath(document, path);
   const index = node.children.findIndex((child) => child.data[color]?.[0] === point);
   return index < 0 ? null : [...path, index];

@@ -230,7 +230,7 @@ function Vertex(props: VertexProps) {
           style: absoluteStyle(),
         },
         heat.text && heat.text.toString()
-    )
+      )
   );
 }
 
@@ -275,7 +275,11 @@ function sameHeat(left: HeatVertex | null | undefined, right: HeatVertex | null 
 function sameMoveHint(left: MoveHint | null | undefined, right: MoveHint | null | undefined): boolean {
   return (
     left === right ||
-    (left != null && right != null && left.best === right.best && left.branch === right.branch && left.sign === right.sign)
+    (left != null &&
+      right != null &&
+      left.best === right.best &&
+      left.branch === right.branch &&
+      left.sign === right.sign)
   );
 }
 

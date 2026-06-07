@@ -1,11 +1,4 @@
-import {
-  getBoardSize,
-  getLine,
-  pointToVertex,
-  type SgfColor,
-  type SgfDocument,
-  type SgfPoint,
-} from '@uro/sgf-core';
+import {getBoardSize, getLine, pointToVertex, type SgfColor, type SgfDocument, type SgfPoint} from '@uro/sgf-core';
 
 const gtpLetters = 'ABCDEFGHJKLMNOPQRSTUVWXYZ';
 
