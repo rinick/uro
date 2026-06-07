@@ -8,20 +8,20 @@ body,
 }
 
 body {
-  background: #f4f7f5;
+  background: #f5f5f5;
 }
 
 .app-shell {
   height: 100%;
   overflow: hidden;
-  color: #1f2933;
+  color: #262626;
 }
 
 .app-header {
   height: auto;
   padding: 8px 12px;
-  background: #eef3f0;
-  border-bottom: 1px solid #cfdad4;
+  background: #ffffff;
+  border-bottom: 1px solid #d9d9d9;
   line-height: 1.2;
 }
 
@@ -37,12 +37,12 @@ body {
   min-width: 150px;
   font-size: 16px;
   font-weight: 700;
-  color: #1f3f34;
+  color: #1f343f;
 }
 
 .view-toggles {
   padding: 0 8px;
-  color: #44524b;
+  color: #595959;
 }
 
 .editor-toolbar {
@@ -68,7 +68,7 @@ body {
 
 .analysis-pending-count {
   min-width: 52px;
-  color: #52635a;
+  color: #8c8c8c;
   text-align: right;
 }
 
@@ -90,7 +90,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 1px solid #1f2933;
+  border: 1px solid #262626;
 }
 
 .auto-stone-white {
@@ -134,7 +134,7 @@ body {
 
 .tool-stone {
   border-radius: 50%;
-  border: 1px solid #1f2933;
+  border: 1px solid #262626;
 }
 
 .tool-stone.black {
@@ -149,7 +149,7 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #276749;
+  background: #274967;
 }
 
 .tool-triangle {
@@ -157,7 +157,7 @@ body {
   width: 0;
   height: 0;
   border-right: 7px solid transparent;
-  border-bottom: 13px solid #1f2933;
+  border-bottom: 13px solid #262626;
   border-left: 7px solid transparent;
 }
 
@@ -178,9 +178,9 @@ body {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  border-right: 1px solid #c4d2ca;
-  background: #f7faf8;
-  color: #26332d;
+  border-right: 1px solid #d9d9d9;
+  background: #ffffff;
+  color: #262626;
 }
 
 .katago-console-header {
@@ -190,12 +190,12 @@ body {
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border-bottom: 1px solid #d8e2dc;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .katago-console-header h2 {
   margin: 0;
-  color: #1f3f34;
+  color: #1f343f;
   font-size: 12px;
   font-weight: 700;
 }
@@ -220,7 +220,7 @@ body {
 }
 
 .katago-console-empty {
-  color: #7a8981;
+  color: #8c8c8c;
 }
 
 .katago-console-line {
@@ -241,7 +241,7 @@ body {
 }
 
 .katago-console-time {
-  color: #7a8981;
+  color: #8c8c8c;
 }
 
 .katago-console-source {
@@ -254,7 +254,7 @@ body {
 }
 
 .katago-console-source.katago {
-  color: #276749;
+  color: #274967;
 }
 
 .katago-console-text {
@@ -262,20 +262,20 @@ body {
 }
 
 .board-region {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 0;
   min-height: 0;
-  background: #dde8e1;
 }
 
 .right-region {
   display: grid;
   grid-template-rows: auto 277px 1fr;
   min-height: 0;
-  border-left: 1px solid #c4d2ca;
-  background: #f8faf9;
+  border-left: 1px solid #d9d9d9;
+  background: #ffffff;
 }
 
 .capture-summary {
@@ -284,8 +284,8 @@ body {
   gap: 16px;
   min-height: 30px;
   padding: 4px 12px;
-  border-bottom: 1px solid #d8e2dc;
-  color: #334d42;
+  border-bottom: 1px solid #f0f0f0;
+  color: #595959;
   font-size: 12px;
 }
 
@@ -344,7 +344,7 @@ body {
   margin: 0 0 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #335247;
+  color: #334752;
 }
 
 .tree-panel {
@@ -361,8 +361,8 @@ body {
   justify-content: space-between;
   gap: 8px;
   padding: 12px;
-  border-bottom: 1px solid #d8e2dc;
-  background: #f8faf9;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
 }
 
 .tree-panel-header h2 {
@@ -377,7 +377,7 @@ body {
 }
 
 .comments-panel {
-  border-bottom: 1px solid #d8e2dc;
+  border-bottom: 1px solid #f0f0f0;
   overflow: hidden;
 }
 
@@ -412,21 +412,21 @@ body {
   width: 100%;
   height: 190px;
   overflow: visible;
-  background: #fbfdfb;
-  border: 1px solid #d8e2dc;
+  background: #ffffff;
+  border: 1px solid #d9d9d9;
   border-radius: 6px;
   cursor: pointer;
 }
 
 .analysis-chart-title {
-  fill: #44524b;
+  fill: #595959;
   font-size: 10px;
   font-weight: 700;
 }
 
 .analysis-chart-title.score,
 .analysis-chart-label.score {
-  fill: #276749;
+  fill: #274967;
 }
 
 .analysis-chart-title.winrate,
@@ -435,17 +435,17 @@ body {
 }
 
 .analysis-chart-label {
-  fill: #64746c;
+  fill: #8c8c8c;
   font-size: 9px;
 }
 
 .analysis-chart-grid {
-  stroke: #e2ebe5;
+  stroke: #f0f0f0;
   stroke-width: 1;
 }
 
 .analysis-chart-axis {
-  stroke: #a7b7ae;
+  stroke: #d9d9d9;
   stroke-width: 1;
 }
 
@@ -468,7 +468,7 @@ body {
 }
 
 .analysis-chart-line.score {
-  stroke: #276749;
+  stroke: #274967;
 }
 
 .analysis-chart-line.winrate {
@@ -526,7 +526,7 @@ body {
 
 .move-tree-connectors path {
   fill: none;
-  stroke: rgba(76, 97, 87, 0.46);
+  stroke: rgba(0, 0, 0, 0.25);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -537,7 +537,7 @@ body {
   z-index: 1;
   grid-column: 1;
   padding-right: 8px;
-  color: #61756b;
+  color: #8c8c8c;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -562,9 +562,9 @@ body {
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 1px solid rgba(31, 41, 51, 0.42);
+  border: 1px solid rgba(0, 0, 0, 0.35);
   border-radius: 50%;
-  box-shadow: 0 1px 2px rgba(24, 35, 31, 0.18);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
   cursor: pointer;
   font-size: 12px;
   font-weight: 700;
@@ -590,7 +590,7 @@ body {
 
 .move-tree-node.root {
   color: #f8fafc;
-  background: #7a8580;
+  background: #8c8c8c;
 }
 
 .move-tree-node.setup {
@@ -611,7 +611,7 @@ body {
 }
 
 .move-tree-node:hover {
-  border-color: #276749;
+  border-color: #274967;
 }
 
 .board-frame {
@@ -637,7 +637,7 @@ body {
   --shudan-black-foreground-color: #f5f7fa;
   --shudan-white-background-color: #fbfaf4;
   --shudan-white-foreground-color: #14171a;
-  box-shadow: 0 12px 30px rgba(35, 45, 38, 0.22);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
 .uro-goban .shudan-vertex.shudan-marker_label .shudan-marker {
@@ -693,4 +693,40 @@ body {
 
 .hidden-file-input {
   display: none;
+}
+
+.analysis-button {
+  position: absolute;
+  width: 80px;
+  right: 8px;
+  bottom: 8px;
+  border-radius: 20px;
+  transition: background 0.5s;
+}
+.glow-button {
+  background: linear-gradient(90deg, #fa7161, #f0ae42, #e43603, #fa7161);
+  background-size: 400%;
+}
+.glow-button:before {
+  content: '';
+  position: absolute;
+  background: inherit;
+  top: -2px;
+  right: -2px;
+  bottom: -2px;
+  left: -2px;
+  border-radius: 20px;
+  filter: blur(2px);
+  transition: opacity 0.5s;
+  opacity: 1;
+  z-index: 1;
+  animation: glow 8s linear infinite;
+}
+@keyframes glow {
+  0% {
+    background-position: 0%;
+  }
+  100% {
+    background-position: -400%;
+  }
 }

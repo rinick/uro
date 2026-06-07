@@ -938,7 +938,6 @@ export function App() {
       theme={{
         algorithm: [theme.defaultAlgorithm, theme.compactAlgorithm],
         token: {
-          colorPrimary: '#276749',
           borderRadius: 6,
           fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
         },
@@ -1145,7 +1144,9 @@ export function App() {
               onVertexClick={handleBoardClick}
               onVertexRightClick={handleBoardRightClick}
             />
-            <button className="glow-button"></button>
+            <Button className="analysis-button" icon={<ThunderboltOutlined />} type="primary">
+              live
+            </Button>
           </main>
           <aside className="right-region">
             <section className="capture-summary">
