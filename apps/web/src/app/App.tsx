@@ -405,19 +405,19 @@ export function App() {
       if (isTextInputActive()) return;
       const steps = event.ctrlKey ? Infinity : event.shiftKey ? 10 : 1;
       const key = event.key.toLowerCase();
-      if (event.key === 'ArrowLeft' || key === 'a') {
+      if (event.key === 'ArrowLeft' || key === 'a' || key === 'f') {
         event.preventDefault();
         navigateBranch(-1, steps);
-      } else if (event.key === 'ArrowRight' || key === 'd' || key === 'z') {
+      } else if (event.key === 'ArrowRight' || key === 'd' || key === 'v') {
         event.preventDefault();
         navigateBranch(1, steps);
-      } else if (event.key === 'ArrowUp' || key === 'w' || key === 'x') {
+      } else if (event.key === 'ArrowUp' || key === 'w' || key === 'c') {
         event.preventDefault();
         navigatePrevious(steps);
-      } else if (event.key === 'ArrowDown' || key === 's') {
+      } else if (event.key === 'ArrowDown' || key === 's' || key === 'g') {
         event.preventDefault();
         navigateNext(steps);
-      } else if (key === 'c') {
+      } else if (key === 'e' || key === 'b') {
         event.preventDefault();
         navigateFirstChild(steps);
       } else if (capabilities.katago && event.key === ' ') {
@@ -736,12 +736,7 @@ export function App() {
             {capabilities.katago ? (
               <Tooltip title={t('analysis.button')}>
                 <Button
-                  className={[
-                    'analysis-button',
-                    analysisMode ? 'glow-button' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+                  className={['analysis-button', analysisMode ? 'glow-button' : ''].filter(Boolean).join(' ')}
                   icon={<ThunderboltOutlined />}
                   type={analysisMode ? 'primary' : 'default'}
                   onClick={toggleAnalysisMode}
