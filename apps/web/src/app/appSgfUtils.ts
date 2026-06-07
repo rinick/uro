@@ -130,16 +130,27 @@ export function getCurrentBranchMovePaths(
   return paths;
 }
 
-export function getMovePaths(document: SgfDocument): number[][] {
+export function getAnalysisQueuePaths(document: SgfDocument, branchPaths: number[][]): number[][] {
+  const queued = new Set<string>();
   const paths: number[][] = [];
 
-  function walk(node: SgfNode, path: number[]): void {
-    if (node.data.B != null || node.data.W != null) paths.push(path);
-    node.children.forEach((child, index) => walk(child, [...path, index]));
+  function addPath(nextPath: number[]): void {
+    if (!isAnalysisPath(document, nextPath)) return;
+    const key = pathKey(nextPath);
+    if (queued.has(key)) return;
+    queued.add(key);
+    paths.push(nextPath);
   }
 
-  walk(document.root, []);
+  for (const branchPath of branchPaths) addPath(branchPath);
+
   return paths;
+}
+
+function isAnalysisPath(document: SgfDocument, path: number[]): boolean {
+  if (path.length === 0) return true;
+  const node = getNodeAtPath(document, path);
+  return node.data.B != null || node.data.W != null;
 }
 
 export function nodeKey(document: SgfDocument, path: number[]): string {

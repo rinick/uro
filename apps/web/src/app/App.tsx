@@ -72,8 +72,8 @@ import {getAppCapabilities} from './capabilities';
 import {
   addSetupStoneToPath,
   findChildMovePath,
+  getAnalysisQueuePaths,
   getCurrentBranchMovePaths,
-  getMovePaths,
   isCurrentSetupStone,
   isTextInputActive,
   nextFirstChildPath,
@@ -130,8 +130,10 @@ export function App() {
     () => getCurrentBranchMovePaths(document, path, branchMemoryRef.current),
     [document, path]
   );
-  const movePaths = useMemo(() => getMovePaths(document), [document]);
-  const analysisPaths = useMemo(() => [[], ...movePaths], [movePaths]);
+  const analysisPaths = useMemo(
+    () => getAnalysisQueuePaths(document, analysisChartPaths),
+    [analysisChartPaths, document]
+  );
   const {
     analysisSettings,
     updateAnalysisSettings,
@@ -145,7 +147,6 @@ export function App() {
     selectedChartMoveNumber,
     analysisChartSummary,
     fastAnalysisPendingCount,
-    waitingForFastAnalysis,
     kataGoConsoleMessages,
     setKataGoConsoleMessages,
     kataGoConsoleRef,
@@ -738,7 +739,6 @@ export function App() {
                   className={[
                     'analysis-button',
                     analysisMode ? 'glow-button' : '',
-                    waitingForFastAnalysis ? 'glow-fast' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}

@@ -27,6 +27,7 @@ import {collectNodeIds, nodeKey} from './appSgfUtils';
 import {createLocalConsoleMessage} from './appUiUtils';
 
 const liveAnalysisVisits = 10_000_000;
+const maxFastAnalysisQueries = 2;
 
 interface UseKataGoAnalysisOptions {
   enabled: boolean;
@@ -57,6 +58,7 @@ export function useKataGoAnalysis({
   const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
   const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
   const [analysisMode, setAnalysisMode] = useState(false);
+  const [analysisQueueRevision, setAnalysisQueueRevision] = useState(0);
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
   const analysisModeRef = useRef(false);
@@ -73,25 +75,25 @@ export function useKataGoAnalysis({
     const normal = analysisPaths.filter((movePath) => {
       const nodeId = nodeKey(document, movePath);
       const cached = analysisCache[nodeId];
-      return (
-        (cached == null || cached.visits < analysisTargetVisits) &&
-        !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-      );
+      return cached == null || cached.visits < analysisTargetVisits;
     }).length;
     const hiddenPass =
       analysisSettings.moveDisplay === 'absScore'
-        ? analysisPaths.filter((movePath) => {
-            const nodeId = nodeKey(document, movePath);
-            return (
-              shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits) &&
-              !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
-            );
-          }).length
+        ? analysisPaths.filter((movePath) =>
+            shouldCountHiddenPassAnalysis(document, movePath, analysisCache, analysisTargetVisits)
+          ).length
         : 0;
     return {normal, hiddenPass};
-  }, [analysisCache, analysisPaths, analysisSettings.moveDisplay, analysisTargetVisits, document, enabled]);
+  }, [
+    analysisCache,
+    analysisPaths,
+    analysisQueueRevision,
+    analysisSettings.moveDisplay,
+    analysisTargetVisits,
+    document,
+    enabled,
+  ]);
   const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
-  const waitingForFastAnalysis = analysisMode && fastAnalysisPendingCount > 0;
   const analysisChartData = useMemo<AnalysisChartPoint[]>(
     () => (enabled ? buildAnalysisChartData(document, analysisChartPaths, analysisCache) : []),
     [analysisCache, analysisChartPaths, document, enabled]
@@ -120,9 +122,14 @@ export function useKataGoAnalysis({
   }, []);
 
   const clearPendingAnalysisQueries = useCallback((mode: AnalysisQueryContext['mode']): void => {
+    let changed = false;
     for (const [id, context] of analysisQueryContextRef.current.entries()) {
-      if (context.mode === mode) analysisQueryContextRef.current.delete(id);
+      if (context.mode === mode) {
+        analysisQueryContextRef.current.delete(id);
+        changed = true;
+      }
     }
+    if (changed) setAnalysisQueueRevision((current) => current + 1);
   }, []);
 
   const setAnalysisModeActive = useCallback(
@@ -143,18 +150,27 @@ export function useKataGoAnalysis({
     setAnalysisModeActive(!analysisMode);
   }, [analysisMode, setAnalysisModeActive]);
 
-  const resetAnalysisForDocumentChange = useCallback((next: SgfDocument, options: AnalysisDocumentChangeOptions): void => {
-    documentVersionRef.current += 1;
-    analysisQueryContextRef.current.clear();
-    if (options.clearAnalysisCache === true) {
-      setAnalysisCache({});
-    } else if (options.invalidatePath != null) {
-      const invalidatedNodeIds = new Set(collectNodeIds(getNodeAtPath(next, options.invalidatePath)));
-      setAnalysisCache((current) =>
-        Object.fromEntries(Object.entries(current).filter(([nodeId]) => !invalidatedNodeIds.has(nodeId)))
-      );
-    }
-  }, []);
+  const resetAnalysisForDocumentChange = useCallback(
+    (next: SgfDocument, options: AnalysisDocumentChangeOptions): void => {
+      const pendingQueryIds = [...analysisQueryContextRef.current.keys()];
+      documentVersionRef.current += 1;
+      analysisQueryContextRef.current.clear();
+      if (pendingQueryIds.length > 0) {
+        setAnalysisQueueRevision((current) => current + 1);
+        if (enabled && window.uro != null) void window.uro.katago.stopAnalysis(pendingQueryIds);
+      }
+
+      if (options.clearAnalysisCache === true) {
+        setAnalysisCache({});
+      } else if (options.invalidatePath != null) {
+        const invalidatedNodeIds = new Set(collectNodeIds(getNodeAtPath(next, options.invalidatePath)));
+        setAnalysisCache((current) =>
+          Object.fromEntries(Object.entries(current).filter(([nodeId]) => !invalidatedNodeIds.has(nodeId)))
+        );
+      }
+    },
+    [enabled]
+  );
 
   const updateAnalysisSettings = useCallback((values: Partial<AnalysisSettings>): void => {
     setAnalysisSettings((current) => {
@@ -186,7 +202,10 @@ export function useKataGoAnalysis({
     const unsubscribeAnalysis = window.uro.katago.onAnalysis((result) => {
       const context = analysisQueryContextRef.current.get(result.id);
       if (context == null) return;
-      if (!result.isDuringSearch) analysisQueryContextRef.current.delete(result.id);
+      if (!result.isDuringSearch) {
+        analysisQueryContextRef.current.delete(result.id);
+        setAnalysisQueueRevision((current) => current + 1);
+      }
 
       if (context.version !== documentVersionRef.current) return;
       if (result.error != null) return;
@@ -251,6 +270,7 @@ export function useKataGoAnalysis({
         version: documentVersionRef.current,
         mode,
       });
+      setAnalysisQueueRevision((current) => current + 1);
 
       try {
         await window.uro.katago.analyze(
@@ -263,6 +283,7 @@ export function useKataGoAnalysis({
         );
       } catch (error) {
         analysisQueryContextRef.current.delete(queryId);
+        setAnalysisQueueRevision((current) => current + 1);
         throw error;
       }
     },
@@ -286,6 +307,7 @@ export function useKataGoAnalysis({
         mode,
         hiddenMove: 'pass',
       });
+      setAnalysisQueueRevision((current) => current + 1);
 
       try {
         await window.uro.katago.analyze(
@@ -299,6 +321,7 @@ export function useKataGoAnalysis({
         );
       } catch (error) {
         analysisQueryContextRef.current.delete(queryId);
+        setAnalysisQueueRevision((current) => current + 1);
         throw error;
       }
     },
@@ -314,13 +337,12 @@ export function useKataGoAnalysis({
       return;
     }
     if (pendingSetupPathRef.current != null && samePath(pendingSetupPathRef.current, path)) return;
-
-    const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
-    if (
-      liveQueryIds.length === 0 &&
-      (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast') ||
-        (analysisMode && fastAnalysisPendingCount > 0))
-    ) {
+    if (fastAnalysisPendingCount > 0 || hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) {
+      if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
+        const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
+        clearPendingAnalysisQueries('live');
+        void uro.katago.stopAnalysis(liveQueryIds);
+      }
       return;
     }
 
@@ -354,6 +376,7 @@ export function useKataGoAnalysis({
     };
   }, [
     analysisMode,
+    analysisQueueRevision,
     appendKataGoConsoleMessage,
     clearPendingAnalysisQueries,
     document,
@@ -372,8 +395,14 @@ export function useKataGoAnalysis({
 
     const targetVisits = hiddenPassVisits(kataGoSettings, analysisMode);
     const nodeId = nodeKey(document, path);
+    if (
+      analysisMode &&
+      (fastAnalysisPendingCount > 0 || hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast'))
+    )
+      return;
     if (!shouldRequestHiddenPassAnalysis(document, path, analysisCache, targetVisits)) return;
     if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')) return;
+    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)) return;
 
     void requestHiddenPassAnalysis(path, 'fast', targetVisits, 100).catch((error: unknown) => {
       appendKataGoConsoleMessage(
@@ -387,6 +416,7 @@ export function useKataGoAnalysis({
     appendKataGoConsoleMessage,
     document,
     enabled,
+    fastAnalysisPendingCount,
     kataGoSettings,
     path,
     requestHiddenPassAnalysis,
@@ -400,34 +430,38 @@ export function useKataGoAnalysis({
       const settings = await refreshKataGoSettings();
       const targetVisits = Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
       const runVersion = documentVersionRef.current;
+      let availableSlots =
+        maxFastAnalysisQueries - getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'fast').length;
+      if (availableSlots <= 0) return;
+
       const pathsToAnalyze = analysisPaths.filter((movePath) => {
         const nodeId = nodeKey(document, movePath);
         const cached = analysisCache[nodeId];
         return (
           (cached == null || cached.visits < targetVisits) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
+          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null)
         );
       });
 
       for (const movePath of pathsToAnalyze) {
-        if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
+        if (availableSlots <= 0 || !analysisModeRef.current || runVersion !== documentVersionRef.current) break;
         await requestAnalysis(movePath, 'fast', targetVisits);
+        availableSlots -= 1;
       }
 
-      if (analysisSettings.moveDisplay === 'absScore') {
+      if (analysisSettings.moveDisplay === 'absScore' && availableSlots > 0) {
         const passPathsToAnalyze = analysisPaths.filter((movePath) => {
           const nodeId = nodeKey(document, movePath);
           return (
             shouldRequestHiddenPassAnalysis(document, movePath, analysisCache, targetVisits) &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass') &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)
+            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')
           );
         });
 
         for (const movePath of passPathsToAnalyze) {
-          if (!analysisModeRef.current || runVersion !== documentVersionRef.current) break;
+          if (availableSlots <= 0 || !analysisModeRef.current || runVersion !== documentVersionRef.current) break;
           await requestHiddenPassAnalysis(movePath, 'fast', targetVisits, -100);
+          availableSlots -= 1;
         }
       }
     } catch (error) {
@@ -452,7 +486,7 @@ export function useKataGoAnalysis({
   useEffect(() => {
     if (!analysisMode || analysisPaths.length === 0) return;
     void handleFastAnalysis();
-  }, [analysisPaths.length, analysisMode, handleFastAnalysis]);
+  }, [analysisPaths.length, analysisMode, analysisQueueRevision, handleFastAnalysis]);
 
   return {
     analysisSettings,
@@ -467,7 +501,6 @@ export function useKataGoAnalysis({
     selectedChartMoveNumber,
     analysisChartSummary,
     fastAnalysisPendingCount,
-    waitingForFastAnalysis,
     kataGoConsoleMessages,
     setKataGoConsoleMessages,
     kataGoConsoleRef,

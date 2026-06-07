@@ -715,16 +715,13 @@ button.ant-btn.analysis-button {
 }
 .glow-button {
   color: white;
-  background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);
+  /*background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);*/
+  background: linear-gradient(100deg, #6253e1, #04befe, #1677ff, #6253e1);
   background-size: 400%;
 }
 
 .glow-button > * {
   z-index: 2;
-}
-
-.glow-fast {
-  background: linear-gradient(100deg, #1677ff, #35c2a6, #1677ff);
 }
 
 .glow-button:before {
