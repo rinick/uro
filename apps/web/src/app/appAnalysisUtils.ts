@@ -221,13 +221,20 @@ function sameMoveInfo(first: KataGoMoveInfo, second: KataGoMoveInfo): boolean {
 export function buildAnalysisChartData(
   document: SgfDocument,
   paths: number[][],
-  cache: Record<string, CachedAnalysis>
+  cache: Record<string, CachedAnalysis>,
+  targetVisits: number
 ): AnalysisChartPoint[] {
   const data: AnalysisChartPoint[] = [];
 
   paths.forEach((path, index) => {
     const rootInfo = cache[nodeKey(document, path)]?.result.rootInfo;
-    if (rootInfo?.scoreLead != null) data.push({moveNumber: index, series: 'score', value: rootInfo.scoreLead});
+    if (rootInfo?.scoreLead != null)
+      data.push({
+        moveNumber: index,
+        series: 'score',
+        value: rootInfo.scoreLead,
+        hiddenPassReady: !shouldCountHiddenPassAnalysis(document, path, cache, targetVisits),
+      });
     if (rootInfo?.winrate != null)
       data.push({moveNumber: index, series: 'winrate', value: normalizeWinratePercent(rootInfo.winrate)});
   });

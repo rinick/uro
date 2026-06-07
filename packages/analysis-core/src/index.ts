@@ -56,4 +56,5 @@ export interface AnalysisChartPoint {
   moveNumber: number;
   series: 'score' | 'winrate';
   value: number;
+  hiddenPassReady?: boolean;
 }

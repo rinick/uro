@@ -2,7 +2,7 @@ import {Button, Empty, Input, Space} from 'antd';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
-import type {AnalysisChartPoint} from '@uro/analysis-core';
+import type {AnalysisChartPoint, AnalysisSettings} from '@uro/analysis-core';
 
 interface CommentsPanelProps {
   value: string;
@@ -10,6 +10,7 @@ interface CommentsPanelProps {
   showAnalysisControls?: boolean;
   analysisActive?: boolean;
   chartData?: AnalysisChartPoint[];
+  moveDisplay?: AnalysisSettings['moveDisplay'];
   selectedMoveNumber?: number | null;
   chartSummary?: AnalysisChartSummary | null;
   onPreviousMove?: () => void;
@@ -27,6 +28,7 @@ interface PlotPoint {
   y: number;
   value: number;
   moveNumber: number;
+  hiddenPassReady?: boolean;
 }
 
 export function CommentsPanel({
@@ -35,6 +37,7 @@ export function CommentsPanel({
   showAnalysisControls = false,
   analysisActive = false,
   chartData = [],
+  moveDisplay = 'score',
   selectedMoveNumber = null,
   chartSummary = null,
   onPreviousMove,
@@ -94,6 +97,7 @@ export function CommentsPanel({
             scoreData={showScore ? scoreData : []}
             winrateData={showWinrate ? winrateData : []}
             allData={chartData}
+            moveDisplay={moveDisplay}
             selectedMoveNumber={selectedMoveNumber}
             summary={chartSummary}
             onPreviousMove={onPreviousMove}
@@ -119,6 +123,7 @@ function AnalysisChart({
   scoreData,
   winrateData,
   allData,
+  moveDisplay,
   selectedMoveNumber,
   summary,
   onPreviousMove,
@@ -128,6 +133,7 @@ function AnalysisChart({
   scoreData: AnalysisChartPoint[];
   winrateData: AnalysisChartPoint[];
   allData: AnalysisChartPoint[];
+  moveDisplay: AnalysisSettings['moveDisplay'];
   selectedMoveNumber: number | null;
   summary: AnalysisChartSummary | null;
   onPreviousMove?: () => void;
@@ -259,7 +265,7 @@ function AnalysisChart({
 
         {scorePoints.length > 0 ? (
           <>
-            <path className="analysis-chart-line score" d={pointsPath(scorePoints)} />
+            <ScoreLine points={scorePoints} useHiddenPassColor={moveDisplay === 'absScore'} />
             <text className="analysis-chart-label score" x="2" y={padding.top + 4}>{`B+${scoreScale}`}</text>
             <text className="analysis-chart-label score" x="2" y={halfScoreY + 4}>{`B+${halfScoreScale}`}</text>
             <text className="analysis-chart-label score" x="2" y={centerY + 4}>
@@ -322,7 +328,28 @@ function makePoints(
       y: yForValue(item.value),
       value: item.value,
       moveNumber: item.moveNumber,
+      hiddenPassReady: item.hiddenPassReady,
     }));
+}
+
+function ScoreLine({points, useHiddenPassColor}: {points: PlotPoint[]; useHiddenPassColor: boolean}) {
+  if (points.length < 2) return null;
+
+  return (
+    <>
+      {points.slice(1).map((point, index) => {
+        const previous = points[index];
+        const pending = useHiddenPassColor && point.hiddenPassReady === false;
+        return (
+          <path
+            key={`${previous.moveNumber}-${point.moveNumber}`}
+            className={`analysis-chart-line score ${pending ? 'pending' : 'ready'}`}
+            d={pointsPath([previous, point])}
+          />
+        );
+      })}
+    </>
+  );
 }
 
 function AnalysisChartSummaryView({summary}: {summary: AnalysisChartSummary | null}) {

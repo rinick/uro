@@ -770,6 +770,7 @@ export function App() {
               showAnalysisControls={capabilities.katago}
               analysisActive={analysisMode}
               chartData={analysisChartData}
+              moveDisplay={analysisSettings.moveDisplay}
               selectedMoveNumber={selectedChartMoveNumber}
               chartSummary={analysisChartSummary}
               onPreviousMove={() => navigatePrevious()}

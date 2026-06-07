@@ -13,7 +13,6 @@ import {
   getAnalysisVisits,
   getPendingAnalysisQueryIds,
   hasPendingAnalysisQuery,
-  hiddenPassVisits,
   nextColorForPath,
   normalizeWinratePercent,
   shouldCountHiddenPassAnalysis,
@@ -23,11 +22,12 @@ import {
   type AnalysisQueryContext,
   type CachedAnalysis,
 } from './appAnalysisUtils';
-import {collectNodeIds, nodeKey} from './appSgfUtils';
+import {collectNodeIds, nodeKey, pathKey} from './appSgfUtils';
 import {createLocalConsoleMessage} from './appUiUtils';
 
 const liveAnalysisVisits = 10_000_000;
 const maxFastAnalysisQueries = 2;
+const nextFastAnalysisCount = 5;
 
 interface UseKataGoAnalysisOptions {
   enabled: boolean;
@@ -43,6 +43,8 @@ interface AnalysisDocumentChangeOptions {
   clearAnalysisCache?: boolean;
   invalidatePath?: number[];
 }
+
+type FastAnalysisJob = {path: number[]; hiddenPass: boolean};
 
 export function useKataGoAnalysis({
   enabled,
@@ -95,8 +97,8 @@ export function useKataGoAnalysis({
   ]);
   const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
   const analysisChartData = useMemo<AnalysisChartPoint[]>(
-    () => (enabled ? buildAnalysisChartData(document, analysisChartPaths, analysisCache) : []),
-    [analysisCache, analysisChartPaths, document, enabled]
+    () => (enabled ? buildAnalysisChartData(document, analysisChartPaths, analysisCache, analysisTargetVisits) : []),
+    [analysisCache, analysisChartPaths, analysisTargetVisits, document, enabled]
   );
   const selectedChartMoveNumber = useMemo(() => {
     if (!enabled) return null;
@@ -390,39 +392,6 @@ export function useKataGoAnalysis({
     startFailedMessage,
   ]);
 
-  useEffect(() => {
-    if (!enabled || window.uro == null || analysisSettings.moveDisplay !== 'absScore') return;
-
-    const targetVisits = hiddenPassVisits(kataGoSettings, analysisMode);
-    const nodeId = nodeKey(document, path);
-    if (
-      analysisMode &&
-      (fastAnalysisPendingCount > 0 || hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast'))
-    )
-      return;
-    if (!shouldRequestHiddenPassAnalysis(document, path, analysisCache, targetVisits)) return;
-    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')) return;
-    if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', nodeId)) return;
-
-    void requestHiddenPassAnalysis(path, 'fast', targetVisits, 100).catch((error: unknown) => {
-      appendKataGoConsoleMessage(
-        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : startFailedMessage)
-      );
-    });
-  }, [
-    analysisCache,
-    analysisMode,
-    analysisSettings.moveDisplay,
-    appendKataGoConsoleMessage,
-    document,
-    enabled,
-    fastAnalysisPendingCount,
-    kataGoSettings,
-    path,
-    requestHiddenPassAnalysis,
-    startFailedMessage,
-  ]);
-
   const handleFastAnalysis = useCallback(async (): Promise<void> => {
     if (!enabled || window.uro == null || !analysisMode) return;
 
@@ -430,39 +399,35 @@ export function useKataGoAnalysis({
       const settings = await refreshKataGoSettings();
       const targetVisits = Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
       const runVersion = documentVersionRef.current;
+      const staleFastQueryIds = getFastQueryIdsOutsidePaths(analysisQueryContextRef.current, analysisPaths);
+      if (staleFastQueryIds.length > 0) {
+        for (const queryId of staleFastQueryIds) analysisQueryContextRef.current.delete(queryId);
+        setAnalysisQueueRevision((current) => current + 1);
+        await window.uro.katago.stopAnalysis(staleFastQueryIds);
+      }
+
       let availableSlots =
         maxFastAnalysisQueries - getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'fast').length;
       if (availableSlots <= 0) return;
 
-      const pathsToAnalyze = analysisPaths.filter((movePath) => {
-        const nodeId = nodeKey(document, movePath);
-        const cached = analysisCache[nodeId];
-        return (
-          (cached == null || cached.visits < targetVisits) &&
-          !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, null)
-        );
+      const jobs = buildFastAnalysisJobs({
+        analysisPaths,
+        currentPath: path,
+        valueMode: analysisSettings.moveDisplay === 'absScore',
+        document,
+        analysisCache,
+        targetVisits,
+        pendingQueries: analysisQueryContextRef.current,
       });
 
-      for (const movePath of pathsToAnalyze) {
+      for (const job of jobs) {
         if (availableSlots <= 0 || !analysisModeRef.current || runVersion !== documentVersionRef.current) break;
-        await requestAnalysis(movePath, 'fast', targetVisits);
-        availableSlots -= 1;
-      }
-
-      if (analysisSettings.moveDisplay === 'absScore' && availableSlots > 0) {
-        const passPathsToAnalyze = analysisPaths.filter((movePath) => {
-          const nodeId = nodeKey(document, movePath);
-          return (
-            shouldRequestHiddenPassAnalysis(document, movePath, analysisCache, targetVisits) &&
-            !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast', nodeId, 'pass')
-          );
-        });
-
-        for (const movePath of passPathsToAnalyze) {
-          if (availableSlots <= 0 || !analysisModeRef.current || runVersion !== documentVersionRef.current) break;
-          await requestHiddenPassAnalysis(movePath, 'fast', targetVisits, -100);
-          availableSlots -= 1;
+        if (job.hiddenPass) {
+          await requestHiddenPassAnalysis(job.path, 'fast', targetVisits, -100);
+        } else {
+          await requestAnalysis(job.path, 'fast', targetVisits);
         }
+        availableSlots -= 1;
       }
     } catch (error) {
       appendKataGoConsoleMessage(
@@ -477,6 +442,7 @@ export function useKataGoAnalysis({
     appendKataGoConsoleMessage,
     document,
     enabled,
+    path,
     refreshKataGoSettings,
     requestAnalysis,
     requestHiddenPassAnalysis,
@@ -507,4 +473,81 @@ export function useKataGoAnalysis({
     refreshKataGoSettings,
     resetAnalysisForDocumentChange,
   };
+}
+
+function buildFastAnalysisJobs({
+  analysisPaths,
+  currentPath,
+  valueMode,
+  document,
+  analysisCache,
+  targetVisits,
+  pendingQueries,
+}: {
+  analysisPaths: number[][];
+  currentPath: number[];
+  valueMode: boolean;
+  document: SgfDocument;
+  analysisCache: Record<string, CachedAnalysis>;
+  targetVisits: number;
+  pendingQueries: Map<string, AnalysisQueryContext>;
+}): FastAnalysisJob[] {
+  const currentIndex = analysisPaths.findIndex((movePath) => samePath(movePath, currentPath));
+  const firstNextIndex = currentIndex < 0 ? 0 : currentIndex + 1;
+  const nextPaths = analysisPaths.slice(firstNextIndex, firstNextIndex + nextFastAnalysisCount);
+  const currentPaths = currentIndex < 0 ? [] : [analysisPaths[currentIndex]];
+  const nextKeys = new Set(nextPaths.map(pathKey));
+  const currentKeys = new Set(currentPaths.map(pathKey));
+  const otherPaths = analysisPaths.filter((movePath) => {
+    const key = pathKey(movePath);
+    return !currentKeys.has(key) && !nextKeys.has(key);
+  });
+  const jobs: FastAnalysisJob[] = [];
+  const queued = new Set<string>();
+
+  function addNormalJobs(paths: number[][]): void {
+    for (const movePath of paths) {
+      const nodeId = nodeKey(document, movePath);
+      const cached = analysisCache[nodeId];
+      if (cached != null && cached.visits >= targetVisits) continue;
+      if (hasPendingAnalysisQuery(pendingQueries, 'fast', nodeId, null)) continue;
+      addJob({path: movePath, hiddenPass: false});
+    }
+  }
+
+  function addHiddenPassJobs(paths: number[][]): void {
+    if (!valueMode) return;
+    for (const movePath of paths) {
+      const nodeId = nodeKey(document, movePath);
+      if (!shouldRequestHiddenPassAnalysis(document, movePath, analysisCache, targetVisits)) continue;
+      if (hasPendingAnalysisQuery(pendingQueries, 'fast', nodeId, 'pass')) continue;
+      addJob({path: movePath, hiddenPass: true});
+    }
+  }
+
+  function addJob(job: FastAnalysisJob): void {
+    const key = `${pathKey(job.path)}:${job.hiddenPass ? 'pass' : 'normal'}`;
+    if (queued.has(key)) return;
+    queued.add(key);
+    jobs.push(job);
+  }
+
+  addNormalJobs(currentPaths);
+  addHiddenPassJobs(currentPaths);
+  addNormalJobs(nextPaths);
+  addHiddenPassJobs(nextPaths);
+  addNormalJobs(otherPaths);
+  addHiddenPassJobs(otherPaths);
+
+  return jobs;
+}
+
+function getFastQueryIdsOutsidePaths(
+  pendingQueries: Map<string, AnalysisQueryContext>,
+  analysisPaths: number[][]
+): string[] {
+  const pathKeys = new Set(analysisPaths.map(pathKey));
+  return [...pendingQueries.entries()]
+    .filter(([, context]) => context.mode === 'fast' && !pathKeys.has(pathKey(context.path)))
+    .map(([queryId]) => queryId);
 }
