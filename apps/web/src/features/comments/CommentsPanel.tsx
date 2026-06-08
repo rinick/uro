@@ -84,43 +84,44 @@ export function CommentsPanel({
   return (
     <section className="side-panel comments-panel">
       <div className="comments-panel-header">
-        <h2>{t('panels.comments')}</h2>
-        {showAnalysisControls ? (
-          <Space.Compact>
-            <Button
-              size="small"
-              type={showScore ? 'primary' : 'default'}
-              onClick={() => setShowScore((current) => !current)}
-            >
-              {t('analysis.score')}
-            </Button>
-            <Button
-              size="small"
-              type={showPointLoss ? 'primary' : 'default'}
-              onClick={() => setShowPointLoss((current) => !current)}
-            >
-              {t('analysis.pointLoss')}
-            </Button>
-            <Button
-              size="small"
-              type={showWinrate ? 'primary' : 'default'}
-              onClick={() => setShowWinrate((current) => !current)}
-            >
-              {t('analysis.winrate')}
-            </Button>
-            <Button
-              size="small"
-              type={!showChart ? 'primary' : 'default'}
-              onClick={() => {
-                setShowScore(false);
-                setShowPointLoss(false);
-                setShowWinrate(false);
-              }}
-            >
-              {t('panels.comments')}
-            </Button>
-          </Space.Compact>
-        ) : null}
+        <Space.Compact>
+          {showAnalysisControls ? (
+            <>
+              <Button
+                size="small"
+                type={showScore ? 'primary' : 'default'}
+                onClick={() => setShowScore((current) => !current)}
+              >
+                {t('analysis.score')}
+              </Button>
+              <Button
+                size="small"
+                type={showPointLoss ? 'primary' : 'default'}
+                onClick={() => setShowPointLoss((current) => !current)}
+              >
+                {t('analysis.pointLoss')}
+              </Button>
+              <Button
+                size="small"
+                type={showWinrate ? 'primary' : 'default'}
+                onClick={() => setShowWinrate((current) => !current)}
+              >
+                {t('analysis.winrate')}
+              </Button>
+            </>
+          ) : null}
+          <Button
+            size="small"
+            type={!showChart ? 'primary' : 'default'}
+            onClick={() => {
+              setShowScore(false);
+              setShowPointLoss(false);
+              setShowWinrate(false);
+            }}
+          >
+            {t('panels.comments')}
+          </Button>
+        </Space.Compact>
       </div>
       {showChart ? (
         hasVisibleData ? (
