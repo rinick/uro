@@ -40,6 +40,7 @@ export interface AnalysisSettings {
   showNextMove: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
+  autoAnalyze: boolean;
 }
 
 export const defaultAnalysisSettings: AnalysisSettings = {
@@ -50,6 +51,7 @@ export const defaultAnalysisSettings: AnalysisSettings = {
   showNextMove: true,
   showTopMoves: true,
   showExpectedTerritory: false,
+  autoAnalyze: true,
 };
 
 export interface AnalysisChartPoint {

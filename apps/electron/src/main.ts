@@ -24,6 +24,7 @@ interface AnalysisSettings {
   showNextMove: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
+  autoAnalyze: boolean;
 }
 
 const defaultKataGoSettings: KataGoSettings = {
@@ -45,6 +46,7 @@ const defaultAnalysisSettings: AnalysisSettings = {
   showNextMove: true,
   showTopMoves: true,
   showExpectedTerritory: false,
+  autoAnalyze: true,
 };
 
 interface DownloadOption {

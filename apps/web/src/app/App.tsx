@@ -248,7 +248,7 @@ export function App() {
       const nextDocument = await loadStoredGame(selectedStoredGameId);
       branchMemoryRef.current.clear();
       setStoredGameId(selectedStoredGameId);
-      setAnalysisModeActive(true);
+      setAnalysisModeActive(capabilities.katago && analysisSettings.autoAnalyze);
       replaceDocument(nextDocument, [], {clearAnalysisCache: true});
       setOpenGameModalOpen(false);
     } catch (error) {
@@ -322,7 +322,7 @@ export function App() {
     const importedDocument = withImportedGameName(parseGameRecord(text, fileName), fileName);
     branchMemoryRef.current.clear();
     setStoredGameId(null);
-    setAnalysisModeActive(true);
+    setAnalysisModeActive(capabilities.katago && analysisSettings.autoAnalyze);
     replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
 
@@ -604,7 +604,7 @@ export function App() {
                 </Button>
               ) : null}
               <Button size="small" icon={<LineChartOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
-                {t('analysis.button')}
+                {t('analysis.title')}
               </Button>
               <Space className="view-toggles">
                 <span>{t('menu.coordinates')}</span>

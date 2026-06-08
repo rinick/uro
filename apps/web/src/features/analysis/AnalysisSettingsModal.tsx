@@ -1,4 +1,4 @@
-import {Form, InputNumber, Modal, Select, message} from 'antd';
+import {Checkbox, Form, InputNumber, Modal, Select, message} from 'antd';
 import {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {defaultAnalysisSettings, type AnalysisSettings} from '@uro/analysis-core';
@@ -72,6 +72,9 @@ export function AnalysisSettingsModal({
       <Form form={form} layout="vertical" disabled={loading} initialValues={defaultAnalysisSettings}>
         {showKataGoSettings ? (
           <>
+            <Form.Item name="autoAnalyze" valuePropName="checked">
+              <Checkbox>{t('analysis.autoAnalyze')}</Checkbox>
+            </Form.Item>
             <Form.Item name="moveDisplay" label={t('analysis.moveDisplay')}>
               <Select
                 size="small"
