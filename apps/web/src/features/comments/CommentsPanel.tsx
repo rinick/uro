@@ -43,6 +43,11 @@ interface PointLossPoint extends PointLoss {
   y2: number;
 }
 
+interface ScoreLineRun {
+  pending: boolean;
+  points: PlotPoint[];
+}
+
 export function CommentsPanel({
   value,
   onChange,
@@ -396,21 +401,38 @@ function makePointLossPoints(
 function ScoreLine({points, useHiddenPassColor}: {points: PlotPoint[]; useHiddenPassColor: boolean}) {
   if (points.length < 2) return null;
 
+  const runs = scoreLineRuns(points, useHiddenPassColor);
+
   return (
     <>
-      {points.slice(1).map((point, index) => {
-        const previous = points[index];
-        const pending = useHiddenPassColor && point.hiddenPassReady === false;
-        return (
-          <path
-            key={`${previous.moveNumber}-${point.moveNumber}`}
-            className={`analysis-chart-line score ${pending ? 'pending' : 'ready'}`}
-            d={pointsPath([previous, point])}
-          />
-        );
-      })}
+      {runs.map((run) => (
+        <path
+          key={`${run.points[0].moveNumber}-${run.points.at(-1)?.moveNumber}-${run.pending ? 'pending' : 'ready'}`}
+          className={`analysis-chart-line score ${run.pending ? 'pending' : 'ready'}`}
+          d={pointsPath(run.points)}
+        />
+      ))}
     </>
   );
+}
+
+function scoreLineRuns(points: PlotPoint[], useHiddenPassColor: boolean): ScoreLineRun[] {
+  const runs: ScoreLineRun[] = [];
+
+  points.slice(1).forEach((point, index) => {
+    const previous = points[index];
+    const pending = useHiddenPassColor && point.hiddenPassReady === false;
+    const lastRun = runs.at(-1);
+
+    if (lastRun == null || lastRun.pending !== pending) {
+      runs.push({pending, points: [previous, point]});
+      return;
+    }
+
+    lastRun.points.push(point);
+  });
+
+  return runs;
 }
 
 function PointLossLines({points}: {points: PointLossPoint[]}) {

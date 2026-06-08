@@ -477,7 +477,7 @@ body {
 }
 
 .analysis-chart-line.score.pending {
-  stroke: #607c72;
+  stroke: #4e5653;
 }
 
 .analysis-chart-line.winrate {
