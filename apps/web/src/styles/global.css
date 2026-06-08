@@ -382,11 +382,14 @@ body {
 }
 
 .comments-panel {
+  display: flex;
+  flex-direction: column;
   border-bottom: 1px solid #f0f0f0;
   overflow: hidden;
 }
 
 .comments-panel-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: end;
@@ -398,9 +401,24 @@ body {
   margin: 0;
 }
 
+.comments-panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .comments-panel textarea {
-  min-height: calc(100% - 28px) !important;
+  height: 100% !important;
+  min-height: 100% !important;
   resize: none !important;
+}
+
+.comments-panel-ad {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .analysis-empty {

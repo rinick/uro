@@ -764,10 +764,11 @@ export function App() {
               value={getComment(document, path)}
               onChange={handleCommentChange}
               showAnalysisControls={capabilities.katago}
+              showWebAd={capabilities.platform === 'web'}
               analysisActive={analysisMode}
               chartData={analysisChartData}
               moveDisplay={analysisSettings.moveDisplay}
-              selectedMoveNumber={selectedChartMoveNumber}
+              selectedMoveNumber={capabilities.katago ? selectedChartMoveNumber : path.length}
               chartSummary={analysisChartSummary}
               onPreviousMove={() => navigatePrevious()}
               onNextMove={() => navigateNext()}
