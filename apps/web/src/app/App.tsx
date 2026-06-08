@@ -168,6 +168,7 @@ export function App() {
       : capabilities.katago
         ? 0
         : moveNumberLimit;
+  const appTitle = capabilities.platform === 'electron' ? t('app.electronTitle') : t('app.title');
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
 
@@ -175,6 +176,10 @@ export function App() {
     key: String(size),
     label: t(`menu.new${size}`),
   }));
+  const storageMenuItems: MenuProps['items'] = [
+    {key: 'save', icon: <SaveOutlined />, label: t('menu.save')},
+    {key: 'load', icon: <FolderOpenOutlined />, label: t('menu.load')},
+  ];
 
   function rememberPath(nextPath: number[]): void {
     for (let index = 0; index < nextPath.length; index += 1) {
@@ -552,7 +557,7 @@ export function App() {
       <Layout className="app-shell">
         <Header className="app-header">
           <div className="menu-row">
-            <div className="app-title">{t('app.title')}</div>
+            <div className="app-title">{appTitle}</div>
             <Space wrap>
               <Dropdown.Button
                 size="small"
@@ -565,22 +570,30 @@ export function App() {
               >
                 {t('menu.new')}
               </Dropdown.Button>
-              {capabilities.storage === 'indexeddb' ? (
-                <>
-                  <Button size="small" icon={<FolderOpenOutlined />} onClick={openSavedGameDialog}>
-                    {t('menu.open')}
-                  </Button>
-                  <Button size="small" icon={<SaveOutlined />} onClick={() => void handleSaveBrowserGame()}>
-                    {t('menu.save')}
-                  </Button>
-                </>
-              ) : null}
               <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handleImportSgfFromMenu()}>
                 {t('menu.importSgf')}
               </Button>
               <Button size="small" icon={<DownloadOutlined />} onClick={() => void handleExportSgf()}>
                 {t('menu.exportSgf')}
               </Button>
+              {capabilities.storage === 'indexeddb' ? (
+                <Dropdown.Button
+                  size="small"
+                  icon={<SaveOutlined />}
+                  menu={{
+                    items: storageMenuItems,
+                    onClick: (info) => {
+                      if (info.key === 'save') {
+                        void handleSaveBrowserGame();
+                      } else if (info.key === 'load') {
+                        void openSavedGameDialog();
+                      }
+                    },
+                  }}
+                >
+                  {t('menu.storage')}
+                </Dropdown.Button>
+              ) : null}
               <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setGameInfoOpen(true)}>
                 {t('menu.editGameInfo')}
               </Button>

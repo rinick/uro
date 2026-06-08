@@ -147,9 +147,11 @@ const katagoDownloadOptionsByPlatform: Record<string, DownloadOption[]> = {
 };
 
 async function createWindow(): Promise<void> {
+  app.setName('Uro AI review');
   Menu.setApplicationMenu(null);
 
   const window = new BrowserWindow({
+    title: 'Uro AI review',
     width: 1280,
     height: 840,
     minWidth: 960,
