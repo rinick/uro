@@ -25,21 +25,32 @@ export function AnalysisSettingsModal({
 
   useEffect(() => {
     if (!open) return;
-
     form.setFieldsValue({...defaultAnalysisSettings, ...settings});
+  }, [form, open, settings]);
+
+  useEffect(() => {
+    if (!open) return;
     if (!showKataGoSettings || window.uro == null) return;
 
+    let active = true;
     setLoading(true);
     window.uro.analysis
       .getSettings()
       .then((settings) => {
+        if (!active) return;
         const next = {...defaultAnalysisSettings, ...settings};
         form.setFieldsValue(next);
         onSave(next);
       })
       .catch((error: unknown) => message.error(error instanceof Error ? error.message : t('analysis.loadFailed')))
-      .finally(() => setLoading(false));
-  }, [form, onSave, open, settings, showKataGoSettings, t]);
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form, onSave, open, showKataGoSettings, t]);
 
   async function handleSave(): Promise<void> {
     try {
