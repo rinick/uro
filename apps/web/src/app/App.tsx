@@ -88,6 +88,7 @@ import {
   withImportedGameName,
 } from './appSgfUtils';
 import {antdLocales, formatConsoleTime, languageOptions, normalizeLanguage} from './appUiUtils';
+import {getAppFontFamily} from './fonts';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
@@ -125,6 +126,7 @@ export function App() {
   const nextAutoColor = autoColorOverride ?? position.nextColor;
   const currentLanguage = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
   const antdLocale = antdLocales[currentLanguage];
+  const appFontFamily = useMemo(() => getAppFontFamily(currentLanguage), [currentLanguage]);
   const analysisChartPaths = useMemo(
     () => getCurrentBranchMovePaths(document, path, branchMemoryRef.current),
     [document, path]
@@ -133,6 +135,12 @@ export function App() {
     () => getAnalysisQueuePaths(document, analysisChartPaths),
     [analysisChartPaths, document]
   );
+
+  useEffect(() => {
+    globalThis.document.documentElement.lang = currentLanguage;
+    globalThis.document.documentElement.style.setProperty('--uro-font-family', appFontFamily);
+  }, [appFontFamily, currentLanguage]);
+
   const {
     analysisSettings,
     updateAnalysisSettings,
@@ -551,7 +559,7 @@ export function App() {
         algorithm: [theme.defaultAlgorithm, theme.compactAlgorithm],
         token: {
           borderRadius: 6,
-          fontFamily: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif',
+          fontFamily: appFontFamily,
         },
       }}
     >

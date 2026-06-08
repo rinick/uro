@@ -1,0 +1,53 @@
+@font-face {
+  font-family: 'Uro Noto Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    local('Noto Sans Regular'),
+    local('Noto Sans'),
+    url('../assets/fonts/noto/NotoSans-Regular.ttf') format('truetype');
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+0300-036F, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-22FF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Uro Noto Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    local('Noto Sans Medium'),
+    url('../assets/fonts/noto/NotoSans-Medium.ttf') format('truetype');
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+0300-036F, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-22FF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Uro Noto Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    local('Noto Sans SemiBold'),
+    local('Noto Sans Semibold'),
+    url('../assets/fonts/noto/NotoSans-SemiBold.ttf') format('truetype');
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+0300-036F, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-22FF, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Uro Noto Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    local('Noto Sans Bold'),
+    url('../assets/fonts/noto/NotoSans-Bold.ttf') format('truetype');
+  unicode-range:
+    U+0000-00FF, U+0100-024F, U+0300-036F, U+0400-052F, U+1E00-1EFF, U+2000-206F, U+20A0-20CF,
+    U+2100-214F, U+2190-22FF, U+FEFF, U+FFFD;
+}

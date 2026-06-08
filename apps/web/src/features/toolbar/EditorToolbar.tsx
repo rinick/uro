@@ -8,7 +8,6 @@ import {
   FontSizeOutlined,
   ForwardOutlined,
   NumberOutlined,
-  RadiusSettingOutlined,
   StepBackwardOutlined,
   StepForwardOutlined,
 } from '@ant-design/icons';
@@ -74,13 +73,14 @@ export function EditorToolbar({
           {value: 'pass', icon: withTip(<PalmIcon />, t('tools.pass'))},
           {value: 'black', label: withTip(<span className="tool-stone black" />, t('tools.black'))},
           {value: 'white', label: withTip(<span className="tool-stone white" />, t('tools.white'))},
-          {value: 'erase', icon: withTip(<DeleteOutlined />, t('tools.erase'))},
+
           {value: 'number', icon: withTip(<NumberOutlined />, t('tools.number'))},
           {value: 'alphabet', icon: withTip(<FontSizeOutlined />, t('tools.alphabet'))},
-          {value: 'circle', icon: withTip(<RadiusSettingOutlined />, t('tools.circle'))},
+          {value: 'circle', icon: withTip(<CircleMarkerIcon />, t('tools.circle'))},
           {value: 'square', icon: withTip(<BorderOutlined />, t('tools.square'))},
-          {value: 'triangle', label: withTip(<span className="tool-triangle" />, t('tools.triangle'))},
+          {value: 'triangle', icon: withTip(<TriangleMarkerIcon />, t('tools.triangle'))},
           {value: 'cross', icon: withTip(<CloseOutlined />, t('tools.cross'))},
+          {value: 'erase', icon: withTip(<DeleteOutlined />, t('tools.erase'))},
         ]}
       />
       <Space.Compact className="navigation-tools">
@@ -139,6 +139,26 @@ function PalmIcon() {
       <path d="M12.8 11V5.5a1.2 1.2 0 0 1 2.4 0V12" />
       <path d="M15.2 12V8a1.2 1.2 0 0 1 2.4 0v5.8c0 4-2.3 6.2-5.7 6.2h-.8c-2.4 0-4-1.1-5.2-3.1L4 13.6a1.35 1.35 0 0 1 2.3-1.4L8 14.4V11" />
     </svg>
+  );
+}
+
+function CircleMarkerIcon() {
+  return (
+    <span className="anticon">
+      <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="none" aria-hidden="true" focusable="false">
+        <circle cx="512" cy="512" r="419" stroke="currentColor" strokeWidth="72" />
+      </svg>
+    </span>
+  );
+}
+
+function TriangleMarkerIcon() {
+  return (
+    <span className="anticon">
+      <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="none" aria-hidden="true" focusable="false">
+        <path d="M512 120 912 856H112L512 120Z" stroke="currentColor" strokeWidth="72" strokeLinejoin="round" />
+      </svg>
+    </span>
   );
 }
 
