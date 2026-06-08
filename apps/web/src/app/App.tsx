@@ -403,6 +403,7 @@ export function App() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
       if (isTextInputActive()) return;
+      if (event.ctrlKey && event.shiftKey) return;
       const steps = event.ctrlKey ? Infinity : event.shiftKey ? 10 : 1;
       const key = event.key.toLowerCase();
       if (event.key === 'ArrowLeft' || key === 'a' || key === 'f') {

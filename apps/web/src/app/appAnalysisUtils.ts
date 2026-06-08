@@ -228,11 +228,14 @@ export function buildAnalysisChartData(
 
   paths.forEach((path, index) => {
     const rootInfo = cache[nodeKey(document, path)]?.result.rootInfo;
+    const node = getNodeAtPath(document, path);
+    const color = node.data.B != null ? 'B' : node.data.W != null ? 'W' : undefined;
     if (rootInfo?.scoreLead != null)
       data.push({
         moveNumber: index,
         series: 'score',
         value: rootInfo.scoreLead,
+        color,
         hiddenPassReady: !shouldCountHiddenPassAnalysis(document, path, cache, targetVisits),
       });
     if (rootInfo?.winrate != null)

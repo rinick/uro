@@ -31,6 +31,18 @@ interface PlotPoint {
   hiddenPassReady?: boolean;
 }
 
+interface PointLoss {
+  moveNumber: number;
+  value: number;
+  color: 'B' | 'W';
+}
+
+interface PointLossPoint extends PointLoss {
+  x: number;
+  y1: number;
+  y2: number;
+}
+
 export function CommentsPanel({
   value,
   onChange,
@@ -47,16 +59,22 @@ export function CommentsPanel({
   const {t} = useTranslation();
   const [showScore, setShowScore] = useState(false);
   const [showWinrate, setShowWinrate] = useState(false);
+  const [showPointLoss, setShowPointLoss] = useState(false);
   const previousAnalysisActiveRef = useRef(false);
-  const showChart = showAnalysisControls && (showScore || showWinrate);
+  const showChart = showAnalysisControls && (showScore || showWinrate || showPointLoss);
   const scoreData = useMemo(() => chartData.filter((item) => item.series === 'score'), [chartData]);
   const winrateData = useMemo(() => chartData.filter((item) => item.series === 'winrate'), [chartData]);
-  const hasVisibleData = (showScore && scoreData.length > 0) || (showWinrate && winrateData.length > 0);
+  const pointLossData = useMemo(() => buildPointLossData(scoreData), [scoreData]);
+  const hasVisibleData =
+    (showScore && scoreData.length > 0) ||
+    (showWinrate && winrateData.length > 0) ||
+    (showPointLoss && pointLossData.length > 0);
 
   useEffect(() => {
-    if (analysisActive && !previousAnalysisActiveRef.current && !showScore && !showWinrate) setShowScore(true);
+    if (analysisActive && !previousAnalysisActiveRef.current && !showScore && !showWinrate && !showPointLoss)
+      setShowScore(true);
     previousAnalysisActiveRef.current = analysisActive;
-  }, [analysisActive, showScore, showWinrate]);
+  }, [analysisActive, showPointLoss, showScore, showWinrate]);
 
   return (
     <section className="side-panel comments-panel">
@@ -73,6 +91,13 @@ export function CommentsPanel({
             </Button>
             <Button
               size="small"
+              type={showPointLoss ? 'primary' : 'default'}
+              onClick={() => setShowPointLoss((current) => !current)}
+            >
+              {t('analysis.pointLoss')}
+            </Button>
+            <Button
+              size="small"
               type={showWinrate ? 'primary' : 'default'}
               onClick={() => setShowWinrate((current) => !current)}
             >
@@ -83,6 +108,7 @@ export function CommentsPanel({
               type={!showChart ? 'primary' : 'default'}
               onClick={() => {
                 setShowScore(false);
+                setShowPointLoss(false);
                 setShowWinrate(false);
               }}
             >
@@ -95,6 +121,7 @@ export function CommentsPanel({
         hasVisibleData ? (
           <AnalysisChart
             scoreData={showScore ? scoreData : []}
+            pointLossData={showPointLoss ? pointLossData : []}
             winrateData={showWinrate ? winrateData : []}
             allData={chartData}
             moveDisplay={moveDisplay}
@@ -121,6 +148,7 @@ export function CommentsPanel({
 
 function AnalysisChart({
   scoreData,
+  pointLossData,
   winrateData,
   allData,
   moveDisplay,
@@ -131,6 +159,7 @@ function AnalysisChart({
   onSelectMove,
 }: {
   scoreData: AnalysisChartPoint[];
+  pointLossData: PointLoss[];
   winrateData: AnalysisChartPoint[];
   allData: AnalysisChartPoint[];
   moveDisplay: AnalysisSettings['moveDisplay'];
@@ -144,15 +173,13 @@ function AnalysisChart({
   const width = 360;
   const height = 190;
   const padding = {top: 16, right: 8, bottom: 18, left: 28};
-  const maxMove = Math.max(
-    0,
-    ...scoreData.map((item) => item.moveNumber),
-    ...winrateData.map((item) => item.moveNumber)
-  );
-  const scoreScale = scoreScaleFor(scoreData);
+  const scoreAxisData = allData.filter((item) => item.series === 'score');
+  const maxMove = Math.max(0, ...allData.map((item) => item.moveNumber));
+  const scoreScale = scoreScaleFor(scoreAxisData, pointLossData);
   const scorePoints = makePoints(scoreData, width, padding, maxMove, (value) =>
     valueToCenteredY(value, scoreScale, height, padding)
   );
+  const pointLossPoints = makePointLossPoints(pointLossData, width, padding, maxMove, scoreScale, height);
   const winratePoints = makePoints(winrateData, width, padding, maxMove, (value) =>
     valueToWinrateY(value, height, padding)
   );
@@ -263,9 +290,18 @@ function AnalysisChart({
           />
         )}
 
+        {winratePoints.length > 0 ? (
+          <path className="analysis-chart-line winrate" d={pointsPath(winratePoints)} />
+        ) : null}
+
         {scorePoints.length > 0 ? (
+          <ScoreLine points={scorePoints} useHiddenPassColor={moveDisplay === 'absScore'} />
+        ) : null}
+
+        {pointLossPoints.length > 0 ? <PointLossLines points={pointLossPoints} /> : null}
+
+        {scorePoints.length > 0 || pointLossPoints.length > 0 ? (
           <>
-            <ScoreLine points={scorePoints} useHiddenPassColor={moveDisplay === 'absScore'} />
             <text className="analysis-chart-label score" x="2" y={padding.top + 4}>{`B+${scoreScale}`}</text>
             <text className="analysis-chart-label score" x="2" y={halfScoreY + 4}>{`B+${halfScoreScale}`}</text>
             <text className="analysis-chart-label score" x="2" y={centerY + 4}>
@@ -280,22 +316,17 @@ function AnalysisChart({
           </>
         ) : null}
 
-        {winratePoints.length > 0 ? (
+        {winratePoints.length > 0 && scorePoints.length === 0 && pointLossPoints.length === 0 ? (
           <>
-            <path className="analysis-chart-line winrate" d={pointsPath(winratePoints)} />
-            {scorePoints.length === 0 ? (
-              <>
-                <text className="analysis-chart-label winrate" x="2" y={padding.top + 4}>
-                  100%
-                </text>
-                <text className="analysis-chart-label winrate" x="2" y={centerY + 4}>
-                  50%
-                </text>
-                <text className="analysis-chart-label winrate" x="2" y={height - padding.bottom + 4}>
-                  0%
-                </text>
-              </>
-            ) : null}
+            <text className="analysis-chart-label winrate" x="2" y={padding.top + 4}>
+              100%
+            </text>
+            <text className="analysis-chart-label winrate" x="2" y={centerY + 4}>
+              50%
+            </text>
+            <text className="analysis-chart-label winrate" x="2" y={height - padding.bottom + 4}>
+              0%
+            </text>
           </>
         ) : null}
 
@@ -332,6 +363,36 @@ function makePoints(
     }));
 }
 
+function buildPointLossData(data: AnalysisChartPoint[]): PointLoss[] {
+  const points = data.filter((item) => Number.isFinite(item.value)).sort((a, b) => a.moveNumber - b.moveNumber);
+  const losses: PointLoss[] = [];
+
+  points.slice(1).forEach((point, index) => {
+    const previous = points[index];
+    const delta = point.value - previous.value;
+    if (point.color === 'B' && delta < -1) losses.push({moveNumber: point.moveNumber, value: delta, color: 'B'});
+    if (point.color === 'W' && delta > 1) losses.push({moveNumber: point.moveNumber, value: delta, color: 'W'});
+  });
+
+  return losses;
+}
+
+function makePointLossPoints(
+  data: PointLoss[],
+  width: number,
+  padding: {top: number; right: number; bottom: number; left: number},
+  maxMove: number,
+  scale: number,
+  height: number
+): PointLossPoint[] {
+  return data.map((item) => ({
+    ...item,
+    x: moveNumberToX(item.moveNumber, maxMove, width, padding),
+    y1: valueToCenteredY(0, scale, height, padding),
+    y2: valueToCenteredY(item.value, scale, height, padding),
+  }));
+}
+
 function ScoreLine({points, useHiddenPassColor}: {points: PlotPoint[]; useHiddenPassColor: boolean}) {
   if (points.length < 2) return null;
 
@@ -348,6 +409,23 @@ function ScoreLine({points, useHiddenPassColor}: {points: PlotPoint[]; useHidden
           />
         );
       })}
+    </>
+  );
+}
+
+function PointLossLines({points}: {points: PointLossPoint[]}) {
+  return (
+    <>
+      {points.map((point) => (
+        <line
+          key={`${point.moveNumber}-${point.color}`}
+          className={`analysis-chart-point-loss ${point.color === 'B' ? 'black' : 'white'}`}
+          x1={point.x}
+          x2={point.x}
+          y1={point.y1}
+          y2={point.y2}
+        />
+      ))}
     </>
   );
 }
@@ -445,8 +523,12 @@ function pointsPath(points: PlotPoint[]): string {
   return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x},${point.y}`).join(' ');
 }
 
-function scoreScaleFor(data: AnalysisChartPoint[]): number {
-  const maxAbs = Math.max(5, ...data.map((item) => Math.abs(item.value)));
+function scoreScaleFor(data: AnalysisChartPoint[], pointLossData: PointLoss[]): number {
+  const maxAbs = Math.max(
+    5,
+    ...data.map((item) => Math.abs(item.value)),
+    ...pointLossData.map((item) => Math.abs(item.value))
+  );
   return Math.ceil(maxAbs / 5) * 5;
 }
 

@@ -417,54 +417,54 @@ body {
   width: 100%;
   height: 190px;
   overflow: visible;
-  background: #ffffff;
-  border: 1px solid #d9d9d9;
+  background: #f4b458;
+  border: 1px solid #a35f18;
   border-radius: 6px;
   cursor: pointer;
 }
 
 .analysis-chart-title {
-  fill: #595959;
+  fill: #3d2411;
   font-size: 10px;
   font-weight: 700;
 }
 
 .analysis-chart-title.score,
 .analysis-chart-label.score {
-  fill: #274967;
+  fill: #14513c;
 }
 
 .analysis-chart-title.winrate,
 .analysis-chart-label.winrate {
-  fill: #1d3ea8;
+  fill: #243f8f;
 }
 
 .analysis-chart-label {
-  fill: #8c8c8c;
+  fill: #553214;
   font-size: 9px;
 }
 
 .analysis-chart-grid {
-  stroke: #f0f0f0;
+  stroke: rgba(70, 38, 13, 0.22);
   stroke-width: 1;
 }
 
 .analysis-chart-axis {
-  stroke: #d9d9d9;
+  stroke: rgba(70, 38, 13, 0.52);
   stroke-width: 1;
 }
 
 .analysis-chart-selected {
-  stroke: #111827;
+  stroke: #2f1b0d;
   stroke-width: 1;
   stroke-dasharray: 3 3;
-  opacity: 0.72;
+  opacity: 0.82;
 }
 
 .analysis-chart-hover {
-  stroke: #111827;
+  stroke: #2f1b0d;
   stroke-width: 0.75;
-  opacity: 0.45;
+  opacity: 0.5;
 }
 
 .analysis-chart-line {
@@ -473,15 +473,28 @@ body {
 }
 
 .analysis-chart-line.score {
-  stroke: #379759;
+  stroke: #129568;
 }
 
 .analysis-chart-line.score.pending {
-  stroke: #fa8c16;
+  stroke: #607c72;
 }
 
 .analysis-chart-line.winrate {
-  stroke: #2d5ef8;
+  stroke: #5580fb;
+}
+
+.analysis-chart-point-loss {
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.analysis-chart-point-loss.black {
+  stroke: #1a1209;
+}
+
+.analysis-chart-point-loss.white {
+  stroke: #fff7e1;
 }
 
 .analysis-chart-summary {
