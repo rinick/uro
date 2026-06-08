@@ -5,18 +5,29 @@ import {defaultAnalysisSettings, type AnalysisSettings} from '@uro/analysis-core
 
 interface AnalysisSettingsModalProps {
   open: boolean;
+  settings: AnalysisSettings;
+  showKataGoSettings?: boolean;
   onCancel: () => void;
   onSave: (settings: AnalysisSettings) => void;
 }
 
-export function AnalysisSettingsModal({open, onCancel, onSave}: AnalysisSettingsModalProps) {
+export function AnalysisSettingsModal({
+  open,
+  settings,
+  showKataGoSettings = false,
+  onCancel,
+  onSave,
+}: AnalysisSettingsModalProps) {
   const {t} = useTranslation();
   const [form] = Form.useForm<AnalysisSettings>();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!open || window.uro == null) return;
+    if (!open) return;
+
+    form.setFieldsValue({...defaultAnalysisSettings, ...settings});
+    if (!showKataGoSettings || window.uro == null) return;
 
     setLoading(true);
     window.uro.analysis
@@ -28,13 +39,13 @@ export function AnalysisSettingsModal({open, onCancel, onSave}: AnalysisSettings
       })
       .catch((error: unknown) => message.error(error instanceof Error ? error.message : t('analysis.loadFailed')))
       .finally(() => setLoading(false));
-  }, [form, onSave, open, t]);
+  }, [form, onSave, open, settings, showKataGoSettings, t]);
 
   async function handleSave(): Promise<void> {
     try {
       setSaving(true);
       const fields = await form.validateFields();
-      const current = window.uro == null ? defaultAnalysisSettings : await window.uro.analysis.getSettings();
+      const current = window.uro == null ? settings : await window.uro.analysis.getSettings();
       const values = {...defaultAnalysisSettings, ...current, ...fields};
       if (window.uro != null) await window.uro.analysis.saveSettings(values);
       onSave(values);
@@ -59,18 +70,33 @@ export function AnalysisSettingsModal({open, onCancel, onSave}: AnalysisSettings
       destroyOnHidden
     >
       <Form form={form} layout="vertical" disabled={loading} initialValues={defaultAnalysisSettings}>
-        <Form.Item name="moveDisplay" label={t('analysis.moveDisplay')}>
+        {showKataGoSettings ? (
+          <>
+            <Form.Item name="moveDisplay" label={t('analysis.moveDisplay')}>
+              <Select
+                size="small"
+                options={[
+                  {value: 'score', label: t('analysis.score')},
+                  {value: 'winrate', label: t('analysis.winrate')},
+                  {value: 'absScore', label: t('analysis.value')},
+                ]}
+              />
+            </Form.Item>
+            <Form.Item name="minVisits" label={t('analysis.minVisits')}>
+              <InputNumber size="small" min={1} />
+            </Form.Item>
+          </>
+        ) : null}
+        <Form.Item name="maxMoves" label={t('analysis.moveNumberCount')}>
           <Select
             size="small"
             options={[
-              {value: 'score', label: t('analysis.score')},
-              {value: 'winrate', label: t('analysis.winrate')},
-              {value: 'absScore', label: t('analysis.value')},
+              {value: 1, label: '1'},
+              {value: 5, label: '5'},
+              {value: 20, label: '20'},
+              {value: 'all', label: t('moveNumbers.all')},
             ]}
           />
-        </Form.Item>
-        <Form.Item name="minVisits" label={t('analysis.minVisits')}>
-          <InputNumber size="small" min={1} />
         </Form.Item>
       </Form>
     </Modal>

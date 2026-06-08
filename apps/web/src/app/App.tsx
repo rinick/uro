@@ -51,7 +51,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
 import type {AnalysisSettings} from '@uro/analysis-core';
-import {GoBoard, type MoveNumberLimit} from '../features/board/GoBoard';
+import {GoBoard} from '../features/board/GoBoard';
 import {CommentsPanel} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
 import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal';
@@ -107,7 +107,6 @@ export function App() {
   const [autoColorOverride, setAutoColorOverride] = useState<'B' | 'W' | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
   const [showCoordinates, setShowCoordinates] = useState(true);
-  const [moveNumberLimit, setMoveNumberLimit] = useState<MoveNumberLimit>('all');
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [openGameModalOpen, setOpenGameModalOpen] = useState(false);
   const [storedGameId, setStoredGameId] = useState<string | null>(null);
@@ -161,13 +160,10 @@ export function App() {
     pendingSetupPathRef,
     startFailedMessage: t('analysis.startFailed'),
   });
-  const stoneOverlayDisplay = analysisSettings.topMoveDisplay;
+  const stoneOverlayDisplay =
+    !capabilities.katago && analysisSettings.topMoveDisplay === 'dot' ? 'number' : analysisSettings.topMoveDisplay;
   const boardMoveNumberLimit =
-    capabilities.katago && stoneOverlayDisplay === 'number'
-      ? analysisSettings.maxMoves
-      : capabilities.katago
-        ? 0
-        : moveNumberLimit;
+    stoneOverlayDisplay === 'number' ? analysisSettings.maxMoves : 0;
   const appTitle = capabilities.platform === 'electron' ? t('app.electronTitle') : t('app.title');
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
@@ -180,6 +176,11 @@ export function App() {
     {key: 'save', icon: <SaveOutlined />, label: t('menu.save')},
     {key: 'load', icon: <FolderOpenOutlined />, label: t('menu.load')},
   ];
+
+  useEffect(() => {
+    if (capabilities.katago || analysisSettings.topMoveDisplay !== 'dot') return;
+    updateAnalysisSettings({topMoveDisplay: 'number', maxMoves: 'all'});
+  }, [analysisSettings.topMoveDisplay, capabilities.katago, updateAnalysisSettings]);
 
   function rememberPath(nextPath: number[]): void {
     for (let index = 0; index < nextPath.length; index += 1) {
@@ -598,36 +599,16 @@ export function App() {
                 {t('menu.editGameInfo')}
               </Button>
               {capabilities.katago ? (
-                <>
-                  <Button size="small" icon={<SettingOutlined />} onClick={() => setKataGoSettingsOpen(true)}>
-                    {t('katago.button')}
-                  </Button>
-                  <Button size="small" icon={<LineChartOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
-                    {t('analysis.button')}
-                  </Button>
-                </>
+                <Button size="small" icon={<SettingOutlined />} onClick={() => setKataGoSettingsOpen(true)}>
+                  {t('katago.button')}
+                </Button>
               ) : null}
+              <Button size="small" icon={<LineChartOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
+                {t('analysis.button')}
+              </Button>
               <Space className="view-toggles">
                 <span>{t('menu.coordinates')}</span>
                 <Switch size="small" checked={showCoordinates} onChange={setShowCoordinates} />
-                {!capabilities.katago ? (
-                  <>
-                    <span>{t('menu.numbers')}</span>
-                    <Select
-                      size="small"
-                      value={moveNumberLimit}
-                      popupMatchSelectWidth={false}
-                      onChange={setMoveNumberLimit}
-                      options={[
-                        {value: 0, label: t('moveNumbers.none')},
-                        {value: 1, label: '1'},
-                        {value: 5, label: '5'},
-                        {value: 20, label: '20'},
-                        {value: 'all', label: t('moveNumbers.all')},
-                      ]}
-                    />
-                  </>
-                ) : null}
               </Space>
               <Select
                 size="small"
@@ -654,52 +635,51 @@ export function App() {
             onNext10={() => navigateNext(10)}
             onLast={navigateToLast}
             extraEnd={
-              capabilities.katago ? (
-                <Space className="analysis-toolbar-options">
-                  <Checkbox
-                    checked={analysisSettings.showNextMove}
-                    onChange={(event) => updateAnalysisSettings({showNextMove: event.target.checked})}
-                  >
-                    {t('analysis.nextMove')}
-                  </Checkbox>
-                  <Checkbox
-                    checked={analysisSettings.showTopMoves}
-                    onChange={(event) => updateAnalysisSettings({showTopMoves: event.target.checked})}
-                  >
-                    {t('analysis.topMoves')}
-                  </Checkbox>
-                  <Segmented
-                    size="small"
-                    value={stoneOverlayDisplay}
-                    onChange={(value) =>
-                      updateAnalysisSettings({topMoveDisplay: value as AnalysisSettings['topMoveDisplay']})
-                    }
-                    options={[
-                      {value: 'dot', label: t('analysis.dot')},
-                      {value: 'number', label: t('analysis.number')},
-                      {value: 'none', label: t('analysis.none')},
-                    ]}
-                  />
-                  <Select
-                    size="small"
-                    value={analysisSettings.maxMoves}
-                    popupMatchSelectWidth={false}
-                    onChange={(value) => updateAnalysisSettings({maxMoves: value as AnalysisSettings['maxMoves']})}
-                    options={[
-                      {value: 1, label: '1'},
-                      {value: 5, label: '5'},
-                      {value: 20, label: '20'},
-                      {value: 'all', label: t('moveNumbers.all')},
-                    ]}
-                  />
+              <Space className="analysis-toolbar-options">
+                {capabilities.katago ? (
+                  <>
+                    <Checkbox
+                      checked={analysisSettings.showNextMove}
+                      onChange={(event) => updateAnalysisSettings({showNextMove: event.target.checked})}
+                    >
+                      {t('analysis.nextMove')}
+                    </Checkbox>
+                    <Checkbox
+                      checked={analysisSettings.showTopMoves}
+                      onChange={(event) => updateAnalysisSettings({showTopMoves: event.target.checked})}
+                    >
+                      {t('analysis.topMoves')}
+                    </Checkbox>
+                  </>
+                ) : null}
+                <Segmented
+                  size="small"
+                  value={stoneOverlayDisplay}
+                  onChange={(value) =>
+                    updateAnalysisSettings({topMoveDisplay: value as AnalysisSettings['topMoveDisplay']})
+                  }
+                  options={
+                    capabilities.katago
+                      ? [
+                          {value: 'dot', label: t('analysis.dot')},
+                          {value: 'number', label: t('analysis.number')},
+                          {value: 'none', label: t('analysis.none')},
+                        ]
+                      : [
+                          {value: 'number', label: t('analysis.number')},
+                          {value: 'none', label: t('analysis.none')},
+                        ]
+                  }
+                />
+                {capabilities.katago ? (
                   <Checkbox
                     checked={analysisSettings.showExpectedTerritory}
                     onChange={(event) => updateAnalysisSettings({showExpectedTerritory: event.target.checked})}
                   >
                     {t('analysis.expectedTerritory')}
                   </Checkbox>
-                </Space>
-              ) : null
+                ) : null}
+              </Space>
             }
           />
         </Header>
@@ -827,21 +807,21 @@ export function App() {
         />
       ) : null}
       {capabilities.katago ? (
-        <>
-          <KataGoSettingsModal
-            open={kataGoSettingsOpen}
-            onCancel={() => {
-              setKataGoSettingsOpen(false);
-              void refreshKataGoSettings();
-            }}
-          />
-          <AnalysisSettingsModal
-            open={analysisSettingsOpen}
-            onCancel={() => setAnalysisSettingsOpen(false)}
-            onSave={handleAnalysisSettingsSave}
-          />
-        </>
+        <KataGoSettingsModal
+          open={kataGoSettingsOpen}
+          onCancel={() => {
+            setKataGoSettingsOpen(false);
+            void refreshKataGoSettings();
+          }}
+        />
       ) : null}
+      <AnalysisSettingsModal
+        open={analysisSettingsOpen}
+        settings={analysisSettings}
+        showKataGoSettings={capabilities.katago}
+        onCancel={() => setAnalysisSettingsOpen(false)}
+        onSave={handleAnalysisSettingsSave}
+      />
       <GameInfoModal
         open={gameInfoOpen}
         values={gameInfo}
