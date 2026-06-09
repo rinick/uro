@@ -812,9 +812,7 @@ export function App() {
             }
           />
         </Header>
-        <Content
-          className={`app-content ${capabilities.katago || capabilities.platform === 'web' ? 'with-katago-console' : ''}`}
-        >
+        <Content className="app-content">
           {capabilities.katago ? (
             <aside className="katago-console-panel">
               <div className="katago-console-header">

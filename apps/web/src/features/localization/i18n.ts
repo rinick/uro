@@ -60,7 +60,7 @@ export const resources = {
         comments: 'Comments',
         ad: 'AD',
         katagoConsole: 'KataGo console',
-        tree: 'SGF tree',
+        tree: 'Move tree',
         gameInfo: 'Game information',
       },
       settings: {
@@ -278,7 +278,7 @@ export const resources = {
         comments: '注释',
         ad: 'AD',
         katagoConsole: 'KataGo 控制台',
-        tree: 'SGF 树',
+        tree: '着手树',
         gameInfo: '棋局信息',
       },
       settings: {
@@ -496,7 +496,7 @@ export const resources = {
         comments: 'コメント',
         ad: 'AD',
         katagoConsole: 'KataGoコンソール',
-        tree: 'SGFツリー',
+        tree: '着手ツリー',
         gameInfo: '対局情報',
       },
       settings: {
@@ -714,7 +714,7 @@ export const resources = {
         comments: '댓글',
         ad: 'AD',
         katagoConsole: 'KataGo 콘솔',
-        tree: 'SGF 트리',
+        tree: '착수 트리',
         gameInfo: '대국 정보',
       },
       settings: {
@@ -932,7 +932,7 @@ export const resources = {
         comments: 'Commentaires',
         ad: 'AD',
         katagoConsole: 'Console KataGo',
-        tree: 'Arbre SGF',
+        tree: 'Arbre des coups',
         gameInfo: 'Informations de partie',
       },
       settings: {
@@ -1150,7 +1150,7 @@ export const resources = {
         comments: 'Kommentare',
         ad: 'AD',
         katagoConsole: 'KataGo-Konsole',
-        tree: 'SGF-Baum',
+        tree: 'Zugbaum',
         gameInfo: 'Partieinformationen',
       },
       settings: {
@@ -1368,7 +1368,7 @@ export const resources = {
         comments: 'Комментарии',
         ad: 'AD',
         katagoConsole: 'Консоль KataGo',
-        tree: 'Дерево SGF',
+        tree: 'Дерево ходов',
         gameInfo: 'Информация об игре',
       },
       settings: {
