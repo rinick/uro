@@ -280,7 +280,7 @@ function buildOwnershipPaintMap(
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
   //const doubleStoneOpacity = settings.topMoveDisplay !== 'number';
-  const hiddenPaintPoints = new Set(
+  const cappedPaintPoints = new Set(
     points
       .filter((point) => shouldShowMoveNumber(point.moveNumber, point.stone != null, currentMoveNumber, moveNumberLimit))
       .map((point) => point.point)
@@ -289,8 +289,7 @@ function buildOwnershipPaintMap(
   return Array.from({length: size}, (_, y) =>
     Array.from({length: size}, (_, x) => {
       const point = vertexToPoint(x, y);
-      if (hiddenPaintPoints.has(point)) return 0;
-      if (heatMap?.[y]?.[x]?.text != null) return 0;
+      const shouldCapPaintOpacity = cappedPaintPoints.has(point) || heatMap?.[y]?.[x]?.text != null;
 
       const value = analysis.ownership?.[y * size + x] ?? 0;
       if (Math.abs(value) < 0.15) return 0;
@@ -300,7 +299,7 @@ function buildOwnershipPaintMap(
       if (stone === 'B' && paint > 0) return 0;
       if (stone === 'W' && paint < 0) return 0;
       //if (stone != null && doubleStoneOpacity) return paint * 2;
-      return paint;
+      return shouldCapPaintOpacity ? Math.sign(paint) * Math.min(Math.abs(paint), 0.3) : paint;
     })
   );
 }
