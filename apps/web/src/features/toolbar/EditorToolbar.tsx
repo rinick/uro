@@ -13,6 +13,7 @@ import {
 import {Button, Input, Segmented, Space, Tooltip} from 'antd';
 import type React from 'react';
 import {useTranslation} from 'react-i18next';
+import type {ShortcutActionId} from '../shortcuts/keyboardShortcuts';
 import type {EditorTool} from './types';
 
 interface EditorToolbarProps {
@@ -22,6 +23,7 @@ interface EditorToolbarProps {
   canNavigateNext: boolean;
   showMarkup: boolean;
   labelText: string;
+  shortcutLabels?: Partial<Record<ShortcutActionId, string>>;
   onToolChange: (tool: EditorTool) => void;
   onLabelTextChange: (value: string) => void;
   onAutoToolClick: () => void;
@@ -42,6 +44,7 @@ export function EditorToolbar({
   canNavigateNext,
   showMarkup,
   labelText,
+  shortcutLabels = {},
   onToolChange,
   onLabelTextChange,
   onAutoToolClick,
@@ -58,7 +61,7 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar">
-      <Tooltip title={t('tools.pass')}>
+      <Tooltip title={withShortcut(t('tools.pass'), shortcutLabels.pass)}>
         <Button size="middle" icon={<PalmIcon />} onClick={onPass} />
       </Tooltip>
       <Segmented
@@ -71,10 +74,25 @@ export function EditorToolbar({
         options={[
           {
             value: 'auto',
-            label: withTip(<AutoPlayIcon nextColor={nextColor} onClick={onAutoToolClick} />, t('tools.auto')),
+            label: withTip(
+              <AutoPlayIcon nextColor={nextColor} onClick={onAutoToolClick} />,
+              withShortcut(t('tools.auto'), shortcutLabels.toolAuto)
+            ),
           },
-          {value: 'black', label: withTip(<span className="tool-stone black" />, t('tools.black'))},
-          {value: 'white', label: withTip(<span className="tool-stone white" />, t('tools.white'))},
+          {
+            value: 'black',
+            label: withTip(
+              <span className="tool-stone black" />,
+              withShortcut(t('tools.black'), shortcutLabels.toolBlack)
+            ),
+          },
+          {
+            value: 'white',
+            label: withTip(
+              <span className="tool-stone white" />,
+              withShortcut(t('tools.white'), shortcutLabels.toolWhite)
+            ),
+          },
 
           ...(showMarkup
             ? [
@@ -82,7 +100,7 @@ export function EditorToolbar({
                   value: 'alphabet',
                   label: (
                     <span className="label-tool">
-                      <Tooltip title={t('tools.alphabet')}>
+                      <Tooltip title={withShortcut(t('tools.alphabet'), shortcutLabels.addLabel)}>
                         <FontSizeOutlined />
                       </Tooltip>
                       <Input
@@ -95,13 +113,28 @@ export function EditorToolbar({
                     </span>
                   ),
                 },
-                {value: 'circle', icon: withTip(<CircleMarkerIcon />, t('tools.circle'))},
-                {value: 'square', icon: withTip(<BorderOutlined />, t('tools.square'))},
-                {value: 'triangle', icon: withTip(<TriangleMarkerIcon />, t('tools.triangle'))},
-                {value: 'cross', icon: withTip(<CloseOutlined />, t('tools.cross'))},
+                {
+                  value: 'circle',
+                  icon: withTip(<CircleMarkerIcon />, withShortcut(t('tools.circle'), shortcutLabels.addCircle)),
+                },
+                {
+                  value: 'square',
+                  icon: withTip(<BorderOutlined />, withShortcut(t('tools.square'), shortcutLabels.addSquare)),
+                },
+                {
+                  value: 'triangle',
+                  icon: withTip(<TriangleMarkerIcon />, withShortcut(t('tools.triangle'), shortcutLabels.addTriangle)),
+                },
+                {
+                  value: 'cross',
+                  icon: withTip(<CloseOutlined />, withShortcut(t('tools.cross'), shortcutLabels.addCross)),
+                },
               ]
             : []),
-          {value: 'erase', icon: withTip(<DeleteOutlined />, t('tools.erase'))},
+          {
+            value: 'erase',
+            icon: withTip(<DeleteOutlined />, withShortcut(t('tools.erase'), shortcutLabels.eraseMarkup)),
+          },
         ]}
       />
       <Space.Compact className="navigation-tools">
@@ -203,4 +236,8 @@ function NavButton({
 
 function withTip(node: React.ReactNode, title: string): React.ReactNode {
   return <Tooltip title={title}>{node}</Tooltip>;
+}
+
+function withShortcut(title: string, shortcut: string | undefined): string {
+  return shortcut == null || shortcut === '' ? title : `${title} (${shortcut})`;
 }

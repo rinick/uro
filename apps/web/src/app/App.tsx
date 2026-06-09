@@ -7,18 +7,7 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import {
-  Button,
-  Checkbox,
-  ConfigProvider,
-  Dropdown,
-  Layout,
-  Segmented,
-  Space,
-  Tooltip,
-  message,
-  theme,
-} from 'antd';
+import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Segmented, Space, Tooltip, message, theme} from 'antd';
 import type {MenuProps} from 'antd';
 import {
   addLabel,
@@ -48,7 +37,7 @@ import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@uro/go-core';
 import type {AnalysisSettings} from '@uro/analysis-core';
 import {GoBoard} from '../features/board/GoBoard';
-import {CommentsPanel} from '../features/comments/CommentsPanel';
+import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
 import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal';
 import {KataGoSettingsModal} from '../features/katago/KataGoSettingsModal';
@@ -62,6 +51,16 @@ import {
   saveStoredGame,
   type StoredGameSummary,
 } from '../features/storage/gameStorage';
+import {KeyboardShortcutsModal} from '../features/shortcuts/KeyboardShortcutsModal';
+import {
+  readKeyboardShortcuts,
+  shortcutActionForEvent,
+  shortcutActions,
+  shortcutLabel,
+  writeKeyboardShortcuts,
+  type KeyboardShortcutConfig,
+  type ShortcutActionId,
+} from '../features/shortcuts/keyboardShortcuts';
 import {EditorToolbar} from '../features/toolbar/EditorToolbar';
 import type {EditorTool} from '../features/toolbar/types';
 import {getAppCapabilities} from './capabilities';
@@ -83,13 +82,7 @@ import {
   toolToMarkup,
   withImportedGameName,
 } from './appSgfUtils';
-import {
-  type AppLanguage,
-  antdLocales,
-  formatConsoleTime,
-  normalizeLanguage,
-  saveLanguage,
-} from './appUiUtils';
+import {type AppLanguage, antdLocales, formatConsoleTime, normalizeLanguage, saveLanguage} from './appUiUtils';
 import {getAppFontFamily} from './fonts';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
@@ -124,7 +117,10 @@ export function App() {
   const [storedGamesLoading, setStoredGamesLoading] = useState(false);
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
+  const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [keyboardShortcuts, setKeyboardShortcuts] = useState(() => readKeyboardShortcuts());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const commentsPanelRef = useRef<CommentsPanelHandle>(null);
   const branchMemoryRef = useRef(new Map<string, number>());
   const pendingSetupPathRef = useRef<number[] | null>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
@@ -142,6 +138,13 @@ export function App() {
   const analysisPaths = useMemo(
     () => getAnalysisQueuePaths(document, analysisChartPaths),
     [analysisChartPaths, document]
+  );
+  const shortcutLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        shortcutActions.map((action) => [action.id, shortcutLabel(keyboardShortcuts[action.id])])
+      ) as Partial<Record<ShortcutActionId, string>>,
+    [keyboardShortcuts]
   );
 
   useEffect(() => {
@@ -189,8 +192,7 @@ export function App() {
   });
   const stoneOverlayDisplay =
     !capabilities.katago && analysisSettings.topMoveDisplay === 'dot' ? 'number' : analysisSettings.topMoveDisplay;
-  const boardMoveNumberLimit =
-    stoneOverlayDisplay === 'number' ? analysisSettings.maxMoves : 0;
+  const boardMoveNumberLimit = stoneOverlayDisplay === 'number' ? analysisSettings.maxMoves : 0;
   const appTitle = capabilities.platform === 'electron' ? t('app.electronTitle') : t('app.title');
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
@@ -436,34 +438,124 @@ export function App() {
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
-      if (isTextInputActive()) return;
-      if (event.ctrlKey && event.shiftKey) return;
-      const steps = event.ctrlKey ? Infinity : event.shiftKey ? 10 : 1;
-      const key = event.key.toLowerCase();
-      if (event.key === 'ArrowLeft' || key === 'a' || key === 'f') {
-        event.preventDefault();
-        navigateBranch(-1, steps);
-      } else if (event.key === 'ArrowRight' || key === 'd' || key === 'v') {
-        event.preventDefault();
-        navigateBranch(1, steps);
-      } else if (event.key === 'ArrowUp' || key === 'w' || key === 'c') {
-        event.preventDefault();
-        navigatePrevious(steps);
-      } else if (event.key === 'ArrowDown' || key === 's' || key === 'g') {
-        event.preventDefault();
-        navigateNext(steps);
-      } else if (key === 'e' || key === 'b') {
-        event.preventDefault();
-        navigateFirstChild(steps);
-      } else if (capabilities.katago && event.key === ' ') {
-        event.preventDefault();
-        toggleAnalysisMode();
+      const shortcutAction = shortcutActionForEvent(event, keyboardShortcuts);
+      if (shortcutAction == null) return;
+
+      const action = shortcutActions.find((item) => item.id === shortcutAction);
+      if (action?.electronOnly === true && !capabilities.katago) return;
+      if (isTextInputActive() && (action?.navigation === true || !(event.ctrlKey || event.metaKey || event.altKey)))
+        return;
+
+      const steps = event.ctrlKey || event.metaKey ? Infinity : event.shiftKey ? 10 : 1;
+      event.preventDefault();
+
+      switch (shortcutAction) {
+        case 'open':
+          void handleImportSgfFromMenu();
+          break;
+        case 'save':
+          void handleExportSgf();
+          break;
+        case 'gameInfo':
+          setGameInfoOpen(true);
+          break;
+        case 'previousMove':
+          navigatePrevious(steps);
+          break;
+        case 'nextMoveMain':
+          navigateFirstChild(steps);
+          break;
+        case 'nextMoveCurrent':
+          navigateNext(steps);
+          break;
+        case 'previousBranch':
+          navigateBranch(-1, steps);
+          break;
+        case 'nextBranch':
+          navigateBranch(1, steps);
+          break;
+        case 'pass':
+          handlePass();
+          break;
+        case 'toolAuto':
+          handleToolChange('auto');
+          break;
+        case 'toolBlack':
+          handleToolChange('black');
+          break;
+        case 'toolWhite':
+          handleToolChange('white');
+          break;
+        case 'addLabel':
+          handleToolChange('alphabet');
+          break;
+        case 'addCircle':
+          handleToolChange('circle');
+          break;
+        case 'addSquare':
+          handleToolChange('square');
+          break;
+        case 'addTriangle':
+          handleToolChange('triangle');
+          break;
+        case 'addCross':
+          handleToolChange('cross');
+          break;
+        case 'eraseMarkup':
+          handleToolChange('erase');
+          break;
+        case 'toggleShowCoordinates':
+          setShowCoordinates((current) => !current);
+          break;
+        case 'toggleShowNextMove':
+          updateAnalysisSettings({showNextMove: !analysisSettings.showNextMove});
+          break;
+        case 'toggleShowTopMoves':
+          updateAnalysisSettings({showTopMoves: !analysisSettings.showTopMoves});
+          break;
+        case 'toggleDisplayDot':
+          updateAnalysisSettings({topMoveDisplay: analysisSettings.topMoveDisplay === 'dot' ? 'none' : 'dot'});
+          break;
+        case 'toggleDisplayNumber':
+          updateAnalysisSettings({topMoveDisplay: analysisSettings.topMoveDisplay === 'number' ? 'none' : 'number'});
+          break;
+        case 'toggleTerritory':
+          updateAnalysisSettings({showExpectedTerritory: !analysisSettings.showExpectedTerritory});
+          break;
+        case 'toggleScore':
+          commentsPanelRef.current?.toggleScore();
+          break;
+        case 'togglePointLoss':
+          commentsPanelRef.current?.togglePointLoss();
+          break;
+        case 'toggleWinrate':
+          commentsPanelRef.current?.toggleWinrate();
+          break;
+        case 'toggleComments':
+          commentsPanelRef.current?.toggleComments();
+          break;
+        case 'toggleAnalysisMode':
+          toggleAnalysisMode();
+          break;
       }
     }
 
     window.document.body.addEventListener('keydown', handleKeyDown);
     return () => window.document.body.removeEventListener('keydown', handleKeyDown);
-  }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious, toggleAnalysisMode]);
+  }, [
+    analysisSettings.showExpectedTerritory,
+    analysisSettings.showNextMove,
+    analysisSettings.showTopMoves,
+    analysisSettings.topMoveDisplay,
+    capabilities.katago,
+    keyboardShortcuts,
+    navigateBranch,
+    navigateFirstChild,
+    navigateNext,
+    navigatePrevious,
+    toggleAnalysisMode,
+    updateAnalysisSettings,
+  ]);
 
   function handleBoardClick(point: string, colorOverride?: SgfColor): void {
     if (replaceMode) {
@@ -569,6 +661,17 @@ export function App() {
     void i18n.changeLanguage(language);
   }
 
+  function handleKeyboardShortcutsApply(next: KeyboardShortcutConfig): void {
+    writeKeyboardShortcuts(next);
+    setKeyboardShortcuts(next);
+    setKeyboardShortcutsOpen(false);
+  }
+
+  function openKeyboardShortcuts(): void {
+    setAnalysisSettingsOpen(false);
+    setKeyboardShortcutsOpen(true);
+  }
+
   return (
     <ConfigProvider
       locale={antdLocale}
@@ -641,6 +744,7 @@ export function App() {
             canNavigateNext={canNavigateNext}
             showMarkup={showMarkup}
             labelText={labelText}
+            shortcutLabels={shortcutLabels}
             onToolChange={handleToolChange}
             onLabelTextChange={setLabelText}
             onAutoToolClick={handleAutoToolClick}
@@ -772,6 +876,7 @@ export function App() {
               </span>
             </section>
             <CommentsPanel
+              ref={commentsPanelRef}
               value={getComment(document, path)}
               onChange={handleCommentChange}
               showAnalysisControls={capabilities.katago}
@@ -845,6 +950,14 @@ export function App() {
         onLanguageChange={handleLanguageChange}
         onShowCoordinatesChange={setShowCoordinates}
         onShowMarkupChange={setShowMarkup}
+        onKeyboardShortcutsClick={openKeyboardShortcuts}
+      />
+      <KeyboardShortcutsModal
+        open={keyboardShortcutsOpen}
+        shortcuts={keyboardShortcuts}
+        showElectronShortcuts={capabilities.katago}
+        onApply={handleKeyboardShortcutsApply}
+        onCancel={() => setKeyboardShortcutsOpen(false)}
       />
       <GameInfoModal
         open={gameInfoOpen}

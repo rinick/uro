@@ -80,6 +80,34 @@ body {
   gap: 16px;
 }
 
+.keyboard-shortcuts-list {
+  display: grid;
+  gap: 6px;
+  max-height: 62vh;
+  overflow: auto;
+}
+
+.keyboard-shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.keyboard-shortcuts-label {
+  min-width: 0;
+}
+
+.keyboard-shortcuts-key {
+  min-width: 132px;
+}
+
+.keyboard-shortcuts-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .editor-toolbar {
   display: flex;
   align-items: center;

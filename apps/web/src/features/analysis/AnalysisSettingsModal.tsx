@@ -1,4 +1,4 @@
-import {Checkbox, Form, InputNumber, Modal, Select, Switch, message} from 'antd';
+import {Button, Checkbox, Form, InputNumber, Modal, Select, Switch, message} from 'antd';
 import {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {defaultAnalysisSettings, type AnalysisSettings} from '@uro/analysis-core';
@@ -16,6 +16,7 @@ interface AnalysisSettingsModalProps {
   onLanguageChange: (language: AppLanguage) => void;
   onShowCoordinatesChange: (showCoordinates: boolean) => void;
   onShowMarkupChange: (showMarkup: boolean) => void;
+  onKeyboardShortcutsClick: () => void;
 }
 
 export function AnalysisSettingsModal({
@@ -30,6 +31,7 @@ export function AnalysisSettingsModal({
   onLanguageChange,
   onShowCoordinatesChange,
   onShowMarkupChange,
+  onKeyboardShortcutsClick,
 }: AnalysisSettingsModalProps) {
   const {t} = useTranslation();
   const [form] = Form.useForm<AnalysisSettings>();
@@ -79,14 +81,7 @@ export function AnalysisSettingsModal({
   }
 
   return (
-    <Modal
-      title={t('settings.title')}
-      open={open}
-      onCancel={onCancel}
-      footer={null}
-      width={420}
-      destroyOnHidden
-    >
+    <Modal title={t('settings.title')} open={open} onCancel={onCancel} footer={null} width={420} destroyOnHidden>
       <Form form={form} layout="vertical" disabled={loading} initialValues={defaultAnalysisSettings}>
         <Form.Item label={t('menu.language')}>
           <Select
@@ -109,10 +104,18 @@ export function AnalysisSettingsModal({
             <Switch size="small" checked={showMarkup} onChange={onShowMarkupChange} />
           </div>
         </Form.Item>
+        <Form.Item>
+          <Button block onClick={onKeyboardShortcutsClick}>
+            {t('shortcuts.button')}
+          </Button>
+        </Form.Item>
         {showKataGoSettings ? (
           <>
             <Form.Item>
-              <Checkbox checked={settings.autoAnalyze} onChange={(event) => updateSettings({autoAnalyze: event.target.checked})}>
+              <Checkbox
+                checked={settings.autoAnalyze}
+                onChange={(event) => updateSettings({autoAnalyze: event.target.checked})}
+              >
                 {t('analysis.autoAnalyze')}
               </Checkbox>
             </Form.Item>

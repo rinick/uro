@@ -1,5 +1,5 @@
 import {Button, Empty, Input, Space} from 'antd';
-import {useEffect, useMemo, useRef, useState} from 'react';
+import {forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
 import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import type {AnalysisChartPoint, AnalysisSettings} from '@uro/analysis-core';
@@ -17,6 +17,13 @@ interface CommentsPanelProps {
   onPreviousMove?: () => void;
   onNextMove?: () => void;
   onSelectChartMove?: (moveNumber: number) => void;
+}
+
+export interface CommentsPanelHandle {
+  toggleScore: () => void;
+  togglePointLoss: () => void;
+  toggleWinrate: () => void;
+  toggleComments: () => void;
 }
 
 interface AnalysisChartSummary {
@@ -51,28 +58,32 @@ interface ScoreLineRun {
 
 const AD_SCRIPT_ID = 'uro-google-ad-script';
 
-export function CommentsPanel({
-  value,
-  onChange,
-  showAnalysisControls = false,
-  showWebAd = false,
-  analysisActive = false,
-  chartData = [],
-  moveDisplay = 'score',
-  selectedMoveNumber = null,
-  chartSummary = null,
-  onPreviousMove,
-  onNextMove,
-  onSelectChartMove,
-}: CommentsPanelProps) {
+export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>(function CommentsPanel(
+  {
+    value,
+    onChange,
+    showAnalysisControls = false,
+    showWebAd = false,
+    analysisActive = false,
+    chartData = [],
+    moveDisplay = 'score',
+    selectedMoveNumber = null,
+    chartSummary = null,
+    onPreviousMove,
+    onNextMove,
+    onSelectChartMove,
+  },
+  ref
+) {
   const {t} = useTranslation();
   const [showScore, setShowScore] = useState(false);
   const [showWinrate, setShowWinrate] = useState(false);
   const [showPointLoss, setShowPointLoss] = useState(false);
+  const [showComments, setShowComments] = useState(true);
   const [adDismissed, setAdDismissed] = useState(false);
   const previousAnalysisActiveRef = useRef(false);
   const showChart = showAnalysisControls && (showScore || showWinrate || showPointLoss);
-  const showAd = showWebAd && !adDismissed && !showChart;
+  const showAd = showWebAd && !adDismissed && !showChart && showComments;
   const scoreData = useMemo(() => chartData.filter((item) => item.series === 'score'), [chartData]);
   const winrateData = useMemo(() => chartData.filter((item) => item.series === 'winrate'), [chartData]);
   const pointLossData = useMemo(() => buildPointLossData(scoreData), [scoreData]);
@@ -82,8 +93,10 @@ export function CommentsPanel({
     (showPointLoss && pointLossData.length > 0);
 
   useEffect(() => {
-    if (analysisActive && !previousAnalysisActiveRef.current && !showScore && !showWinrate && !showPointLoss)
+    if (analysisActive && !previousAnalysisActiveRef.current && !showScore && !showWinrate && !showPointLoss) {
+      setShowComments(false);
       setShowScore(true);
+    }
     previousAnalysisActiveRef.current = analysisActive;
   }, [analysisActive, showPointLoss, showScore, showWinrate]);
 
@@ -91,30 +104,59 @@ export function CommentsPanel({
     if (showAd && value !== '' && selectedMoveNumber != null && selectedMoveNumber > 0) setAdDismissed(true);
   }, [selectedMoveNumber, showAd, value]);
 
+  const showOnlyComments = useCallback(() => {
+    setAdDismissed(true);
+    setShowScore(false);
+    setShowPointLoss(false);
+    setShowWinrate(false);
+    setShowComments(true);
+  }, []);
+
+  const toggleComments = useCallback(() => {
+    if (showChart || showAd || !showComments) {
+      showOnlyComments();
+      return;
+    }
+    setShowComments(false);
+  }, [showAd, showChart, showComments, showOnlyComments]);
+
+  const toggleChart = useCallback((setter: (updater: (current: boolean) => boolean) => void) => {
+    setAdDismissed(true);
+    setShowComments(false);
+    setter((current) => !current);
+  }, []);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      toggleScore: () => toggleChart(setShowScore),
+      togglePointLoss: () => toggleChart(setShowPointLoss),
+      toggleWinrate: () => toggleChart(setShowWinrate),
+      toggleComments,
+    }),
+    [toggleChart, toggleComments]
+  );
+
   return (
     <section className="side-panel comments-panel">
       <div className="comments-panel-header">
         <Space.Compact>
           {showAnalysisControls ? (
             <>
-              <Button
-                size="small"
-                type={showScore ? 'primary' : 'default'}
-                onClick={() => setShowScore((current) => !current)}
-              >
+              <Button size="small" type={showScore ? 'primary' : 'default'} onClick={() => toggleChart(setShowScore)}>
                 {t('analysis.score')}
               </Button>
               <Button
                 size="small"
                 type={showPointLoss ? 'primary' : 'default'}
-                onClick={() => setShowPointLoss((current) => !current)}
+                onClick={() => toggleChart(setShowPointLoss)}
               >
                 {t('analysis.pointLoss')}
               </Button>
               <Button
                 size="small"
                 type={showWinrate ? 'primary' : 'default'}
-                onClick={() => setShowWinrate((current) => !current)}
+                onClick={() => toggleChart(setShowWinrate)}
               >
                 {t('analysis.winrate')}
               </Button>
@@ -122,13 +164,8 @@ export function CommentsPanel({
           ) : null}
           <Button
             size="small"
-            type={!showChart && !showAd ? 'primary' : 'default'}
-            onClick={() => {
-              setAdDismissed(true);
-              setShowScore(false);
-              setShowPointLoss(false);
-              setShowWinrate(false);
-            }}
+            type={showComments && !showChart && !showAd ? 'primary' : 'default'}
+            onClick={toggleComments}
           >
             {t('panels.comments')}
           </Button>
@@ -159,18 +196,20 @@ export function CommentsPanel({
           ) : (
             <Empty className="analysis-empty" image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('analysis.noData')} />
           )
-        ) : (
+        ) : showComments ? (
           <Input.TextArea
             size="small"
             value={value}
             onChange={(event) => onChange(event.target.value)}
             autoSize={false}
           />
+        ) : (
+          <Empty className="analysis-empty" image={Empty.PRESENTED_IMAGE_SIMPLE} description={t('panels.comments')} />
         )}
       </div>
     </section>
   );
-}
+});
 
 function GoogleAd() {
   useEffect(() => {
