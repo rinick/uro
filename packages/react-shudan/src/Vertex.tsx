@@ -85,7 +85,7 @@ function Vertex(props: VertexProps) {
     );
   }
 
-  let paintOpacity = Math.min(1, Math.abs(paint) * 0.5);
+  let paintOpacity = Math.abs(paint);
 
   let markerMarkup = () =>
     !!marker &&

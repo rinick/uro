@@ -284,12 +284,13 @@
 
 .shudan-vertex .shudan-paint {
   pointer-events: none;
+  z-index: 2;
 }
 .shudan-vertex .shudan-paint::before {
   content: '';
   display: block;
   position: absolute;
-  inset: 35%;
+  inset: 40%;
   opacity: var(--shudan-paint-opacity);
   background: transparent;
 }
@@ -323,6 +324,7 @@
   border-radius: 50%;
   opacity: 0.9;
   pointer-events: none;
+  z-index: 1;
 }
 .shudan-vertex.shudan-heat_6 .shudan-heat,
 .shudan-vertex .shudan-heat.shudan-heat_6 {
@@ -390,7 +392,7 @@
   line-height: 1.26;
   text-align: center;
   text-overflow: clip;
-  text-shadow: 0 0.1em 0.3em black;
+  text-shadow: 0 0em 0.2em #000000;
   white-space: pre;
   opacity: 0.9;
   transform: translate(-50%, -50%);
@@ -405,7 +407,7 @@
   left: 0.04em;
   width: calc(100% - 0.08em);
   height: calc(100% - 0.08em);
-  border: 0.075em solid var(--shudan-board-foreground-color);
+  border: 0.05em solid var(--shudan-board-foreground-color);
   border-radius: 50%;
   background: transparent;
   pointer-events: none;

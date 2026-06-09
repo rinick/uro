@@ -96,8 +96,18 @@ export function GoBoard({
     [analysis, analysisSettings, document, path, position.size]
   );
   const paintMap = useMemo(
-    () => buildOwnershipPaintMap(position.size, analysis, analysisSettings, position.stones),
-    [analysis, analysisSettings, position.size, position.stones]
+    () =>
+      buildOwnershipPaintMap(
+        position.size,
+        analysis,
+        analysisSettings,
+        position.stones,
+        position.points,
+        position.moveNumber,
+        moveNumberLimit,
+        heatMap
+      ),
+    [analysis, analysisSettings, heatMap, moveNumberLimit, position.moveNumber, position.points, position.size, position.stones]
   );
   const handleVertexClick = useCallback(
     (_event: VertexEvent, vertex: Vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1])),
@@ -262,21 +272,34 @@ function buildOwnershipPaintMap(
   size: number,
   analysis: KataGoAnalysisResult | null,
   settings: AnalysisSettings,
-  stones: Map<string, 'B' | 'W'>
+  stones: Map<string, 'B' | 'W'>,
+  points: BoardPoint[],
+  currentMoveNumber: number,
+  moveNumberLimit: MoveNumberLimit,
+  heatMap: Array<Array<HeatVertex | null>> | undefined
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
-  const doubleStoneOpacity = settings.topMoveDisplay !== 'number';
+  //const doubleStoneOpacity = settings.topMoveDisplay !== 'number';
+  const hiddenPaintPoints = new Set(
+    points
+      .filter((point) => shouldShowMoveNumber(point.moveNumber, point.stone != null, currentMoveNumber, moveNumberLimit))
+      .map((point) => point.point)
+  );
 
   return Array.from({length: size}, (_, y) =>
     Array.from({length: size}, (_, x) => {
+      const point = vertexToPoint(x, y);
+      if (hiddenPaintPoints.has(point)) return 0;
+      if (heatMap?.[y]?.[x]?.text != null) return 0;
+
       const value = analysis.ownership?.[y * size + x] ?? 0;
       if (Math.abs(value) < 0.15) return 0;
 
       const paint = Math.max(-1, Math.min(1, value));
-      const stone = stones.get(vertexToPoint(x, y));
+      const stone = stones.get(point);
       if (stone === 'B' && paint > 0) return 0;
       if (stone === 'W' && paint < 0) return 0;
-      if (stone != null && doubleStoneOpacity) return paint * 2;
+      //if (stone != null && doubleStoneOpacity) return paint * 2;
       return paint;
     })
   );
