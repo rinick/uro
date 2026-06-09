@@ -1,6 +1,6 @@
 import {LeftOutlined, RightOutlined, DeleteOutlined, SwapOutlined, DoubleLeftOutlined} from '@ant-design/icons';
 import {Button, Space, Tooltip} from 'antd';
-import {buildTree, getBoardSize, samePath, type SgfDocument} from '@uro/sgf-core';
+import {buildTree, getBoardSize, samePath, type SgfDocument} from '@ulugo/sgf-core';
 import {useCallback, useEffect, useMemo, useRef, type ReactNode} from 'react';
 import {useTranslation} from 'react-i18next';
 import {

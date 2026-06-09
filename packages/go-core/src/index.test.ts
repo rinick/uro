@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {addLabel, addMarkup, addMove, createNewGame} from '@uro/sgf-core';
+import {addLabel, addMarkup, addMove, createNewGame} from '@ulugo/sgf-core';
 import {deriveBoardPosition} from '.';
 
 describe('go-core', () => {

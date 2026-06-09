@@ -1,6 +1,6 @@
 {
-  "name": "@uro/electron",
-  "productName": "Uro AI review",
+  "name": "@ulugo/electron",
+  "productName": "Ulugo AI review",
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",

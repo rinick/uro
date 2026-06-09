@@ -9,7 +9,7 @@ import {
   type SgfColor,
   type SgfDocument,
   type SgfNode,
-} from '@uro/sgf-core';
+} from '@ulugo/sgf-core';
 import type {EditorTool} from '../features/toolbar/types';
 
 export function pathKey(path: number[]): string {

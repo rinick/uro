@@ -1,4 +1,4 @@
-# Uro
+# Ulugo
 
 A web-based SGF editor for Go/Weiqi games.
 

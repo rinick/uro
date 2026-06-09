@@ -1,11 +1,11 @@
-import {getNodeAtPath, samePath, type SgfDocument} from '@uro/sgf-core';
-import {defaultAnalysisSettings, type AnalysisChartPoint, type AnalysisSettings} from '@uro/analysis-core';
+import {getNodeAtPath, samePath, type SgfDocument} from '@ulugo/sgf-core';
+import {defaultAnalysisSettings, type AnalysisChartPoint, type AnalysisSettings} from '@ulugo/analysis-core';
 import {
   buildKataGoQuery,
   defaultKataGoSettings,
   type KataGoConsoleMessage,
   type KataGoSettings,
-} from '@uro/katago-core';
+} from '@ulugo/katago-core';
 import {useCallback, useEffect, useMemo, useRef, useState, type RefObject} from 'react';
 import {
   buildAnalysisChartData,
@@ -28,7 +28,7 @@ import {createLocalConsoleMessage} from './appUiUtils';
 const liveAnalysisVisits = 10_000_000;
 const maxFastAnalysisQueries = 2;
 const nextFastAnalysisCount = 5;
-const analysisSettingsStorageKey = 'uro.analysisSettings';
+const analysisSettingsStorageKey = 'ulugo.analysisSettings';
 
 interface UseKataGoAnalysisOptions {
   enabled: boolean;
@@ -143,7 +143,7 @@ export function useKataGoAnalysis({
       if (!active) {
         clearPendingAnalysisQueries('fast');
         clearPendingAnalysisQueries('live');
-        if (enabled && window.uro != null) void window.uro.katago.stopAnalysis();
+        if (enabled && window.ulugo != null) void window.ulugo.katago.stopAnalysis();
       }
     },
     [clearPendingAnalysisQueries, enabled]
@@ -160,7 +160,7 @@ export function useKataGoAnalysis({
       analysisQueryContextRef.current.clear();
       if (pendingQueryIds.length > 0) {
         setAnalysisQueueRevision((current) => current + 1);
-        if (enabled && window.uro != null) void window.uro.katago.stopAnalysis(pendingQueryIds);
+        if (enabled && window.ulugo != null) void window.ulugo.katago.stopAnalysis(pendingQueryIds);
       }
 
       if (options.clearAnalysisCache === true) {
@@ -184,31 +184,31 @@ export function useKataGoAnalysis({
     setAnalysisSettings((current) => {
       const next = {...current, ...values};
       writeStoredAnalysisSettings(next);
-      if (window.uro != null) void window.uro.analysis.saveSettings(next);
+      if (window.ulugo != null) void window.ulugo.analysis.saveSettings(next);
       return next;
     });
   }, []);
 
   const refreshKataGoSettings = useCallback(async (): Promise<KataGoSettings> => {
-    if (!enabled || window.uro == null) return defaultKataGoSettings;
-    const settings = await window.uro.katago.getSettings();
+    if (!enabled || window.ulugo == null) return defaultKataGoSettings;
+    const settings = await window.ulugo.katago.getSettings();
     setKataGoSettings(settings);
     return settings;
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled || window.uro == null) return;
+    if (!enabled || window.ulugo == null) return;
     void refreshKataGoSettings();
-    window.uro.analysis
+    window.ulugo.analysis
       .getSettings()
       .then((settings) => saveAnalysisSettings({...defaultAnalysisSettings, ...settings}))
       .catch(() => undefined);
   }, [enabled, refreshKataGoSettings, saveAnalysisSettings]);
 
   useEffect(() => {
-    if (!enabled || window.uro == null) return;
+    if (!enabled || window.ulugo == null) return;
 
-    const unsubscribeAnalysis = window.uro.katago.onAnalysis((result) => {
+    const unsubscribeAnalysis = window.ulugo.katago.onAnalysis((result) => {
       const context = analysisQueryContextRef.current.get(result.id);
       if (context == null) return;
       if (!result.isDuringSearch) {
@@ -245,7 +245,7 @@ export function useKataGoAnalysis({
         });
       });
     });
-    const unsubscribeConsole = window.uro.katago.onConsoleMessage(appendKataGoConsoleMessage);
+    const unsubscribeConsole = window.ulugo.katago.onConsoleMessage(appendKataGoConsoleMessage);
 
     return () => {
       unsubscribeAnalysis();
@@ -270,9 +270,9 @@ export function useKataGoAnalysis({
       maxVisits: number,
       live = false
     ): Promise<void> => {
-      if (!enabled || window.uro == null) return;
+      if (!enabled || window.ulugo == null) return;
 
-      const queryId = `uro-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const queryId = `ulugo-${mode}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       analysisQueryContextRef.current.set(queryId, {
         nodeId: nodeKey(document, requestPath),
         path: requestPath,
@@ -282,7 +282,7 @@ export function useKataGoAnalysis({
       setAnalysisQueueRevision((current) => current + 1);
 
       try {
-        await window.uro.katago.analyze(
+        await window.ulugo.katago.analyze(
           buildKataGoQuery(document, {
             id: queryId,
             path: requestPath,
@@ -306,9 +306,9 @@ export function useKataGoAnalysis({
       maxVisits: number,
       priority: number
     ): Promise<void> => {
-      if (!enabled || window.uro == null) return;
+      if (!enabled || window.ulugo == null) return;
 
-      const queryId = `uro-${mode}-pass-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const queryId = `ulugo-${mode}-pass-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       analysisQueryContextRef.current.set(queryId, {
         nodeId: nodeKey(document, requestPath),
         path: requestPath,
@@ -319,7 +319,7 @@ export function useKataGoAnalysis({
       setAnalysisQueueRevision((current) => current + 1);
 
       try {
-        await window.uro.katago.analyze(
+        await window.ulugo.katago.analyze(
           buildKataGoQuery(document, {
             id: queryId,
             path: requestPath,
@@ -338,11 +338,11 @@ export function useKataGoAnalysis({
   );
 
   useEffect(() => {
-    if (!enabled || window.uro == null) return;
-    const uro = window.uro;
+    if (!enabled || window.ulugo == null) return;
+    const ulugo = window.ulugo;
 
     if (!analysisMode) {
-      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void uro.katago.stopAnalysis();
+      if (!hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast')) void ulugo.katago.stopAnalysis();
       return;
     }
     if (pendingSetupPathRef.current != null && samePath(pendingSetupPathRef.current, path)) return;
@@ -350,7 +350,7 @@ export function useKataGoAnalysis({
       if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
         const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
         clearPendingAnalysisQueries('live');
-        void uro.katago.stopAnalysis(liveQueryIds);
+        void ulugo.katago.stopAnalysis(liveQueryIds);
       }
       return;
     }
@@ -365,13 +365,13 @@ export function useKataGoAnalysis({
         if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live')) {
           const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
           clearPendingAnalysisQueries('live');
-          await uro.katago.stopAnalysis(liveQueryIds);
+          await ulugo.katago.stopAnalysis(liveQueryIds);
         }
         if (!cancelled) await requestAnalysis(path, 'live', targetVisits, true);
       } catch (error: unknown) {
         appendKataGoConsoleMessage(
           createLocalConsoleMessage(
-            'uro',
+            'ulugo',
             'error',
             error instanceof Error ? error.message : startFailedMessage
           )
@@ -400,7 +400,7 @@ export function useKataGoAnalysis({
   ]);
 
   const handleFastAnalysis = useCallback(async (): Promise<void> => {
-    if (!enabled || window.uro == null || !analysisMode) return;
+    if (!enabled || window.ulugo == null || !analysisMode) return;
 
     try {
       const settings = await refreshKataGoSettings();
@@ -410,7 +410,7 @@ export function useKataGoAnalysis({
       if (staleFastQueryIds.length > 0) {
         for (const queryId of staleFastQueryIds) analysisQueryContextRef.current.delete(queryId);
         setAnalysisQueueRevision((current) => current + 1);
-        await window.uro.katago.stopAnalysis(staleFastQueryIds);
+        await window.ulugo.katago.stopAnalysis(staleFastQueryIds);
       }
 
       let availableSlots =
@@ -438,7 +438,7 @@ export function useKataGoAnalysis({
       }
     } catch (error) {
       appendKataGoConsoleMessage(
-        createLocalConsoleMessage('uro', 'error', error instanceof Error ? error.message : startFailedMessage)
+        createLocalConsoleMessage('ulugo', 'error', error instanceof Error ? error.message : startFailedMessage)
       );
     }
   }, [

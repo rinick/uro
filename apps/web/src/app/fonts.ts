@@ -61,5 +61,5 @@ export function getAppFontFamily(language: AppLanguage): string {
     'Apple SD Gothic Neo',
     'Malgun Gothic',
   ];
-  return ['Noto Sans', 'Uro Noto Sans', ...cjkFonts, ...fallbackFonts].map(quoteFontFamily).join(', ');
+  return ['Noto Sans', 'Ulugo Noto Sans', ...cjkFonts, ...fallbackFonts].map(quoteFontFamily).join(', ');
 }

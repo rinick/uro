@@ -2,7 +2,7 @@ import {Button, Empty, Input, Space} from 'antd';
 import {forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
 import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
-import type {AnalysisChartPoint, AnalysisSettings} from '@uro/analysis-core';
+import type {AnalysisChartPoint, AnalysisSettings} from '@ulugo/analysis-core';
 
 interface CommentsPanelProps {
   value: string;
@@ -56,7 +56,7 @@ interface ScoreLineRun {
   points: PlotPoint[];
 }
 
-const AD_SCRIPT_ID = 'uro-google-ad-script';
+const AD_SCRIPT_ID = 'ulugo-google-ad-script';
 
 export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>(function CommentsPanel(
   {

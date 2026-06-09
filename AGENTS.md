@@ -1,11 +1,11 @@
-# Uro Project Notes
+# Ulugo Project Notes
 
 Keep code changes minimal and scoped to each task. Prefer simpler code and less code. Pause on errors, blockers, or unclear requirements.
 When adding string to i18n.ts, update the translation for all languages.
 
 ## Project Shape
 
-- This is a pnpm workspace monorepo for Uro, a Go/Weiqi SGF editor.
+- This is a pnpm workspace monorepo for Ulugo, a Go/Weiqi SGF editor.
 - `apps/web` is the React + Vite UI. It uses Ant Design in compact mode and should prefer small Antd components.
 - `apps/electron` wraps the same web UI for desktop and owns Electron-only KataGo integration.
 - `packages/sgf-core` owns SGF document parsing, editing, and serialization behavior.
@@ -25,11 +25,11 @@ When adding string to i18n.ts, update the translation for all languages.
 - KataGo process management and downloads are Electron-only.
 - Analysis data should be cached by SGF node id so fast/live analysis does not recalculate unchanged nodes unnecessarily.
 - Fast analysis should cover existing SGF moves and continue working as new moves are added.
-- Board analysis display should follow KaTrain/Sabaki behavior where practical, while using the Uro/Shudan rendering path.
+- Board analysis display should follow KaTrain/Sabaki behavior where practical, while using the Ulugo/Shudan rendering path.
 
 ## Commands
 
-- Web typecheck: `pnpm --filter @uro/web typecheck`
-- Web build: `pnpm --filter @uro/web build`
+- Web typecheck: `pnpm --filter @ulugo/web typecheck`
+- Web build: `pnpm --filter @ulugo/web build`
 - Electron dev: `pnpm dev:electron`
 - Full typecheck: `pnpm typecheck`

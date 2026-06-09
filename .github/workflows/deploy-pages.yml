@@ -35,7 +35,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build web app
-        run: pnpm --filter @uro/web build
+        run: pnpm --filter @ulugo/web build
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

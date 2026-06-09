@@ -1,4 +1,4 @@
-import {addMove, createNewGame, updateGameInfo} from '@uro/sgf-core';
+import {addMove, createNewGame, updateGameInfo} from '@ulugo/sgf-core';
 import {describe, expect, it} from 'vitest';
 import {buildKataGoQuery, normalizeKomi, normalizeRules} from '.';
 

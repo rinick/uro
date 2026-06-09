@@ -54,25 +54,25 @@ importers:
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.2.5(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@uro/analysis-core':
+      '@ulugo/analysis-core':
         specifier: workspace:*
         version: link:../../packages/analysis-core
-      '@uro/go-core':
+      '@ulugo/go-core':
         specifier: workspace:*
         version: link:../../packages/go-core
-      '@uro/katago-core':
+      '@ulugo/katago-core':
         specifier: workspace:*
         version: link:../../packages/katago-core
-      '@uro/react-shudan':
+      '@ulugo/react-shudan':
         specifier: workspace:*
         version: link:../../packages/react-shudan
-      '@uro/sgf-analysis-tree':
+      '@ulugo/sgf-analysis-tree':
         specifier: workspace:*
         version: link:../../packages/sgf-analysis-tree
-      '@uro/sgf-core':
+      '@ulugo/sgf-core':
         specifier: workspace:*
         version: link:../../packages/sgf-core
-      '@uro/ui-shared':
+      '@ulugo/ui-shared':
         specifier: workspace:*
         version: link:../../packages/ui-shared
       antd:
@@ -124,7 +124,7 @@ importers:
 
   packages/go-core:
     dependencies:
-      '@uro/sgf-core':
+      '@ulugo/sgf-core':
         specifier: workspace:*
         version: link:../sgf-core
     devDependencies:
@@ -134,13 +134,13 @@ importers:
 
   packages/katago-core:
     dependencies:
-      '@uro/analysis-core':
+      '@ulugo/analysis-core':
         specifier: workspace:*
         version: link:../analysis-core
-      '@uro/sgf-analysis-tree':
+      '@ulugo/sgf-analysis-tree':
         specifier: workspace:*
         version: link:../sgf-analysis-tree
-      '@uro/sgf-core':
+      '@ulugo/sgf-core':
         specifier: workspace:*
         version: link:../sgf-core
     devDependencies:
@@ -172,7 +172,7 @@ importers:
 
   packages/sgf-analysis-tree:
     dependencies:
-      '@uro/sgf-core':
+      '@ulugo/sgf-core':
         specifier: workspace:*
         version: link:../sgf-core
     devDependencies:

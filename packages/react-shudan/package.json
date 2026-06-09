@@ -1,6 +1,6 @@
 {
-  "name": "@uro/react-shudan",
-  "version": "1.7.1-uro.0",
+  "name": "@ulugo/react-shudan",
+  "version": "1.7.1-ulugo.0",
   "private": true,
   "type": "module",
   "main": "./src/main.ts",
@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "description": "React fork of SabakiHQ/Shudan for Uro.",
+  "description": "React fork of SabakiHQ/Shudan for ulugo.",
   "license": "MIT",
   "dependencies": {
     "classnames": "^2.3.1"

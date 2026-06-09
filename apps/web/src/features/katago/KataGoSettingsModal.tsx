@@ -6,7 +6,7 @@ import {
   type KataGoDownloadOption,
   type KataGoDownloadProgress,
   type KataGoSettings,
-} from '@uro/katago-core';
+} from '@ulugo/katago-core';
 
 interface KataGoSettingsModalProps {
   open: boolean;
@@ -26,10 +26,10 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
   const [progress, setProgress] = useState<KataGoDownloadProgress | null>(null);
 
   useEffect(() => {
-    if (!open || window.uro == null) return;
+    if (!open || window.ulugo == null) return;
 
     setLoading(true);
-    Promise.all([window.uro.katago.getSettings(), window.uro.katago.getDownloadOptions()])
+    Promise.all([window.ulugo.katago.getSettings(), window.ulugo.katago.getDownloadOptions()])
       .then(([settings, options]) => {
         form.setFieldsValue(settings);
         setKataGoOptions(options.katago);
@@ -50,23 +50,23 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
   }, [form, open, t]);
 
   useEffect(() => {
-    if (!open || window.uro == null) return;
-    return window.uro.katago.onDownloadProgress(setProgress);
+    if (!open || window.ulugo == null) return;
+    return window.ulugo.katago.onDownloadProgress(setProgress);
   }, [open]);
 
   async function browse(field: keyof KataGoSettings): Promise<void> {
-    if (window.uro == null) return;
-    const selected = await window.uro.selectFile({title: t(`katago.${field}`)});
+    if (window.ulugo == null) return;
+    const selected = await window.ulugo.selectFile({title: t(`katago.${field}`)});
     if (selected != null) form.setFieldValue(field, selected);
   }
 
   async function handleSave(): Promise<void> {
-    if (window.uro == null) return;
+    if (window.ulugo == null) return;
 
     try {
       setSaving(true);
       const values = await form.validateFields();
-      await window.uro.katago.saveSettings({...defaultKataGoSettings, ...values});
+      await window.ulugo.katago.saveSettings({...defaultKataGoSettings, ...values});
       message.success(t('katago.saved'));
       onCancel();
     } catch (error) {
@@ -77,11 +77,11 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
   }
 
   async function applyInstalledPath(kind: 'katago' | 'model', installedPath: string): Promise<void> {
-    if (window.uro == null) return;
+    if (window.ulugo == null) return;
 
     const field = kind === 'katago' ? 'executablePath' : 'modelPath';
     form.setFieldsValue({[field]: installedPath});
-    const settings = await window.uro.katago.saveSettings({
+    const settings = await window.ulugo.katago.saveSettings({
       ...defaultKataGoSettings,
       ...form.getFieldsValue(),
       [field]: installedPath,
@@ -101,7 +101,7 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
   }
 
   async function handleDownload(kind: 'katago' | 'model'): Promise<void> {
-    if (window.uro == null) return;
+    if (window.ulugo == null) return;
     const optionId = kind === 'katago' ? selectedKataGo : selectedModel;
     if (optionId == null) return;
     const option = (kind === 'katago' ? katagoOptions : modelOptions).find((item) => item.id === optionId);
@@ -115,9 +115,9 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
     try {
       setDownloading(kind);
       setProgress(null);
-      const result = await window.uro.katago.download({kind, optionId});
+      const result = await window.ulugo.katago.download({kind, optionId});
       form.setFieldsValue(result.settings);
-      const options = await window.uro.katago.getDownloadOptions();
+      const options = await window.ulugo.katago.getDownloadOptions();
       setKataGoOptions(options.katago);
       setModelOptions(options.models);
       message.success(t(kind === 'katago' ? 'katago.katagoDownloaded' : 'katago.modelDownloaded'));
@@ -129,11 +129,11 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
   }
 
   async function handleAutoConfig(): Promise<void> {
-    if (window.uro == null) return;
+    if (window.ulugo == null) return;
 
     try {
       const values = await form.validateFields();
-      const settings = await window.uro.katago.saveSettings({...defaultKataGoSettings, ...values, configPath: ''});
+      const settings = await window.ulugo.katago.saveSettings({...defaultKataGoSettings, ...values, configPath: ''});
       form.setFieldsValue(settings);
       message.success(t('katago.configCreated'));
     } catch (error) {

@@ -1,7 +1,7 @@
 import {Button, Checkbox, Form, InputNumber, Modal, Select, Switch, message} from 'antd';
 import {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {defaultAnalysisSettings, type AnalysisSettings} from '@uro/analysis-core';
+import {defaultAnalysisSettings, type AnalysisSettings} from '@ulugo/analysis-core';
 import {type AppLanguage, languageOptions} from '../../app/appUiUtils';
 
 interface AnalysisSettingsModalProps {
@@ -46,11 +46,11 @@ export function AnalysisSettingsModal({
 
   useEffect(() => {
     if (!open) return;
-    if (!showKataGoSettings || window.uro == null) return;
+    if (!showKataGoSettings || window.ulugo == null) return;
 
     let active = true;
     setLoading(true);
-    window.uro.analysis
+    window.ulugo.analysis
       .getSettings()
       .then((settings) => {
         if (!active) return;

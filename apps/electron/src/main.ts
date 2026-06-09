@@ -149,11 +149,11 @@ const katagoDownloadOptionsByPlatform: Record<string, DownloadOption[]> = {
 };
 
 async function createWindow(): Promise<void> {
-  app.setName('Uro AI review');
+  app.setName('Ulugo AI review');
   Menu.setApplicationMenu(null);
 
   const window = new BrowserWindow({
-    title: 'Uro AI review',
+    title: 'Ulugo AI review',
     width: 1280,
     height: 840,
     minWidth: 960,
@@ -173,8 +173,8 @@ async function createWindow(): Promise<void> {
     }
   });
 
-  if (process.env.URO_WEB_URL != null && process.env.URO_WEB_URL !== '') {
-    await window.loadURL(process.env.URO_WEB_URL);
+  if (process.env.ULUGO_WEB_URL != null && process.env.ULUGO_WEB_URL !== '') {
+    await window.loadURL(process.env.ULUGO_WEB_URL);
     return;
   }
 
@@ -195,7 +195,7 @@ app.on('window-all-closed', () => {
 });
 
 function registerIpc(): void {
-  ipcMain.handle('uro:import-sgf', async () => {
+  ipcMain.handle('ulugo:import-sgf', async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile'],
       filters: [{name: 'Game records', extensions: ['sgf', 'gib']}],
@@ -210,7 +210,7 @@ function registerIpc(): void {
     };
   });
 
-  ipcMain.handle('uro:export-sgf', async (_event, request: {content: string; suggestedName: string}) => {
+  ipcMain.handle('ulugo:export-sgf', async (_event, request: {content: string; suggestedName: string}) => {
     const result = await dialog.showSaveDialog({
       defaultPath: request.suggestedName,
       filters: [{name: 'SGF files', extensions: ['sgf']}],
@@ -222,7 +222,7 @@ function registerIpc(): void {
   });
 
   ipcMain.handle(
-    'uro:select-file',
+    'ulugo:select-file',
     async (_event, options?: {title?: string; filters?: Array<{name: string; extensions: string[]}>}) => {
       const result = await dialog.showOpenDialog({
         title: options?.title,
@@ -234,28 +234,28 @@ function registerIpc(): void {
     }
   );
 
-  ipcMain.handle('uro:katago:get-settings', async () => {
+  ipcMain.handle('ulugo:katago:get-settings', async () => {
     const settings = await readJson('katago-settings.json', defaultKataGoSettings);
     const normalized = await normalizeKataGoSettings(settings);
     await writeJson('katago-settings.json', normalized);
     return normalized;
   });
-  ipcMain.handle('uro:katago:save-settings', async (_event, settings: KataGoSettings) =>
+  ipcMain.handle('ulugo:katago:save-settings', async (_event, settings: KataGoSettings) =>
     writeJson('katago-settings.json', await normalizeKataGoSettings({...defaultKataGoSettings, ...settings}))
   );
-  ipcMain.handle('uro:katago:get-download-options', async () => ({
+  ipcMain.handle('ulugo:katago:get-download-options', async () => ({
     katago: await withInstalledPaths('katago', katagoDownloadOptionsByPlatform[process.platform] ?? []),
     models: await withInstalledPaths('model', modelDownloadOptions),
   }));
-  ipcMain.handle('uro:katago:download', async (event, request: {kind: 'katago' | 'model'; optionId: string}) => {
+  ipcMain.handle('ulugo:katago:download', async (event, request: {kind: 'katago' | 'model'; optionId: string}) => {
     const options =
       request.kind === 'katago' ? (katagoDownloadOptionsByPlatform[process.platform] ?? []) : modelDownloadOptions;
     const option = options.find((item) => item.id === request.optionId);
     if (option == null) throw new Error(`Unknown download option: ${request.optionId}`);
 
-    sendKataGoConsole(event.sender, 'uro', 'info', `Downloading ${option.label}.`);
+    sendKataGoConsole(event.sender, 'ulugo', 'info', `Downloading ${option.label}.`);
     const result = await downloadKataGoAsset(option, request.kind, (progress) => {
-      event.sender.send('uro:katago:download-progress', progress);
+      event.sender.send('ulugo:katago:download-progress', progress);
     });
     const settings = await readJson('katago-settings.json', defaultKataGoSettings);
     const nextSettings = await normalizeKataGoSettings(
@@ -264,10 +264,10 @@ function registerIpc(): void {
     );
     await saveInstalledAsset(request.kind, option.id, result.path);
     await writeJson('katago-settings.json', nextSettings);
-    sendKataGoConsole(event.sender, 'uro', 'info', `${option.label} installed at ${result.path}.`);
+    sendKataGoConsole(event.sender, 'ulugo', 'info', `${option.label} installed at ${result.path}.`);
     return {...result, settings: nextSettings};
   });
-  ipcMain.handle('uro:katago:analyze', async (event, query: KataGoAnalysisQuery) => {
+  ipcMain.handle('ulugo:katago:analyze', async (event, query: KataGoAnalysisQuery) => {
     const normalizedQuery = normalizeAnalysisQuery(query);
     try {
       const settings = await normalizeKataGoSettings(await readJson('katago-settings.json', defaultKataGoSettings));
@@ -276,17 +276,17 @@ function registerIpc(): void {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to write KataGo analysis query.';
       sendKataGoConsole(event.sender, 'katago', 'error', message);
-      event.sender.send('uro:katago:analysis', {id: normalizedQuery.id, error: message, isDuringSearch: false});
-      event.sender.send('uro:katago:analysis-error', message);
+      event.sender.send('ulugo:katago:analysis', {id: normalizedQuery.id, error: message, isDuringSearch: false});
+      event.sender.send('ulugo:katago:analysis-error', message);
     }
   });
-  ipcMain.handle('uro:katago:stop-analysis', async (_event, queryIds?: unknown) => {
+  ipcMain.handle('ulugo:katago:stop-analysis', async (_event, queryIds?: unknown) => {
     await stopKataGoAnalysis(
       Array.isArray(queryIds) ? queryIds.filter((queryId): queryId is string => typeof queryId === 'string') : undefined
     );
   });
-  ipcMain.handle('uro:analysis:get-settings', async () => readJson('analysis-settings.json', defaultAnalysisSettings));
-  ipcMain.handle('uro:analysis:save-settings', async (_event, settings: AnalysisSettings) =>
+  ipcMain.handle('ulugo:analysis:get-settings', async () => readJson('analysis-settings.json', defaultAnalysisSettings));
+  ipcMain.handle('ulugo:analysis:save-settings', async (_event, settings: AnalysisSettings) =>
     writeJson('analysis-settings.json', {...defaultAnalysisSettings, ...settings})
   );
 }
@@ -331,18 +331,18 @@ async function resolveKataGoConfig(configPath: string, searchDirectory?: string)
 }
 
 async function ensureDefaultKataGoConfig(): Promise<string> {
-  const configPath = path.join(app.getPath('userData'), 'katago', 'uro-analysis.cfg');
+  const configPath = path.join(app.getPath('userData'), 'katago', 'ulugo-analysis.cfg');
   if (await fileExists(configPath)) return configPath;
 
   await fs.mkdir(path.dirname(configPath), {recursive: true});
   await fs.writeFile(configPath, defaultKataGoConfigText(), 'utf8');
-  sendKataGoConsole(katagoSender, 'uro', 'info', `Created KataGo analysis config at ${configPath}.`);
+  sendKataGoConsole(katagoSender, 'ulugo', 'info', `Created KataGo analysis config at ${configPath}.`);
   return configPath;
 }
 
 function defaultKataGoConfigText(): string {
   return [
-    '# Uro KataGo analysis config',
+    '# Ulugo KataGo analysis config',
     '# Created automatically. You can edit this file for advanced KataGo tuning.',
     '',
     'reportAnalysisWinratesAs = BLACK',
@@ -374,21 +374,21 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
   if (katagoProcess != null) return;
 
   if (settings.executablePath === '' || !(await fileExists(settings.executablePath))) {
-    sendKataGoConsole(sender, 'uro', 'error', 'KataGo executable is not configured.');
+    sendKataGoConsole(sender, 'ulugo', 'error', 'KataGo executable is not configured.');
     throw new Error('KataGo executable is not configured.');
   }
   if (settings.modelPath === '' || !(await fileExists(settings.modelPath))) {
-    sendKataGoConsole(sender, 'uro', 'error', 'KataGo model is not configured.');
+    sendKataGoConsole(sender, 'ulugo', 'error', 'KataGo model is not configured.');
     throw new Error('KataGo model is not configured.');
   }
   if (settings.configPath === '' || !(await fileExists(settings.configPath))) {
-    sendKataGoConsole(sender, 'uro', 'error', 'KataGo config is not configured.');
+    sendKataGoConsole(sender, 'ulugo', 'error', 'KataGo config is not configured.');
     throw new Error('KataGo config is not configured.');
   }
 
   const {command, args, options} = kataGoCommand(settings);
   katagoOutputBuffer = '';
-  sendKataGoConsole(sender, 'uro', 'info', `Starting KataGo: ${command} ${args.join(' ')}`);
+  sendKataGoConsole(sender, 'ulugo', 'info', `Starting KataGo: ${command} ${args.join(' ')}`);
   katagoProcess = spawn(command, args, options);
 
   katagoProcess.stdout.on('data', (chunk: Buffer) => {
@@ -403,20 +403,20 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
         if (typeof payload.error === 'string') {
           if (typeof payload.id === 'string') activeKataGoQueryIds.delete(payload.id);
           sendKataGoConsole(katagoSender, 'katago', 'error', payload.error);
-          katagoSender?.send('uro:katago:analysis', payload);
-          katagoSender?.send('uro:katago:analysis-error', payload.error);
+          katagoSender?.send('ulugo:katago:analysis', payload);
+          katagoSender?.send('ulugo:katago:analysis-error', payload.error);
         } else if (typeof payload.warning === 'string') {
           sendKataGoConsole(katagoSender, 'katago', 'warning', payload.warning);
         } else {
           if (typeof payload.id === 'string' && payload.isDuringSearch !== true) {
             activeKataGoQueryIds.delete(payload.id);
           }
-          katagoSender?.send('uro:katago:analysis', payload);
+          katagoSender?.send('ulugo:katago:analysis', payload);
         }
       } catch (error) {
         sendKataGoConsole(katagoSender, 'katago', 'warning', line);
         katagoSender?.send(
-          'uro:katago:analysis-error',
+          'ulugo:katago:analysis-error',
           error instanceof Error ? error.message : 'Invalid KataGo output.'
         );
       }
@@ -428,18 +428,18 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
     if (message !== '') {
       const level = /error|failed|fatal/i.test(message) ? 'error' : /warn/i.test(message) ? 'warning' : 'info';
       sendKataGoConsole(katagoSender, 'katago', level, message);
-      if (level === 'error') katagoSender?.send('uro:katago:analysis-error', message);
+      if (level === 'error') katagoSender?.send('ulugo:katago:analysis-error', message);
     }
   });
 
   katagoProcess.stdin.on('error', (error) => {
     sendKataGoConsole(katagoSender, 'katago', 'error', error.message);
-    katagoSender?.send('uro:katago:analysis-error', error.message);
+    katagoSender?.send('ulugo:katago:analysis-error', error.message);
   });
 
   katagoProcess.on('error', (error) => {
     sendKataGoConsole(katagoSender, 'katago', 'error', error.message);
-    katagoSender?.send('uro:katago:analysis-error', error.message);
+    katagoSender?.send('ulugo:katago:analysis-error', error.message);
     katagoProcess = null;
     activeKataGoQueryIds.clear();
   });
@@ -449,12 +449,12 @@ async function ensureKataGoEngine(settings: KataGoSettings, sender: WebContents)
     activeKataGoQueryIds.clear();
     sendKataGoConsole(
       katagoSender,
-      code === 0 || signal != null ? 'uro' : 'katago',
+      code === 0 || signal != null ? 'ulugo' : 'katago',
       code === 0 || signal != null ? 'info' : 'error',
       signal == null ? `KataGo exited with code ${code}.` : `KataGo stopped by signal ${signal}.`
     );
     if (code !== 0 && signal == null)
-      katagoSender?.send('uro:katago:analysis-error', `KataGo exited with code ${code}.`);
+      katagoSender?.send('ulugo:katago:analysis-error', `KataGo exited with code ${code}.`);
   });
 }
 
@@ -486,13 +486,13 @@ async function writeKataGoMessage(message: unknown): Promise<void> {
 
 function sendKataGoConsole(
   sender: WebContents | null,
-  source: 'uro' | 'katago',
+  source: 'ulugo' | 'katago',
   level: 'info' | 'warning' | 'error',
   text: string
 ): void {
   if (sender == null || text.trim() === '') return;
   consoleMessageCounter += 1;
-  sender.send('uro:katago:console', {
+  sender.send('ulugo:katago:console', {
     id: `m${consoleMessageCounter}`,
     time: new Date().toISOString(),
     source,
@@ -577,7 +577,7 @@ async function stopKataGoAnalysis(queryIds?: string[]): Promise<void> {
   await Promise.all(
     idsToTerminate.map((queryId) =>
       writeKataGoMessage({
-        id: `uro-terminate-${queryId}`,
+        id: `ulugo-terminate-${queryId}`,
         action: 'terminate',
         terminateId: queryId,
       }).catch(() => undefined)

@@ -30,12 +30,12 @@ import {
   updateGameInfo,
   type SgfColor,
   type SgfDocument,
-} from '@uro/sgf-core';
-import {boardSizes, type BoardSize} from '@uro/ui-shared';
+} from '@ulugo/sgf-core';
+import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
-import {deriveBoardPosition} from '@uro/go-core';
-import type {AnalysisSettings} from '@uro/analysis-core';
+import {deriveBoardPosition} from '@ulugo/go-core';
+import type {AnalysisSettings} from '@ulugo/analysis-core';
 import {GoBoard} from '../features/board/GoBoard';
 import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
@@ -87,8 +87,8 @@ import {getAppFontFamily} from './fonts';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
-const showCoordinatesStorageKey = 'uro.showCoordinates';
-const showMarkupStorageKey = 'uro.showMarkup';
+const showCoordinatesStorageKey = 'ulugo.showCoordinates';
+const showMarkupStorageKey = 'ulugo.showMarkup';
 
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
@@ -149,7 +149,7 @@ export function App() {
 
   useEffect(() => {
     globalThis.document.documentElement.lang = currentLanguage;
-    globalThis.document.documentElement.style.setProperty('--uro-font-family', appFontFamily);
+    globalThis.document.documentElement.style.setProperty('--ulugo-font-family', appFontFamily);
   }, [appFontFamily, currentLanguage]);
 
   useEffect(() => {
@@ -301,9 +301,9 @@ export function App() {
 
   async function handleExportSgf(): Promise<void> {
     const content = serializeSgf(document);
-    if (capabilities.storage === 'filesystem' && window.uro != null) {
+    if (capabilities.storage === 'filesystem' && window.ulugo != null) {
       try {
-        await window.uro.exportSgf({content, suggestedName: `${safeFileName(gameInfo.GN || 'game')}.sgf`});
+        await window.ulugo.exportSgf({content, suggestedName: `${safeFileName(gameInfo.GN || 'game')}.sgf`});
       } catch (error) {
         message.error(error instanceof Error ? error.message : t('menu.exportFailed'));
       }
@@ -320,9 +320,9 @@ export function App() {
   }
 
   async function handleImportSgfFromMenu(): Promise<void> {
-    if (capabilities.storage === 'filesystem' && window.uro != null) {
+    if (capabilities.storage === 'filesystem' && window.ulugo != null) {
       try {
-        const result = await window.uro.importSgf();
+        const result = await window.ulugo.importSgf();
         if (result == null) return;
         importSgfText(result.content, result.fileName);
       } catch (error) {

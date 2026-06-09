@@ -56,7 +56,7 @@ References:
 - Package manager: `pnpm`
 - App framework: Vite + React + TypeScript
 - UI framework: `antd`
-- Board renderer: local React fork `@uro/react-shudan`, forked from SabakiHQ/Shudan
+- Board renderer: local React fork `@ulugo/react-shudan`, forked from SabakiHQ/Shudan
 - Go board rules/state helper: `@sabaki/go-board`
 - SGF parser/writer: `@sabaki/sgf`, with a local wrapper in `packages/sgf-core`
 - Localization: `i18next` + `react-i18next`, or a similarly small translation layer if that proves lighter during implementation
@@ -181,7 +181,7 @@ All edits mutate the current SGF tree and then derive the board from the selecte
   - `@ant-design/icons`
   - `i18next`
   - `react-i18next`
-  - `@uro/react-shudan`
+  - `@ulugo/react-shudan`
   - `@sabaki/go-board`
   - `@sabaki/sgf`
   - `vite`

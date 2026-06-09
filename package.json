@@ -1,12 +1,12 @@
 {
-  "name": "uro",
+  "name": "ulugo",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @uro/web dev",
-    "dev:electron": "pnpm --filter @uro/web build && pnpm --filter @uro/electron dev",
+    "dev": "pnpm --filter @ulugo/web dev",
+    "dev:electron": "pnpm --filter @ulugo/web build && pnpm --filter @ulugo/electron dev",
     "build": "pnpm -r build",
-    "build:electron": "pnpm --filter @uro/web build && pnpm --filter @uro/electron build",
+    "build:electron": "pnpm --filter @ulugo/web build && pnpm --filter @ulugo/electron build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
     "prettier-check": "prettier --check \"{packages,apps}/**/*.{ts,tsx}\"",

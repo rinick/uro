@@ -17,5 +17,5 @@ export const electronCapabilities: AppCapabilities = {
 };
 
 export function getAppCapabilities(): AppCapabilities {
-  return window.uro?.platform === 'electron' ? electronCapabilities : webCapabilities;
+  return window.ulugo?.platform === 'electron' ? electronCapabilities : webCapabilities;
 }

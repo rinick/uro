@@ -13,9 +13,9 @@ body,
 body {
   background: #f5f5f5;
   font-family: var(
-    --uro-font-family,
+    --ulugo-font-family,
     'Noto Sans',
-    'Uro Noto Sans',
+    'Ulugo Noto Sans',
     'Noto Sans SC',
     'Noto Sans CJK SC',
     'PingFang SC',
@@ -321,7 +321,7 @@ body {
   text-transform: uppercase;
 }
 
-.katago-console-source.uro {
+.katago-console-source.ulugo {
   color: #2563eb;
 }
 
@@ -741,7 +741,7 @@ body {
   display: inline-block;
 }
 
-.uro-goban {
+.ulugo-goban {
   --shudan-board-border-color: #8c5e28;
   --shudan-board-background-color: #dfaa55;
   --shudan-board-foreground-color: #503819;
@@ -752,13 +752,13 @@ body {
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 }
 
-.uro-goban .shudan-vertex.shudan-marker_label .shudan-marker {
+.ulugo-goban .shudan-vertex.shudan-marker_label .shudan-marker {
   font-size: 0.5em;
   font-weight: 700;
   line-height: 1;
 }
 
-.uro-goban .shudan-vertex.shudan-smalllabel .shudan-marker {
+.ulugo-goban .shudan-vertex.shudan-smalllabel .shudan-marker {
   font-size: 0.4em;
 }
 

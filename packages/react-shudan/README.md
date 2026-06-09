@@ -1,6 +1,6 @@
-# @uro/react-shudan
+# @ulugo/react-shudan
 
-React and TypeScript fork of SabakiHQ/Shudan for the Uro SGF editor.
+React and TypeScript fork of SabakiHQ/Shudan for the Ulugo SGF editor.
 
 This package keeps the Shudan goban rendering model, CSS class names, and visual behavior, but uses React directly instead of Preact. The source is TypeScript/TSX; there are no generated `.d.ts` shims or JavaScript source files in this workspace package.
 
@@ -15,7 +15,7 @@ This package keeps the Shudan goban rendering model, CSS class names, and visual
 Import the stylesheet separately:
 
 ```ts
-import '@uro/react-shudan/css/goban.css';
+import '@ulugo/react-shudan/css/goban.css';
 ```
 
 ## Development
@@ -23,19 +23,19 @@ import '@uro/react-shudan/css/goban.css';
 Run package typechecking:
 
 ```sh
-pnpm --filter @uro/react-shudan typecheck
+pnpm --filter @ulugo/react-shudan typecheck
 ```
 
 Run the package test script:
 
 ```sh
-pnpm --filter @uro/react-shudan test
+pnpm --filter @ulugo/react-shudan test
 ```
 
 Build verification for the main app:
 
 ```sh
-pnpm --filter @uro/web build
+pnpm --filter @ulugo/web build
 ```
 
 ## Upstream

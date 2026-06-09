@@ -46,7 +46,7 @@ export interface ShortcutAction {
   electronOnly?: boolean;
 }
 
-const keyboardShortcutsStorageKey = 'uro.keyboardShortcuts';
+const keyboardShortcutsStorageKey = 'ulugo.keyboardShortcuts';
 
 export const shortcutActions: ShortcutAction[] = [
   {id: 'open', labelKey: 'shortcuts.actions.open', defaultShortcut: shortcut('o', {ctrl: true})},

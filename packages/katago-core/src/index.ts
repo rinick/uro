@@ -1,6 +1,6 @@
-import type {SgfColor, SgfDocument} from '@uro/sgf-core';
-import {getBoardSize, getGameInfo} from '@uro/sgf-core';
-import {getInitialStonesForPath, getMovesForPath, sgfPointToGtp} from '@uro/sgf-analysis-tree';
+import type {SgfColor, SgfDocument} from '@ulugo/sgf-core';
+import {getBoardSize, getGameInfo} from '@ulugo/sgf-core';
+import {getInitialStonesForPath, getMovesForPath, sgfPointToGtp} from '@ulugo/sgf-analysis-tree';
 
 export interface KataGoSettings {
   executablePath: string;
@@ -78,7 +78,7 @@ export interface KataGoDownloadResult {
 export interface KataGoConsoleMessage {
   id: string;
   time: string;
-  source: 'uro' | 'katago';
+  source: 'ulugo' | 'katago';
   level: 'info' | 'warning' | 'error';
   text: string;
 }

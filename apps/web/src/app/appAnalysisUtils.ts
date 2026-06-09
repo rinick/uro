@@ -1,8 +1,8 @@
-import type {AnalysisChartPoint, KataGoAnalysisResult, KataGoMoveInfo} from '@uro/analysis-core';
-import {deriveBoardPosition} from '@uro/go-core';
-import {defaultKataGoSettings, type KataGoSettings} from '@uro/katago-core';
-import {getBoardSize, getNodeAtPath, type SgfColor, type SgfDocument} from '@uro/sgf-core';
-import {sgfPointToGtp} from '@uro/sgf-analysis-tree';
+import type {AnalysisChartPoint, KataGoAnalysisResult, KataGoMoveInfo} from '@ulugo/analysis-core';
+import {deriveBoardPosition} from '@ulugo/go-core';
+import {defaultKataGoSettings, type KataGoSettings} from '@ulugo/katago-core';
+import {getBoardSize, getNodeAtPath, type SgfColor, type SgfDocument} from '@ulugo/sgf-core';
+import {sgfPointToGtp} from '@ulugo/sgf-analysis-tree';
 import {getLinePaths, nodeKey} from './appSgfUtils';
 
 export interface CachedAnalysis {

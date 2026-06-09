@@ -1,8 +1,8 @@
-import {Goban, type HeatVertex, type Marker, type MoveHint, type Vertex} from '@uro/react-shudan';
-import {deriveBoardPosition, type BoardPoint} from '@uro/go-core';
-import {getNodeAtPath, pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@uro/sgf-core';
+import {Goban, type HeatVertex, type Marker, type MoveHint, type Vertex} from '@ulugo/react-shudan';
+import {deriveBoardPosition, type BoardPoint} from '@ulugo/go-core';
+import {getNodeAtPath, pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@ulugo/sgf-core';
 import {useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent} from 'react';
-import type {AnalysisSettings, KataGoAnalysisResult, KataGoMoveInfo} from '@uro/analysis-core';
+import type {AnalysisSettings, KataGoAnalysisResult, KataGoMoveInfo} from '@ulugo/analysis-core';
 
 interface GoBoardProps {
   document: SgfDocument;
@@ -142,7 +142,7 @@ export function GoBoard({
     <div className="board-frame" ref={frameRef}>
       <div className="board-surface" onContextMenu={(event) => event.preventDefault()}>
         <Goban
-          className="uro-goban"
+          className="ulugo-goban"
           vertexSize={vertexSize}
           showCoordinates={showCoordinates}
           signMap={signMap}

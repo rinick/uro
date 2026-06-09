@@ -1,5 +1,5 @@
 {
-  "name": "@uro/katago-core",
+  "name": "@ulugo/katago-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,9 +11,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@uro/analysis-core": "workspace:*",
-    "@uro/sgf-analysis-tree": "workspace:*",
-    "@uro/sgf-core": "workspace:*"
+    "@ulugo/analysis-core": "workspace:*",
+    "@ulugo/sgf-analysis-tree": "workspace:*",
+    "@ulugo/sgf-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

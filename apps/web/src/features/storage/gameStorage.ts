@@ -1,4 +1,4 @@
-import {countMoves, getGameInfo, parseSgf, serializeSgf, type SgfDocument} from '@uro/sgf-core';
+import {countMoves, getGameInfo, parseSgf, serializeSgf, type SgfDocument} from '@ulugo/sgf-core';
 
 export interface StoredGameSummary {
   id: string;
@@ -15,7 +15,7 @@ interface StoredGameRecord extends StoredGameSummary {
   sgf: string;
 }
 
-const databaseName = 'uro-sgf-editor';
+const databaseName = 'ulugo-sgf-editor';
 const storeName = 'games';
 
 export async function saveStoredGame(document: SgfDocument, existingId?: string | null): Promise<string> {

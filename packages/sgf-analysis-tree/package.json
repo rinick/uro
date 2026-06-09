@@ -1,5 +1,5 @@
 {
-  "name": "@uro/sgf-analysis-tree",
+  "name": "@ulugo/sgf-analysis-tree",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@uro/sgf-core": "workspace:*"
+    "@ulugo/sgf-core": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.9.3",

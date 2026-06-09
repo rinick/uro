@@ -6,8 +6,8 @@ export const resources = {
   en: {
     translation: {
       app: {
-        title: 'Uro SGF Editor',
-        electronTitle: 'Uro AI review',
+        title: 'Ulugo SGF Editor',
+        electronTitle: 'Ulugo AI review',
         dirty: 'Modified',
         clean: 'Saved',
         move: 'Move {{count}}',
@@ -109,7 +109,7 @@ export const resources = {
       katago: {
         button: 'AI Config',
         title: 'AI Config',
-        help: 'Download KataGo and a model, or choose existing files. Uro will create an analysis config automatically if the config field is empty.',
+        help: 'Download KataGo and a model, or choose existing files. Ulugo will create an analysis config automatically if the config field is empty.',
         executablePath: 'KataGo executable',
         modelPath: 'Model file',
         configPath: 'KataGo config',
@@ -224,8 +224,8 @@ export const resources = {
   zh: {
     translation: {
       app: {
-        title: '乌鹭 SGF 编辑器',
-        electronTitle: '乌鹭复盘',
+        title: '乌鹭围棋 SGF 编辑器',
+        electronTitle: '乌鹭围棋复盘',
         dirty: '已修改',
         clean: '已保存',
         move: '第 {{count}} 手',
@@ -327,7 +327,7 @@ export const resources = {
       katago: {
         button: 'AI配置',
         title: 'AI配置',
-        help: '下载 KataGo 和模型，或选择已有文件。如果配置项为空，乌鹭会自动创建分析配置。',
+        help: '下载 KataGo 和模型，或选择已有文件。如果配置项为空，乌鹭围棋会自动创建分析配置。',
         executablePath: 'KataGo 可执行文件',
         modelPath: '模型文件',
         configPath: 'KataGo 配置',
@@ -442,8 +442,8 @@ export const resources = {
   ja: {
     translation: {
       app: {
-        title: '烏鷺 SGFエディター',
-        electronTitle: '烏鷺復盤',
+        title: '烏鷺囲碁 SGFエディター',
+        electronTitle: '烏鷺囲碁復盤',
         dirty: '変更あり',
         clean: '保存済み',
         move: '{{count}}手目',
@@ -545,7 +545,7 @@ export const resources = {
       katago: {
         button: 'AI設定',
         title: 'AI設定',
-        help: 'KataGoとモデルをダウンロードするか、既存のファイルを選択してください。設定欄が空の場合、烏鷺が解析設定を自動作成します。',
+        help: 'KataGoとモデルをダウンロードするか、既存のファイルを選択してください。設定欄が空の場合、烏鷺囲碁が解析設定を自動作成します。',
         executablePath: 'KataGo実行ファイル',
         modelPath: 'モデルファイル',
         configPath: 'KataGo設定',
@@ -660,8 +660,8 @@ export const resources = {
   ko: {
     translation: {
       app: {
-        title: '오로 SGF 편집기',
-        electronTitle: '오로 복기',
+        title: '오로바둑 SGF 편집기',
+        electronTitle: '오로바둑 복기',
         dirty: '수정됨',
         clean: '저장됨',
         move: '{{count}}수',
@@ -763,7 +763,7 @@ export const resources = {
       katago: {
         button: 'AI설정',
         title: 'AI설정',
-        help: 'KataGo와 모델을 다운로드하거나 기존 파일을 선택하세요. 설정 칸이 비어 있으면 오로가 분석 설정을 자동으로 만듭니다.',
+        help: 'KataGo와 모델을 다운로드하거나 기존 파일을 선택하세요. 설정 칸이 비어 있으면 오로바둑이 분석 설정을 자동으로 만듭니다.',
         executablePath: 'KataGo 실행 파일',
         modelPath: '모델 파일',
         configPath: 'KataGo 설정',
@@ -878,8 +878,8 @@ export const resources = {
   fr: {
     translation: {
       app: {
-        title: 'Editeur SGF Uro',
-        electronTitle: 'Revue IA Uro',
+        title: 'Editeur SGF Ulugo',
+        electronTitle: 'Revue IA Ulugo',
         dirty: 'Modifie',
         clean: 'Enregistre',
         move: 'Coup {{count}}',
@@ -981,7 +981,7 @@ export const resources = {
       katago: {
         button: 'Configuration IA',
         title: 'Configuration IA',
-        help: 'Telechargez KataGo et un modele, ou choisissez des fichiers existants. Uro creera automatiquement une configuration d analyse si le champ de configuration est vide.',
+        help: 'Telechargez KataGo et un modele, ou choisissez des fichiers existants. Ulugo creera automatiquement une configuration d analyse si le champ de configuration est vide.',
         executablePath: 'Executable KataGo',
         modelPath: 'Fichier modele',
         configPath: 'Configuration KataGo',
@@ -1096,8 +1096,8 @@ export const resources = {
   de: {
     translation: {
       app: {
-        title: 'Uro SGF-Editor',
-        electronTitle: 'Uro KI-Analyse',
+        title: 'Ulugo SGF-Editor',
+        electronTitle: 'Ulugo KI-Analyse',
         dirty: 'Geaendert',
         clean: 'Gespeichert',
         move: 'Zug {{count}}',
@@ -1199,7 +1199,7 @@ export const resources = {
       katago: {
         button: 'KI-Konfiguration',
         title: 'KI-Konfiguration',
-        help: 'Lade KataGo und ein Modell herunter oder waehle vorhandene Dateien. Uro erstellt automatisch eine Analysekonfiguration, wenn das Konfigurationsfeld leer ist.',
+        help: 'Lade KataGo und ein Modell herunter oder waehle vorhandene Dateien. Ulugo erstellt automatisch eine Analysekonfiguration, wenn das Konfigurationsfeld leer ist.',
         executablePath: 'KataGo-Programm',
         modelPath: 'Modelldatei',
         configPath: 'KataGo-Konfiguration',
@@ -1314,8 +1314,8 @@ export const resources = {
   ru: {
     translation: {
       app: {
-        title: 'Редактор SGF Uro',
-        electronTitle: 'ИИ-обзор Uro',
+        title: 'Редактор SGF Ulugo',
+        electronTitle: 'ИИ-обзор Ulugo',
         dirty: 'Изменено',
         clean: 'Сохранено',
         move: 'Ход {{count}}',
@@ -1417,7 +1417,7 @@ export const resources = {
       katago: {
         button: 'Конфигурация ИИ',
         title: 'Конфигурация ИИ',
-        help: 'Скачайте KataGo и модель или выберите существующие файлы. Uro автоматически создаст конфигурацию анализа, если поле конфигурации пустое.',
+        help: 'Скачайте KataGo и модель или выберите существующие файлы. Ulugo автоматически создаст конфигурацию анализа, если поле конфигурации пустое.',
         executablePath: 'Исполняемый файл KataGo',
         modelPath: 'Файл модели',
         configPath: 'Конфигурация KataGo',

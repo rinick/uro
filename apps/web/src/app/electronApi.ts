@@ -1,4 +1,4 @@
-import type {KataGoAnalysisResult, AnalysisSettings} from '@uro/analysis-core';
+import type {KataGoAnalysisResult, AnalysisSettings} from '@ulugo/analysis-core';
 import type {
   KataGoAnalysisQuery,
   KataGoConsoleMessage,
@@ -6,7 +6,7 @@ import type {
   KataGoDownloadProgress,
   KataGoDownloadResult,
   KataGoSettings,
-} from '@uro/katago-core';
+} from '@ulugo/katago-core';
 
 export interface ElectronImportResult {
   content: string;
@@ -23,7 +23,7 @@ export interface ElectronExportResult {
   filePath?: string;
 }
 
-export interface UroElectronApi {
+export interface UlugoElectronApi {
   platform: 'electron';
   importSgf: () => Promise<ElectronImportResult | null>;
   exportSgf: (request: ElectronExportRequest) => Promise<ElectronExportResult>;
@@ -51,6 +51,6 @@ export interface UroElectronApi {
 
 declare global {
   interface Window {
-    uro?: UroElectronApi;
+    ulugo?: UlugoElectronApi;
   }
 }

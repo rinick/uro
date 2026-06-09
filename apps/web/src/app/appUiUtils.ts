@@ -5,7 +5,7 @@ import jaJP from 'antd/locale/ja_JP';
 import koKR from 'antd/locale/ko_KR';
 import ruRU from 'antd/locale/ru_RU';
 import zhCN from 'antd/locale/zh_CN';
-import type {KataGoConsoleMessage} from '@uro/katago-core';
+import type {KataGoConsoleMessage} from '@ulugo/katago-core';
 
 export const languageOptions = [
   {value: 'en', label: 'English'},
@@ -29,10 +29,10 @@ export const antdLocales = {
 
 export type AppLanguage = keyof typeof antdLocales;
 
-const languageStorageKey = 'uro.language';
+const languageStorageKey = 'ulugo.language';
 
 export function createLocalConsoleMessage(
-  source: 'uro' | 'katago',
+  source: 'ulugo' | 'katago',
   level: 'info' | 'warning' | 'error',
   text: string
 ): KataGoConsoleMessage {

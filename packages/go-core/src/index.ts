@@ -8,7 +8,7 @@ import {
   type SgfNode,
   type SgfPoint,
   vertexToPoint,
-} from '@uro/sgf-core';
+} from '@ulugo/sgf-core';
 
 export type Stone = SgfColor;
 
