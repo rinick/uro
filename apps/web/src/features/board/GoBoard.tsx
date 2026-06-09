@@ -8,6 +8,7 @@ interface GoBoardProps {
   document: SgfDocument;
   path: number[];
   showCoordinates: boolean;
+  showMarkup: boolean;
   moveNumberLimit: MoveNumberLimit;
   analysis: KataGoAnalysisResult | null;
   stoneScoreDeltas: Map<string, number>;
@@ -35,6 +36,7 @@ export function GoBoard({
   document,
   path,
   showCoordinates,
+  showMarkup,
   moveNumberLimit,
   analysis,
   stoneScoreDeltas,
@@ -68,14 +70,14 @@ export function GoBoard({
         Array.from({length: position.size}, (_, x): Marker => {
           const point = position.points.find((item) => item.x === x && item.y === y);
           if (point == null) return {};
-          if (point.label != null) return {type: 'label', label: point.label};
+          if (showMarkup && point.label != null) return {type: 'label', label: point.label};
           if (shouldShowMoveNumber(point.moveNumber, point.stone != null, position.moveNumber, moveNumberLimit))
             return {type: 'label', label: String(point.moveNumber)};
-          if (point.markup != null) return {type: markerTypes[point.markup]};
+          if (showMarkup && point.markup != null) return {type: markerTypes[point.markup]};
           return {};
         })
       ),
-    [position, moveNumberLimit]
+    [position, moveNumberLimit, showMarkup]
   );
   const heatMap = useMemo(
     () =>

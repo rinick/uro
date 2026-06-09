@@ -78,7 +78,7 @@ export default function Grid(props: GridProps) {
             className: 'shudan-hoshi',
             cx: fl((2 * i + 1) * halfVertexSize - 0.5) + 0.5,
             cy: fl((2 * j + 1) * halfVertexSize - 0.5) + 0.5,
-            r: '.1em',
+            r: '.08em',
           });
         })
       ),

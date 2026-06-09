@@ -135,6 +135,7 @@ export function SgfTreePanel({
             disabled={selectedPath.length === 0}
             icon={<SwapOutlined />}
             type={replaceActive ? 'primary' : 'default'}
+            danger
             onClick={onReplace}
           />
           <TreeActionButton
@@ -185,7 +186,7 @@ function TreeActionButton({
 }) {
   return (
     <Tooltip title={title}>
-      <Button size="small" disabled={disabled} danger={danger} type={type} icon={icon} onClick={onClick} />
+      <Button size="medium" disabled={disabled} danger={danger} type={type} icon={icon} onClick={onClick} />
     </Tooltip>
   );
 }

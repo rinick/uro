@@ -28,6 +28,7 @@ import {createLocalConsoleMessage} from './appUiUtils';
 const liveAnalysisVisits = 10_000_000;
 const maxFastAnalysisQueries = 2;
 const nextFastAnalysisCount = 5;
+const analysisSettingsStorageKey = 'uro.analysisSettings';
 
 interface UseKataGoAnalysisOptions {
   enabled: boolean;
@@ -55,7 +56,7 @@ export function useKataGoAnalysis({
   pendingSetupPathRef,
   startFailedMessage,
 }: UseKataGoAnalysisOptions) {
-  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(defaultAnalysisSettings);
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(() => readStoredAnalysisSettings());
   const [kataGoSettings, setKataGoSettings] = useState<KataGoSettings>(defaultKataGoSettings);
   const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
   const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
@@ -174,9 +175,15 @@ export function useKataGoAnalysis({
     [enabled]
   );
 
+  const saveAnalysisSettings = useCallback((settings: AnalysisSettings): void => {
+    writeStoredAnalysisSettings(settings);
+    setAnalysisSettings(settings);
+  }, []);
+
   const updateAnalysisSettings = useCallback((values: Partial<AnalysisSettings>): void => {
     setAnalysisSettings((current) => {
       const next = {...current, ...values};
+      writeStoredAnalysisSettings(next);
       if (window.uro != null) void window.uro.analysis.saveSettings(next);
       return next;
     });
@@ -194,9 +201,9 @@ export function useKataGoAnalysis({
     void refreshKataGoSettings();
     window.uro.analysis
       .getSettings()
-      .then((settings) => setAnalysisSettings({...defaultAnalysisSettings, ...settings}))
+      .then((settings) => saveAnalysisSettings({...defaultAnalysisSettings, ...settings}))
       .catch(() => undefined);
-  }, [enabled, refreshKataGoSettings]);
+  }, [enabled, refreshKataGoSettings, saveAnalysisSettings]);
 
   useEffect(() => {
     if (!enabled || window.uro == null) return;
@@ -457,7 +464,7 @@ export function useKataGoAnalysis({
   return {
     analysisSettings,
     updateAnalysisSettings,
-    onAnalysisSettingsSave: setAnalysisSettings,
+    onAnalysisSettingsSave: saveAnalysisSettings,
     analysisMode,
     setAnalysisModeActive,
     toggleAnalysisMode,
@@ -473,6 +480,24 @@ export function useKataGoAnalysis({
     refreshKataGoSettings,
     resetAnalysisForDocumentChange,
   };
+}
+
+function readStoredAnalysisSettings(): AnalysisSettings {
+  try {
+    const value = localStorage.getItem(analysisSettingsStorageKey);
+    if (value == null) return defaultAnalysisSettings;
+    return {...defaultAnalysisSettings, ...JSON.parse(value)};
+  } catch {
+    return defaultAnalysisSettings;
+  }
+}
+
+function writeStoredAnalysisSettings(settings: AnalysisSettings): void {
+  try {
+    localStorage.setItem(analysisSettingsStorageKey, JSON.stringify(settings));
+  } catch {
+    // Ignore storage failures; settings still apply for this session.
+  }
 }
 
 function buildFastAnalysisJobs({

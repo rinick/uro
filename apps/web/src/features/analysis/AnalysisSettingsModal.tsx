@@ -1,31 +1,45 @@
-import {Checkbox, Form, InputNumber, Modal, Select, message} from 'antd';
+import {Checkbox, Form, InputNumber, Modal, Select, Switch, message} from 'antd';
 import {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {defaultAnalysisSettings, type AnalysisSettings} from '@uro/analysis-core';
+import {type AppLanguage, languageOptions} from '../../app/appUiUtils';
 
 interface AnalysisSettingsModalProps {
   open: boolean;
   settings: AnalysisSettings;
+  language: AppLanguage;
+  showCoordinates: boolean;
+  showMarkup: boolean;
   showKataGoSettings?: boolean;
   onCancel: () => void;
-  onSave: (settings: AnalysisSettings) => void;
+  onSettingsChange: (settings: AnalysisSettings) => void;
+  onLanguageChange: (language: AppLanguage) => void;
+  onShowCoordinatesChange: (showCoordinates: boolean) => void;
+  onShowMarkupChange: (showMarkup: boolean) => void;
 }
 
 export function AnalysisSettingsModal({
   open,
   settings,
+  language,
+  showCoordinates,
+  showMarkup,
   showKataGoSettings = false,
   onCancel,
-  onSave,
+  onSettingsChange,
+  onLanguageChange,
+  onShowCoordinatesChange,
+  onShowMarkupChange,
 }: AnalysisSettingsModalProps) {
   const {t} = useTranslation();
   const [form] = Form.useForm<AnalysisSettings>();
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [minVisitsDraft, setMinVisitsDraft] = useState(defaultAnalysisSettings.minVisits);
 
   useEffect(() => {
     if (!open) return;
     form.setFieldsValue({...defaultAnalysisSettings, ...settings});
+    setMinVisitsDraft(settings.minVisits);
   }, [form, open, settings]);
 
   useEffect(() => {
@@ -40,7 +54,8 @@ export function AnalysisSettingsModal({
         if (!active) return;
         const next = {...defaultAnalysisSettings, ...settings};
         form.setFieldsValue(next);
-        onSave(next);
+        setMinVisitsDraft(next.minVisits);
+        onSettingsChange(next);
       })
       .catch((error: unknown) => message.error(error instanceof Error ? error.message : t('analysis.loadFailed')))
       .finally(() => {
@@ -50,45 +65,62 @@ export function AnalysisSettingsModal({
     return () => {
       active = false;
     };
-  }, [form, onSave, open, showKataGoSettings, t]);
+  }, [form, onSettingsChange, open, showKataGoSettings, t]);
 
-  async function handleSave(): Promise<void> {
-    try {
-      setSaving(true);
-      const fields = await form.validateFields();
-      const current = window.uro == null ? settings : await window.uro.analysis.getSettings();
-      const values = {...defaultAnalysisSettings, ...current, ...fields};
-      if (window.uro != null) await window.uro.analysis.saveSettings(values);
-      onSave(values);
-      message.success(t('analysis.saved'));
-      onCancel();
-    } catch (error) {
-      if (error instanceof Error) message.error(error.message);
-    } finally {
-      setSaving(false);
-    }
+  function updateSettings(values: Partial<AnalysisSettings>): void {
+    onSettingsChange({...defaultAnalysisSettings, ...settings, ...values});
+  }
+
+  function commitMinVisits(): void {
+    const minVisits = Math.max(1, Number(minVisitsDraft) || defaultAnalysisSettings.minVisits);
+    setMinVisitsDraft(minVisits);
+    form.setFieldValue('minVisits', minVisits);
+    updateSettings({minVisits});
   }
 
   return (
     <Modal
-      title={t('analysis.title')}
+      title={t('settings.title')}
       open={open}
       onCancel={onCancel}
-      onOk={() => void handleSave()}
-      okText={t('action.save')}
-      confirmLoading={saving}
+      footer={null}
       width={420}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" disabled={loading} initialValues={defaultAnalysisSettings}>
+        <Form.Item label={t('menu.language')}>
+          <Select
+            size="small"
+            value={language}
+            popupMatchSelectWidth={false}
+            onChange={(value) => onLanguageChange(value as AppLanguage)}
+            options={languageOptions}
+          />
+        </Form.Item>
+        <Form.Item>
+          <div className="app-settings-row">
+            <span>{t('menu.coordinates')}</span>
+            <Switch size="small" checked={showCoordinates} onChange={onShowCoordinatesChange} />
+          </div>
+        </Form.Item>
+        <Form.Item>
+          <div className="app-settings-row">
+            <span>{t('settings.showMarkup')}</span>
+            <Switch size="small" checked={showMarkup} onChange={onShowMarkupChange} />
+          </div>
+        </Form.Item>
         {showKataGoSettings ? (
           <>
-            <Form.Item name="autoAnalyze" valuePropName="checked">
-              <Checkbox>{t('analysis.autoAnalyze')}</Checkbox>
+            <Form.Item>
+              <Checkbox checked={settings.autoAnalyze} onChange={(event) => updateSettings({autoAnalyze: event.target.checked})}>
+                {t('analysis.autoAnalyze')}
+              </Checkbox>
             </Form.Item>
-            <Form.Item name="moveDisplay" label={t('analysis.moveDisplay')}>
+            <Form.Item label={t('analysis.moveDisplay')}>
               <Select
                 size="small"
+                value={settings.moveDisplay}
+                onChange={(value) => updateSettings({moveDisplay: value as AnalysisSettings['moveDisplay']})}
                 options={[
                   {value: 'score', label: t('analysis.score')},
                   {value: 'winrate', label: t('analysis.winrate')},
@@ -96,14 +128,23 @@ export function AnalysisSettingsModal({
                 ]}
               />
             </Form.Item>
-            <Form.Item name="minVisits" label={t('analysis.minVisits')}>
-              <InputNumber size="small" min={1} />
+            <Form.Item label={t('analysis.minVisits')}>
+              <InputNumber
+                size="small"
+                min={1}
+                value={minVisitsDraft}
+                onChange={(value) => setMinVisitsDraft(Number(value) || defaultAnalysisSettings.minVisits)}
+                onBlur={commitMinVisits}
+                onPressEnter={commitMinVisits}
+              />
             </Form.Item>
           </>
         ) : null}
-        <Form.Item name="maxMoves" label={t('analysis.moveNumberCount')}>
+        <Form.Item label={t('analysis.moveNumberCount')}>
           <Select
             size="small"
+            value={settings.maxMoves}
+            onChange={(value) => updateSettings({maxMoves: value as AnalysisSettings['maxMoves']})}
             options={[
               {value: 1, label: '1'},
               {value: 5, label: '5'},

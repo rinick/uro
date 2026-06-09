@@ -3,11 +3,9 @@ import {
   FileAddOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
-  LineChartOutlined,
   SaveOutlined,
   SettingOutlined,
   ThunderboltOutlined,
-  TranslationOutlined,
 } from '@ant-design/icons';
 import {
   Button,
@@ -16,9 +14,7 @@ import {
   Dropdown,
   Layout,
   Segmented,
-  Select,
   Space,
-  Switch,
   Tooltip,
   message,
   theme,
@@ -87,11 +83,19 @@ import {
   toolToMarkup,
   withImportedGameName,
 } from './appSgfUtils';
-import {antdLocales, formatConsoleTime, languageOptions, normalizeLanguage} from './appUiUtils';
+import {
+  type AppLanguage,
+  antdLocales,
+  formatConsoleTime,
+  normalizeLanguage,
+  saveLanguage,
+} from './appUiUtils';
 import {getAppFontFamily} from './fonts';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
+const showCoordinatesStorageKey = 'uro.showCoordinates';
+const showMarkupStorageKey = 'uro.showMarkup';
 
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
@@ -105,9 +109,13 @@ export function App() {
   const [document, setDocument] = useState<SgfDocument>(() => createNewGame());
   const [path, setPath] = useState<number[]>([]);
   const [tool, setTool] = useState<EditorTool>('auto');
+  const [labelText, setLabelText] = useState('A');
   const [autoColorOverride, setAutoColorOverride] = useState<'B' | 'W' | null>(null);
   const [replaceMode, setReplaceMode] = useState(false);
-  const [showCoordinates, setShowCoordinates] = useState(true);
+  const [showCoordinates, setShowCoordinates] = useState(() => readStoredBoolean(showCoordinatesStorageKey, true));
+  const [showMarkup, setShowMarkup] = useState(() =>
+    readStoredBoolean(showMarkupStorageKey, capabilities.platform === 'web')
+  );
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [openGameModalOpen, setOpenGameModalOpen] = useState(false);
   const [storedGameId, setStoredGameId] = useState<string | null>(null);
@@ -141,10 +149,21 @@ export function App() {
     globalThis.document.documentElement.style.setProperty('--uro-font-family', appFontFamily);
   }, [appFontFamily, currentLanguage]);
 
+  useEffect(() => {
+    writeStoredBoolean(showCoordinatesStorageKey, showCoordinates);
+  }, [showCoordinates]);
+
+  useEffect(() => {
+    writeStoredBoolean(showMarkupStorageKey, showMarkup);
+  }, [showMarkup]);
+
+  useEffect(() => {
+    if (!showMarkup && isMarkupTool(tool)) setTool('auto');
+  }, [showMarkup, tool]);
+
   const {
     analysisSettings,
     updateAnalysisSettings,
-    onAnalysisSettingsSave,
     analysisMode,
     setAnalysisModeActive,
     toggleAnalysisMode,
@@ -391,6 +410,7 @@ export function App() {
   );
 
   function handleToolChange(nextTool: EditorTool): void {
+    if (!showMarkup && isMarkupTool(nextTool)) return;
     if (nextTool !== tool) selectPath(path, {keepAutoColorOverride: nextTool === 'auto'});
     setReplaceMode(false);
     setTool(nextTool);
@@ -445,13 +465,6 @@ export function App() {
     return () => window.document.body.removeEventListener('keydown', handleKeyDown);
   }, [capabilities.katago, navigateBranch, navigateFirstChild, navigateNext, navigatePrevious, toggleAnalysisMode]);
 
-  const handleAnalysisSettingsSave = useCallback(
-    (settings: AnalysisSettings) => {
-      onAnalysisSettingsSave(settings);
-    },
-    [onAnalysisSettingsSave]
-  );
-
   function handleBoardClick(point: string, colorOverride?: SgfColor): void {
     if (replaceMode) {
       const result = replaceMove(document, path, point);
@@ -501,13 +514,13 @@ export function App() {
       return;
     }
 
-    if (tool === 'number' || tool === 'alphabet') {
-      const value = window.prompt(
-        t(tool === 'number' ? 'prompt.number' : 'prompt.alphabet'),
-        tool === 'number' ? '1' : 'A'
-      );
-      if (value == null || value.trim() === '') return;
-      replaceDocument(addLabel(document, path, point, value.trim()), path);
+    if (!showMarkup && isMarkupTool(tool)) return;
+
+    if (tool === 'alphabet') {
+      const value = labelText.trim();
+      if (value === '') return;
+      replaceDocument(addLabel(document, path, point, value), path);
+      setLabelText(nextLabelText(value));
       return;
     }
 
@@ -549,6 +562,11 @@ export function App() {
   function handleDeleteNode(): void {
     const result = deleteNode(document, path);
     replaceDocument(result.document, result.path);
+  }
+
+  function handleLanguageChange(language: AppLanguage): void {
+    saveLanguage(language);
+    void i18n.changeLanguage(language);
   }
 
   return (
@@ -611,21 +629,9 @@ export function App() {
                   {t('katago.button')}
                 </Button>
               ) : null}
-              <Button size="small" icon={<LineChartOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
-                {t('analysis.title')}
+              <Button size="small" icon={<SettingOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
+                {t('settings.title')}
               </Button>
-              <Space className="view-toggles">
-                <span>{t('menu.coordinates')}</span>
-                <Switch size="small" checked={showCoordinates} onChange={setShowCoordinates} />
-              </Space>
-              <Select
-                size="small"
-                value={currentLanguage}
-                suffixIcon={<TranslationOutlined />}
-                popupMatchSelectWidth={false}
-                onChange={(value) => void i18n.changeLanguage(value)}
-                options={languageOptions}
-              />
             </Space>
           </div>
           <EditorToolbar
@@ -633,7 +639,10 @@ export function App() {
             nextColor={nextAutoColor}
             canNavigatePrevious={canNavigatePrevious}
             canNavigateNext={canNavigateNext}
+            showMarkup={showMarkup}
+            labelText={labelText}
             onToolChange={handleToolChange}
+            onLabelTextChange={setLabelText}
             onAutoToolClick={handleAutoToolClick}
             onPass={handlePass}
             onFirst={navigateToFirst}
@@ -728,6 +737,7 @@ export function App() {
               document={document}
               path={path}
               showCoordinates={showCoordinates}
+              showMarkup={showMarkup}
               moveNumberLimit={boardMoveNumberLimit}
               analysis={currentAnalysis}
               stoneScoreDeltas={stoneScoreDeltas}
@@ -826,9 +836,15 @@ export function App() {
       <AnalysisSettingsModal
         open={analysisSettingsOpen}
         settings={analysisSettings}
+        language={currentLanguage}
+        showCoordinates={showCoordinates}
+        showMarkup={showMarkup}
         showKataGoSettings={capabilities.katago}
         onCancel={() => setAnalysisSettingsOpen(false)}
-        onSave={handleAnalysisSettingsSave}
+        onSettingsChange={updateAnalysisSettings}
+        onLanguageChange={handleLanguageChange}
+        onShowCoordinatesChange={setShowCoordinates}
+        onShowMarkupChange={setShowMarkup}
       />
       <GameInfoModal
         open={gameInfoOpen}
@@ -841,4 +857,47 @@ export function App() {
       />
     </ConfigProvider>
   );
+}
+
+function readStoredBoolean(key: string, fallback: boolean): boolean {
+  try {
+    const value = localStorage.getItem(key);
+    if (value == null) return fallback;
+    return value === 'true';
+  } catch {
+    return fallback;
+  }
+}
+
+function writeStoredBoolean(key: string, value: boolean): void {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    // Ignore storage failures; the current session state is still updated.
+  }
+}
+
+function isMarkupTool(tool: EditorTool): boolean {
+  return tool === 'alphabet' || tool === 'circle' || tool === 'square' || tool === 'triangle' || tool === 'cross';
+}
+
+function nextLabelText(value: string): string {
+  if (/^\d+$/.test(value)) return (BigInt(value) + 1n).toString();
+  if (/^[a-z]+$/.test(value)) return nextLetters(value, 'a'.charCodeAt(0));
+  if (/^[A-Z]+$/.test(value)) return nextLetters(value, 'A'.charCodeAt(0));
+  return value;
+}
+
+function nextLetters(value: string, baseCode: number): string {
+  const codes = [...value].map((char) => char.charCodeAt(0) - baseCode);
+
+  for (let index = codes.length - 1; index >= 0; index -= 1) {
+    if (codes[index] < 25) {
+      codes[index] += 1;
+      return codes.map((code) => String.fromCharCode(baseCode + code)).join('');
+    }
+    codes[index] = 0;
+  }
+
+  return String.fromCharCode(baseCode) + codes.map((code) => String.fromCharCode(baseCode + code)).join('');
 }

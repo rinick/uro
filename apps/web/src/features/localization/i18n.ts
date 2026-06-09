@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import {initReactI18next} from 'react-i18next';
+import {resolveInitialLanguage} from '../../app/appUiUtils';
 
 export const resources = {
   en: {
@@ -48,7 +49,7 @@ export const resources = {
         white: 'Place white stone',
         erase: 'Erase',
         number: 'Number label',
-        alphabet: 'Alphabet label',
+        alphabet: 'Label',
         circle: 'Circle',
         square: 'Square',
         triangle: 'Triangle',
@@ -61,6 +62,10 @@ export const resources = {
         katagoConsole: 'KataGo console',
         tree: 'SGF tree',
         gameInfo: 'Game information',
+      },
+      settings: {
+        title: 'Settings',
+        showMarkup: 'Show Markup',
       },
       katago: {
         button: 'AI Config',
@@ -223,7 +228,7 @@ export const resources = {
         white: '放置白子',
         erase: '擦除',
         number: '数字标记',
-        alphabet: '字母标记',
+        alphabet: '标记',
         circle: '圆形',
         square: '方形',
         triangle: '三角',
@@ -236,6 +241,10 @@ export const resources = {
         katagoConsole: 'KataGo 控制台',
         tree: 'SGF 树',
         gameInfo: '棋局信息',
+      },
+      settings: {
+        title: '设置',
+        showMarkup: '显示标记',
       },
       katago: {
         button: 'AI配置',
@@ -398,7 +407,7 @@ export const resources = {
         white: '白石を置く',
         erase: '消去',
         number: '数字ラベル',
-        alphabet: '文字ラベル',
+        alphabet: 'ラベル',
         circle: '丸',
         square: '四角',
         triangle: '三角',
@@ -411,6 +420,10 @@ export const resources = {
         katagoConsole: 'KataGoコンソール',
         tree: 'SGFツリー',
         gameInfo: '対局情報',
+      },
+      settings: {
+        title: '設定',
+        showMarkup: 'マークアップを表示',
       },
       katago: {
         button: 'AI設定',
@@ -573,7 +586,7 @@ export const resources = {
         white: '백돌 놓기',
         erase: '지우기',
         number: '숫자 표식',
-        alphabet: '문자 표식',
+        alphabet: '표식',
         circle: '원',
         square: '사각형',
         triangle: '삼각형',
@@ -586,6 +599,10 @@ export const resources = {
         katagoConsole: 'KataGo 콘솔',
         tree: 'SGF 트리',
         gameInfo: '대국 정보',
+      },
+      settings: {
+        title: '설정',
+        showMarkup: '표식 표시',
       },
       katago: {
         button: 'AI설정',
@@ -748,7 +765,7 @@ export const resources = {
         white: 'Placer une pierre blanche',
         erase: 'Effacer',
         number: 'Etiquette numerique',
-        alphabet: 'Etiquette alphabetique',
+        alphabet: 'Etiquette',
         circle: 'Cercle',
         square: 'Carre',
         triangle: 'Triangle',
@@ -761,6 +778,10 @@ export const resources = {
         katagoConsole: 'Console KataGo',
         tree: 'Arbre SGF',
         gameInfo: 'Informations de partie',
+      },
+      settings: {
+        title: 'Paramètres',
+        showMarkup: 'Afficher les annotations',
       },
       katago: {
         button: 'Configuration IA',
@@ -923,7 +944,7 @@ export const resources = {
         white: 'Weissen Stein setzen',
         erase: 'Loeschen',
         number: 'Zahlenmarkierung',
-        alphabet: 'Buchstabenmarkierung',
+        alphabet: 'Markierung',
         circle: 'Kreis',
         square: 'Quadrat',
         triangle: 'Dreieck',
@@ -936,6 +957,10 @@ export const resources = {
         katagoConsole: 'KataGo-Konsole',
         tree: 'SGF-Baum',
         gameInfo: 'Partieinformationen',
+      },
+      settings: {
+        title: 'Einstellungen',
+        showMarkup: 'Markierungen anzeigen',
       },
       katago: {
         button: 'KI-Konfiguration',
@@ -1098,7 +1123,7 @@ export const resources = {
         white: 'Поставить белый камень',
         erase: 'Стереть',
         number: 'Числовая метка',
-        alphabet: 'Буквенная метка',
+        alphabet: 'Метка',
         circle: 'Круг',
         square: 'Квадрат',
         triangle: 'Треугольник',
@@ -1111,6 +1136,10 @@ export const resources = {
         katagoConsole: 'Консоль KataGo',
         tree: 'Дерево SGF',
         gameInfo: 'Информация об игре',
+      },
+      settings: {
+        title: 'Настройки',
+        showMarkup: 'Показывать разметку',
       },
       katago: {
         button: 'Конфигурация ИИ',
@@ -1231,7 +1260,7 @@ export const resources = {
 
 void i18n.use(initReactI18next).init({
   resources,
-  lng: 'en',
+  lng: resolveInitialLanguage(),
   fallbackLng: 'en',
   interpolation: {
     escapeValue: false,

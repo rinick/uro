@@ -4,7 +4,6 @@ export type EditorTool =
   | 'black'
   | 'white'
   | 'erase'
-  | 'number'
   | 'alphabet'
   | 'circle'
   | 'square'

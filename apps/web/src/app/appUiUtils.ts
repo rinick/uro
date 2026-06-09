@@ -27,6 +27,10 @@ export const antdLocales = {
   zh: zhCN,
 } as const;
 
+export type AppLanguage = keyof typeof antdLocales;
+
+const languageStorageKey = 'uro.language';
+
 export function createLocalConsoleMessage(
   source: 'uro' | 'katago',
   level: 'info' | 'warning' | 'error',
@@ -47,7 +51,41 @@ export function formatConsoleTime(value: string): string {
   return date.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
 }
 
-export function normalizeLanguage(language: string): keyof typeof antdLocales {
+export function normalizeLanguage(language: string): AppLanguage {
+  return matchLanguage(language) ?? 'en';
+}
+
+export function resolveInitialLanguage(): AppLanguage {
+  const storedLanguage = readStoredLanguage();
+  if (storedLanguage != null) return storedLanguage;
+
+  const browserLanguages = typeof navigator === 'undefined' ? [] : [...(navigator.languages ?? []), navigator.language];
+  for (const language of browserLanguages) {
+    const match = matchLanguage(language);
+    if (match != null) return match;
+  }
+
+  return 'en';
+}
+
+export function saveLanguage(language: AppLanguage): void {
+  try {
+    localStorage.setItem(languageStorageKey, language);
+  } catch {
+    // Ignore storage failures; language still changes for this session.
+  }
+}
+
+function readStoredLanguage(): AppLanguage | null {
+  try {
+    const language = localStorage.getItem(languageStorageKey);
+    return language == null ? null : matchLanguage(language);
+  } catch {
+    return null;
+  }
+}
+
+function matchLanguage(language: string): AppLanguage | null {
   const baseLanguage = language.split('-')[0];
-  return baseLanguage in antdLocales ? (baseLanguage as keyof typeof antdLocales) : 'en';
+  return baseLanguage in antdLocales ? (baseLanguage as AppLanguage) : null;
 }

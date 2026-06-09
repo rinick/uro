@@ -7,11 +7,10 @@ import {
   FastForwardOutlined,
   FontSizeOutlined,
   ForwardOutlined,
-  NumberOutlined,
   StepBackwardOutlined,
   StepForwardOutlined,
 } from '@ant-design/icons';
-import {Button, Segmented, Space, Tooltip} from 'antd';
+import {Button, Input, Segmented, Space, Tooltip} from 'antd';
 import type React from 'react';
 import {useTranslation} from 'react-i18next';
 import type {EditorTool} from './types';
@@ -21,7 +20,10 @@ interface EditorToolbarProps {
   nextColor: 'B' | 'W';
   canNavigatePrevious: boolean;
   canNavigateNext: boolean;
+  showMarkup: boolean;
+  labelText: string;
   onToolChange: (tool: EditorTool) => void;
+  onLabelTextChange: (value: string) => void;
   onAutoToolClick: () => void;
   onPass: () => void;
   onFirst: () => void;
@@ -38,7 +40,10 @@ export function EditorToolbar({
   nextColor,
   canNavigatePrevious,
   canNavigateNext,
+  showMarkup,
+  labelText,
   onToolChange,
+  onLabelTextChange,
   onAutoToolClick,
   onPass,
   onFirst,
@@ -53,33 +58,49 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar">
+      <Tooltip title={t('tools.pass')}>
+        <Button size="middle" icon={<PalmIcon />} onClick={onPass} />
+      </Tooltip>
       <Segmented
         className="edit-tools"
-        size="small"
+        size="middle"
         value={tool}
         onChange={(value) => {
-          const nextTool = value as EditorTool;
-          if (nextTool === 'pass') {
-            onPass();
-            return;
-          }
-          onToolChange(nextTool);
+          onToolChange(value as EditorTool);
         }}
         options={[
           {
             value: 'auto',
             label: withTip(<AutoPlayIcon nextColor={nextColor} onClick={onAutoToolClick} />, t('tools.auto')),
           },
-          {value: 'pass', icon: withTip(<PalmIcon />, t('tools.pass'))},
           {value: 'black', label: withTip(<span className="tool-stone black" />, t('tools.black'))},
           {value: 'white', label: withTip(<span className="tool-stone white" />, t('tools.white'))},
 
-          {value: 'number', icon: withTip(<NumberOutlined />, t('tools.number'))},
-          {value: 'alphabet', icon: withTip(<FontSizeOutlined />, t('tools.alphabet'))},
-          {value: 'circle', icon: withTip(<CircleMarkerIcon />, t('tools.circle'))},
-          {value: 'square', icon: withTip(<BorderOutlined />, t('tools.square'))},
-          {value: 'triangle', icon: withTip(<TriangleMarkerIcon />, t('tools.triangle'))},
-          {value: 'cross', icon: withTip(<CloseOutlined />, t('tools.cross'))},
+          ...(showMarkup
+            ? [
+                {
+                  value: 'alphabet',
+                  label: (
+                    <span className="label-tool">
+                      <Tooltip title={t('tools.alphabet')}>
+                        <FontSizeOutlined />
+                      </Tooltip>
+                      <Input
+                        size="small"
+                        value={labelText}
+                        aria-label={t('tools.alphabet')}
+                        onFocus={() => onToolChange('alphabet')}
+                        onChange={(event) => onLabelTextChange(event.target.value)}
+                      />
+                    </span>
+                  ),
+                },
+                {value: 'circle', icon: withTip(<CircleMarkerIcon />, t('tools.circle'))},
+                {value: 'square', icon: withTip(<BorderOutlined />, t('tools.square'))},
+                {value: 'triangle', icon: withTip(<TriangleMarkerIcon />, t('tools.triangle'))},
+                {value: 'cross', icon: withTip(<CloseOutlined />, t('tools.cross'))},
+              ]
+            : []),
           {value: 'erase', icon: withTip(<DeleteOutlined />, t('tools.erase'))},
         ]}
       />
@@ -175,7 +196,7 @@ function NavButton({
 }) {
   return (
     <Tooltip title={title}>
-      <Button size="small" disabled={disabled} icon={icon} onClick={onClick} />
+      <Button size="medium" disabled={disabled} icon={icon} onClick={onClick} />
     </Tooltip>
   );
 }
