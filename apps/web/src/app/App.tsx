@@ -678,7 +678,14 @@ export function App() {
       componentSize="small"
       theme={{
         algorithm: [theme.defaultAlgorithm, theme.compactAlgorithm],
+        components: {
+          Button: {
+            defaultHoverBorderColor: '#dc8916',
+            defaultHoverColor: '#dc8916',
+          },
+        },
         token: {
+          colorPrimary: '#f4b458',
           borderRadius: 6,
           fontFamily: appFontFamily,
         },

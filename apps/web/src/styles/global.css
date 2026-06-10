@@ -382,11 +382,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
@@ -715,7 +715,7 @@ body {
 }
 
 .move-tree-node.selected {
-  outline: 3px solid #64b5f6;
+  outline: 3px solid #f4b458;
   outline-offset: 1px;
 }
 
@@ -844,4 +844,9 @@ button.ant-btn.analysis-button {
   100% {
     background-position: -400%;
   }
+}
+
+.ant-btn-color-primary {
+  font-weight: 550;
+  text-shadow: 1px 1px 3px #ae6705;
 }
