@@ -337,6 +337,7 @@ body {
   justify-content: center;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .right-region {
@@ -731,11 +732,38 @@ body {
   height: 100%;
   min-width: 0;
   min-height: 0;
+  background: #999999;
 }
 
 .board-surface {
   position: relative;
   display: inline-block;
+}
+
+.board-surface::before {
+  position: absolute;
+  right: calc(30% + 25cqw);
+  content: ' ';
+  width: 100%;
+  height: 100%;
+  background-image: url(/src/assets/logo-512.webp);
+  background-size: contain;
+  opacity: 0.05;
+  z-index: 0;
+}
+
+.board-surface::after {
+  position: absolute;
+  left: calc(30% + 25cqw);
+  content: ' ';
+  width: 100%;
+  height: 100%;
+  background-image: url(/src/assets/logo-512.webp);
+  background-size: contain;
+  transform: scalex(-1);
+  opacity: 0.05;
+  filter: invert(1);
+  z-index: 0;
 }
 
 .ulugo-goban {
@@ -747,6 +775,7 @@ body {
   --shudan-white-background-color: #fbfaf4;
   --shudan-white-foreground-color: #14171a;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+  z-index: 1;
 }
 
 .ulugo-goban .shudan-vertex.shudan-marker_label .shudan-marker {
