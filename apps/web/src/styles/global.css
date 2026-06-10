@@ -145,11 +145,8 @@ body {
   flex: 0 1 auto;
 }
 
-.label-tool {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 4px;
-  margin-right: -5px; /* reduce right padding of parent element */
+.edit-tools .ant-btn {
+  min-width: 30px;
 }
 
 .label-tool .ant-input {
@@ -365,7 +362,6 @@ body {
   display: inline-flex;
   align-items: center;
   min-width: 0;
-  gap: 6px;
 }
 
 .capture-name {
@@ -379,6 +375,7 @@ body {
 .capture-loss {
   color: #6f3f3c;
   font-variant-numeric: tabular-nums;
+  margin: 0 2px 0 7px;
 }
 
 .capture-count {
@@ -809,7 +806,6 @@ body {
 
 button.ant-btn.analysis-button {
   position: absolute;
-  width: 60px;
   right: 8px;
   bottom: 8px;
   border-radius: 20px;

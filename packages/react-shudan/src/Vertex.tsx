@@ -103,7 +103,6 @@ function Vertex(props: VertexProps) {
         'data-x': position[0],
         'data-y': position[1],
 
-        'title': marker?.label,
         'style': {
           position: 'relative',
         } satisfies CSSProperties,

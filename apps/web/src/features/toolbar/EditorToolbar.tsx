@@ -10,7 +10,7 @@ import {
   StepBackwardOutlined,
   StepForwardOutlined,
 } from '@ant-design/icons';
-import {Button, Input, Segmented, Space, Tooltip} from 'antd';
+import {Button, Input, Space} from 'antd';
 import type React from 'react';
 import {useTranslation} from 'react-i18next';
 import type {ShortcutActionId} from '../shortcuts/keyboardShortcuts';
@@ -61,82 +61,92 @@ export function EditorToolbar({
 
   return (
     <div className="editor-toolbar">
-      <Tooltip title={withShortcut(t('tools.pass'), shortcutLabels.pass)}>
-        <Button size="middle" icon={<PalmIcon />} onClick={onPass} />
-      </Tooltip>
-      <Segmented
-        className="edit-tools"
+      <Button
         size="middle"
-        value={tool}
-        onChange={(value) => {
-          onToolChange(value as EditorTool);
-        }}
-        options={[
-          {
-            value: 'auto',
-            label: withTip(
-              <AutoPlayIcon nextColor={nextColor} onClick={onAutoToolClick} />,
-              withShortcut(t('tools.auto'), shortcutLabels.toolAuto)
-            ),
-          },
-          {
-            value: 'black',
-            label: withTip(
-              <span className="tool-stone black" />,
-              withShortcut(t('tools.black'), shortcutLabels.toolBlack)
-            ),
-          },
-          {
-            value: 'white',
-            label: withTip(
-              <span className="tool-stone white" />,
-              withShortcut(t('tools.white'), shortcutLabels.toolWhite)
-            ),
-          },
-
-          ...(showMarkup
-            ? [
-                {
-                  value: 'alphabet',
-                  label: (
-                    <span className="label-tool">
-                      <Tooltip title={withShortcut(t('tools.alphabet'), shortcutLabels.addLabel)}>
-                        <FontSizeOutlined />
-                      </Tooltip>
-                      <Input
-                        size="small"
-                        value={labelText}
-                        aria-label={t('tools.alphabet')}
-                        onFocus={() => onToolChange('alphabet')}
-                        onChange={(event) => onLabelTextChange(event.target.value)}
-                      />
-                    </span>
-                  ),
-                },
-                {
-                  value: 'circle',
-                  icon: withTip(<CircleMarkerIcon />, withShortcut(t('tools.circle'), shortcutLabels.addCircle)),
-                },
-                {
-                  value: 'square',
-                  icon: withTip(<BorderOutlined />, withShortcut(t('tools.square'), shortcutLabels.addSquare)),
-                },
-                {
-                  value: 'triangle',
-                  icon: withTip(<TriangleMarkerIcon />, withShortcut(t('tools.triangle'), shortcutLabels.addTriangle)),
-                },
-                {
-                  value: 'cross',
-                  icon: withTip(<CloseOutlined />, withShortcut(t('tools.cross'), shortcutLabels.addCross)),
-                },
-              ]
-            : []),
-          {
-            value: 'erase',
-            icon: withTip(<DeleteOutlined />, withShortcut(t('tools.erase'), shortcutLabels.eraseMarkup)),
-          },
-        ]}
+        icon={<PalmIcon />}
+        title={withShortcut(t('tools.pass'), shortcutLabels.pass)}
+        onClick={onPass}
       />
+      <Space.Compact className="edit-tools">
+        <ToolButton
+          tool="auto"
+          current={tool}
+          title={withShortcut(t('tools.auto'), shortcutLabels.toolAuto)}
+          onToolChange={onToolChange}
+        >
+          <AutoPlayIcon nextColor={nextColor} onClick={onAutoToolClick} />
+        </ToolButton>
+        <ToolButton
+          tool="black"
+          current={tool}
+          icon={<span className="tool-stone black" />}
+          title={withShortcut(t('tools.black'), shortcutLabels.toolBlack)}
+          onToolChange={onToolChange}
+        />
+        <ToolButton
+          tool="white"
+          current={tool}
+          icon={<span className="tool-stone white" />}
+          title={withShortcut(t('tools.white'), shortcutLabels.toolWhite)}
+          onToolChange={onToolChange}
+        />
+        {showMarkup && (
+          <>
+            <ToolButton
+              className="label-tool"
+              tool="alphabet"
+              current={tool}
+              icon={<FontSizeOutlined />}
+              title={withShortcut(t('tools.alphabet'), shortcutLabels.addLabel)}
+              onToolChange={onToolChange}
+            >
+              <Input
+                size="small"
+                className="label-input"
+                value={labelText}
+                aria-label={t('tools.alphabet')}
+                onFocus={() => onToolChange('alphabet')}
+                onChange={(event) => onLabelTextChange(event.target.value)}
+              />
+            </ToolButton>
+            <ToolButton
+              tool="circle"
+              current={tool}
+              icon={<CircleMarkerIcon />}
+              title={withShortcut(t('tools.circle'), shortcutLabels.addCircle)}
+              onToolChange={onToolChange}
+            />
+            <ToolButton
+              tool="square"
+              current={tool}
+              icon={<BorderOutlined />}
+              title={withShortcut(t('tools.square'), shortcutLabels.addSquare)}
+              onToolChange={onToolChange}
+            />
+            <ToolButton
+              tool="triangle"
+              current={tool}
+              icon={<TriangleMarkerIcon />}
+              title={withShortcut(t('tools.triangle'), shortcutLabels.addTriangle)}
+              onToolChange={onToolChange}
+            />
+            <ToolButton
+              tool="cross"
+              current={tool}
+              icon={<CloseOutlined />}
+              title={withShortcut(t('tools.cross'), shortcutLabels.addCross)}
+              onToolChange={onToolChange}
+            />
+          </>
+        )}
+        <ToolButton
+          tool="erase"
+          current={tool}
+          icon={<DeleteOutlined />}
+          title={withShortcut(t('tools.erase'), shortcutLabels.eraseMarkup)}
+          onToolChange={onToolChange}
+        />
+      </Space.Compact>
       <Space.Compact className="navigation-tools">
         <NavButton
           title={t('nav.first')}
@@ -227,15 +237,38 @@ function NavButton({
   disabled: boolean;
   onClick: () => void;
 }) {
-  return (
-    <Tooltip title={title}>
-      <Button size="medium" disabled={disabled} icon={icon} onClick={onClick} />
-    </Tooltip>
-  );
+  return <Button size="medium" disabled={disabled} icon={icon} title={title} onClick={onClick} />;
 }
 
-function withTip(node: React.ReactNode, title: string): React.ReactNode {
-  return <Tooltip title={title}>{node}</Tooltip>;
+function ToolButton({
+  className,
+  tool,
+  current,
+  icon,
+  title,
+  children,
+  onToolChange,
+}: {
+  className?: string;
+  tool: EditorTool;
+  current: EditorTool;
+  icon?: React.ReactNode;
+  title: string;
+  children?: React.ReactNode;
+  onToolChange: (tool: EditorTool) => void;
+}) {
+  return (
+    <Button
+      className={className}
+      size="middle"
+      type={tool === current ? 'primary' : 'default'}
+      icon={icon}
+      title={title}
+      onClick={() => onToolChange(tool)}
+    >
+      {children}
+    </Button>
+  );
 }
 
 function withShortcut(title: string, shortcut: string | undefined): string {

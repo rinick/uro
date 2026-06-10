@@ -7,7 +7,7 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Segmented, Space, Tooltip, message, theme} from 'antd';
+import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Segmented, Space, message, theme} from 'antd';
 import type {MenuProps} from 'antd';
 import {
   addLabel,
@@ -850,16 +850,15 @@ export function App() {
               onVertexRightClick={handleBoardRightClick}
             />
             {capabilities.katago ? (
-              <Tooltip title={t('analysis.button')}>
-                <Button
-                  className={['analysis-button', analysisMode ? 'glow-button' : ''].filter(Boolean).join(' ')}
-                  icon={<ThunderboltOutlined />}
-                  type={analysisMode ? 'primary' : 'default'}
-                  onClick={toggleAnalysisMode}
-                >
-                  {analysisMode ? <span>{fastAnalysisPendingCount}</span> : ''}
-                </Button>
-              </Tooltip>
+              <Button
+                className={['analysis-button', analysisMode ? 'glow-button' : ''].filter(Boolean).join(' ')}
+                icon={<ThunderboltOutlined />}
+                type={analysisMode ? 'primary' : 'default'}
+                title={t('analysis.button')}
+                onClick={toggleAnalysisMode}
+              >
+                {analysisMode ? <span>{fastAnalysisPendingCount}</span> : ''}
+              </Button>
             ) : null}
           </main>
           <aside className="right-region">

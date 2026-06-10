@@ -1,5 +1,5 @@
 import {LeftOutlined, RightOutlined, DeleteOutlined, SwapOutlined, DoubleLeftOutlined} from '@ant-design/icons';
-import {Button, Space, Tooltip} from 'antd';
+import {Button, Space} from 'antd';
 import {buildTree, getBoardSize, samePath, type SgfDocument} from '@ulugo/sgf-core';
 import {useCallback, useEffect, useMemo, useRef, type ReactNode} from 'react';
 import {useTranslation} from 'react-i18next';
@@ -185,9 +185,15 @@ function TreeActionButton({
   onClick: () => void;
 }) {
   return (
-    <Tooltip title={title}>
-      <Button size="medium" disabled={disabled} danger={danger} type={type} icon={icon} onClick={onClick} />
-    </Tooltip>
+    <Button
+      size="medium"
+      disabled={disabled}
+      danger={danger}
+      type={type}
+      icon={icon}
+      title={title}
+      onClick={onClick}
+    />
   );
 }
 
