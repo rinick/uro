@@ -159,6 +159,7 @@ async function createWindow(): Promise<void> {
     minWidth: 960,
     minHeight: 640,
     backgroundColor: '#f4f7f5',
+    icon: path.join(__dirname, '../../web/src/assets/icon-512.png'),
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -285,7 +286,9 @@ function registerIpc(): void {
       Array.isArray(queryIds) ? queryIds.filter((queryId): queryId is string => typeof queryId === 'string') : undefined
     );
   });
-  ipcMain.handle('ulugo:analysis:get-settings', async () => readJson('analysis-settings.json', defaultAnalysisSettings));
+  ipcMain.handle('ulugo:analysis:get-settings', async () =>
+    readJson('analysis-settings.json', defaultAnalysisSettings)
+  );
   ipcMain.handle('ulugo:analysis:save-settings', async (_event, settings: AnalysisSettings) =>
     writeJson('analysis-settings.json', {...defaultAnalysisSettings, ...settings})
   );
