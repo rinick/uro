@@ -219,13 +219,14 @@ function AnalysisChart({
   const width = 360;
   const height = 190;
   const padding = {top: 16, right: 8, bottom: 18, left: 28};
-  const scoreAxisData = allData.filter((item) => item.series === 'score');
   const maxMove = Math.max(0, ...allData.map((item) => item.moveNumber));
-  const scoreScale = scoreScaleFor(scoreAxisData, pointLossData);
+  const scoreScale = scoreScaleFor(scoreData, pointLossData);
   const scorePoints = makePoints(scoreData, width, padding, maxMove, (value) =>
     valueToCenteredY(value, scoreScale, height, padding)
   );
   const pointLossPoints = makePointLossPoints(pointLossData, width, padding, maxMove, scoreScale, height);
+  const scoreAxisLabel =
+    scorePoints.length === 0 && pointLossPoints.length > 0 ? {top: 'W-', bottom: 'B-'} : {top: 'B+', bottom: 'W+'};
   const winratePoints = makePoints(winrateData, width, padding, maxMove, (value) =>
     valueToWinrateY(value, height, padding)
   );
@@ -348,17 +349,25 @@ function AnalysisChart({
 
         {scorePoints.length > 0 || pointLossPoints.length > 0 ? (
           <>
-            <text className="analysis-chart-label score" x="2" y={padding.top + 4}>{`B+${scoreScale}`}</text>
-            <text className="analysis-chart-label score" x="2" y={halfScoreY + 4}>{`B+${halfScoreScale}`}</text>
+            <text className="analysis-chart-label score" x="2" y={padding.top + 4}>
+              {`${scoreAxisLabel.top}${scoreScale}`}
+            </text>
+            <text className="analysis-chart-label score" x="2" y={halfScoreY + 4}>
+              {`${scoreAxisLabel.top}${halfScoreScale}`}
+            </text>
             <text className="analysis-chart-label score" x="2" y={centerY + 4}>
               0
             </text>
-            <text className="analysis-chart-label score" x="2" y={negativeHalfScoreY + 4}>{`W+${halfScoreScale}`}</text>
+            <text className="analysis-chart-label score" x="2" y={negativeHalfScoreY + 4}>
+              {`${scoreAxisLabel.bottom}${halfScoreScale}`}
+            </text>
             <text
               className="analysis-chart-label score"
               x="2"
               y={height - padding.bottom + 4}
-            >{`W+${scoreScale}`}</text>
+            >
+              {`${scoreAxisLabel.bottom}${scoreScale}`}
+            </text>
           </>
         ) : null}
 
