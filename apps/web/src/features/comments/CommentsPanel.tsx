@@ -216,6 +216,7 @@ function AnalysisChart({
   onSelectMove?: (moveNumber: number) => void;
 }) {
   const [hoverMoveNumber, setHoverMoveNumber] = useState<number | null>(null);
+  const [hoverChartX, setHoverChartX] = useState<number | null>(null);
   const width = 360;
   const height = 190;
   const padding = {top: 16, right: 8, bottom: 18, left: 28};
@@ -238,10 +239,10 @@ function AnalysisChart({
     selectedMoveNumber == null
       ? null
       : moveNumberToX(Math.max(0, Math.min(maxMove, selectedMoveNumber)), maxMove, width, padding);
-  const hoverX =
-    hoverMoveNumber == null
-      ? null
-      : moveNumberToX(Math.max(0, Math.min(maxMove, hoverMoveNumber)), maxMove, width, padding);
+  const currentMoveNumber =
+    hoverMoveNumber ?? (selectedMoveNumber == null ? null : Math.max(0, Math.min(maxMove, selectedMoveNumber)));
+  const currentMoveLabel =
+    currentMoveNumber == null ? null : moveAxisLabelFor(currentMoveNumber, maxMove, width, padding, hoverChartX);
   const hoverSummary = hoverMoveNumber == null ? null : chartSummaryForMove(allData, hoverMoveNumber);
 
   function handleMouseDown(event: MouseEvent<SVGSVGElement>): void {
@@ -255,7 +256,11 @@ function AnalysisChart({
 
   function handleMouseMove(event: MouseEvent<SVGSVGElement>): void {
     const point = mouseEventToViewBoxPoint(event, width, height);
-    setHoverMoveNumber(xToHoverMoveNumber(point.x, point.y, maxMove, width, height, padding));
+    const nextHoverMoveNumber = xToHoverMoveNumber(point.x, point.y, maxMove, width, height, padding);
+    setHoverMoveNumber(nextHoverMoveNumber);
+    setHoverChartX(
+      nextHoverMoveNumber == null ? null : Math.max(padding.left, Math.min(width - padding.right, point.x))
+    );
   }
 
   function handleWheel(event: WheelEvent<SVGSVGElement>): void {
@@ -272,7 +277,10 @@ function AnalysisChart({
         role="img"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoverMoveNumber(null)}
+        onMouseLeave={() => {
+          setHoverMoveNumber(null);
+          setHoverChartX(null);
+        }}
         onWheel={handleWheel}
       >
         <line
@@ -327,11 +335,11 @@ function AnalysisChart({
             y2={height - padding.bottom}
           />
         )}
-        {hoverX == null ? null : (
+        {hoverChartX == null ? null : (
           <line
             className="analysis-chart-hover"
-            x1={hoverX}
-            x2={hoverX}
+            x1={hoverChartX}
+            x2={hoverChartX}
             y1={padding.top}
             y2={height - padding.bottom}
           />
@@ -389,10 +397,20 @@ function AnalysisChart({
           0
         </text>
         {maxMove > 0 ? (
-          <text className="analysis-chart-label move" x={width - padding.right - 8} y={height - 3}>
+          <text className="analysis-chart-label move" x={width - padding.right} y={height - 3} textAnchor="end">
             {maxMove}
           </text>
         ) : null}
+        {currentMoveLabel == null ? null : (
+          <text
+            className="analysis-chart-label move current"
+            x={currentMoveLabel.x}
+            y={height - 3}
+            textAnchor="middle"
+          >
+            {currentMoveLabel.text}
+          </text>
+        )}
       </svg>
       <AnalysisChartSummaryView summary={hoverSummary ?? summary} />
     </div>
@@ -534,6 +552,15 @@ function mouseEventToViewBoxPoint(
   width: number,
   height: number
 ): {x: number; y: number} {
+  const matrix = event.currentTarget.getScreenCTM();
+  if (matrix != null) {
+    const point = event.currentTarget.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    const viewBoxPoint = point.matrixTransform(matrix.inverse());
+    return {x: viewBoxPoint.x, y: viewBoxPoint.y};
+  }
+
   const rect = event.currentTarget.getBoundingClientRect();
   return {
     x: ((event.clientX - rect.left) / rect.width) * width,
@@ -567,12 +594,30 @@ function xToHoverMoveNumber(
 ): number | null {
   if (x < padding.left || x > width - padding.right || y < padding.top || y > height - padding.bottom) return null;
 
-  const moveNumber = xToMoveNumber(x, maxMove, width, padding);
-  const moveX = moveNumberToX(moveNumber, maxMove, width, padding);
-  const plotWidth = width - padding.left - padding.right;
-  const moveSpacing = maxMove <= 0 ? plotWidth : plotWidth / maxMove;
-  const threshold = Math.min(8, Math.max(4, moveSpacing / 3));
-  return Math.abs(x - moveX) <= threshold ? moveNumber : null;
+  return xToMoveNumber(x, maxMove, width, padding);
+}
+
+function moveAxisLabelFor(
+  moveNumber: number,
+  maxMove: number,
+  width: number,
+  padding: {left: number; right: number},
+  preferredX: number | null = null
+): {text: string; x: number} | null {
+  if (moveNumber === 0 || moveNumber === maxMove) return null;
+
+  const text = String(moveNumber);
+  const labelHalfWidth = estimatedMoveLabelWidth(text) / 2;
+  const leftLimit = padding.left + estimatedMoveLabelWidth('0') + 6 + labelHalfWidth;
+  const rightLimit = width - padding.right - estimatedMoveLabelWidth(String(maxMove)) - 6 - labelHalfWidth;
+  if (leftLimit > rightLimit) return null;
+
+  const x = Math.max(leftLimit, Math.min(rightLimit, preferredX ?? moveNumberToX(moveNumber, maxMove, width, padding)));
+  return {text, x};
+}
+
+function estimatedMoveLabelWidth(text: string): number {
+  return text.length * 5;
 }
 
 function valueToCenteredY(
