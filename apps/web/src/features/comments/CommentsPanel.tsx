@@ -8,7 +8,6 @@ interface CommentsPanelProps {
   value: string;
   onChange: (value: string) => void;
   showAnalysisControls?: boolean;
-  showWebAd?: boolean;
   analysisActive?: boolean;
   chartData?: AnalysisChartPoint[];
   moveDisplay?: AnalysisSettings['moveDisplay'];
@@ -56,14 +55,11 @@ interface ScoreLineRun {
   points: PlotPoint[];
 }
 
-const AD_SCRIPT_ID = 'ulugo-google-ad-script';
-
 export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>(function CommentsPanel(
   {
     value,
     onChange,
     showAnalysisControls = false,
-    showWebAd = false,
     analysisActive = false,
     chartData = [],
     moveDisplay = 'score',
@@ -80,10 +76,8 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
   const [showWinrate, setShowWinrate] = useState(false);
   const [showPointLoss, setShowPointLoss] = useState(false);
   const [showComments, setShowComments] = useState(true);
-  const [adDismissed, setAdDismissed] = useState(false);
   const previousAnalysisActiveRef = useRef(false);
   const showChart = showAnalysisControls && (showScore || showWinrate || showPointLoss);
-  const showAd = showWebAd && !adDismissed && !showChart && showComments;
   const scoreData = useMemo(() => chartData.filter((item) => item.series === 'score'), [chartData]);
   const winrateData = useMemo(() => chartData.filter((item) => item.series === 'winrate'), [chartData]);
   const pointLossData = useMemo(() => buildPointLossData(scoreData), [scoreData]);
@@ -100,12 +94,7 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
     previousAnalysisActiveRef.current = analysisActive;
   }, [analysisActive, showPointLoss, showScore, showWinrate]);
 
-  useEffect(() => {
-    if (showAd && value !== '' && selectedMoveNumber != null && selectedMoveNumber > 0) setAdDismissed(true);
-  }, [selectedMoveNumber, showAd, value]);
-
   const showOnlyComments = useCallback(() => {
-    setAdDismissed(true);
     setShowScore(false);
     setShowPointLoss(false);
     setShowWinrate(false);
@@ -113,15 +102,14 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
   }, []);
 
   const toggleComments = useCallback(() => {
-    if (showChart || showAd || !showComments) {
+    if (showChart || !showComments) {
       showOnlyComments();
       return;
     }
     setShowComments(false);
-  }, [showAd, showChart, showComments, showOnlyComments]);
+  }, [showChart, showComments, showOnlyComments]);
 
   const toggleChart = useCallback((setter: (updater: (current: boolean) => boolean) => void) => {
-    setAdDismissed(true);
     setShowComments(false);
     setter((current) => !current);
   }, []);
@@ -164,22 +152,15 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
           ) : null}
           <Button
             size="small"
-            type={showComments && !showChart && !showAd ? 'primary' : 'default'}
+            type={showComments && !showChart ? 'primary' : 'default'}
             onClick={toggleComments}
           >
             {t('panels.comments')}
           </Button>
-          {showWebAd && !adDismissed ? (
-            <Button size="small" type={showAd ? 'primary' : 'default'}>
-              {t('panels.ad')}
-            </Button>
-          ) : null}
         </Space.Compact>
       </div>
       <div className="comments-panel-body">
-        {showAd ? (
-          <GoogleAd />
-        ) : showChart ? (
+        {showChart ? (
           hasVisibleData ? (
             <AnalysisChart
               scoreData={showScore ? scoreData : []}
@@ -210,34 +191,6 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
     </section>
   );
 });
-
-function GoogleAd() {
-  useEffect(() => {
-    const adsWindow = window as Window & {adsbygoogle?: unknown[]};
-    adsWindow.adsbygoogle = adsWindow.adsbygoogle ?? [];
-
-    if (document.getElementById(AD_SCRIPT_ID) == null) {
-      const script = document.createElement('script');
-      script.id = AD_SCRIPT_ID;
-      script.async = true;
-      script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3283235194066083';
-      script.crossOrigin = 'anonymous';
-      document.head.appendChild(script);
-    }
-
-    adsWindow.adsbygoogle.push({});
-  }, []);
-
-  return (
-    <ins
-      className="adsbygoogle comments-panel-ad"
-      data-ad-client="ca-pub-3283235194066083"
-      data-ad-slot="9855991090"
-      data-ad-format="auto"
-      data-full-width-responsive="true"
-    />
-  );
-}
 
 function AnalysisChart({
   scoreData,

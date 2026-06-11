@@ -36,6 +36,7 @@ import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
+import {GoogleAd} from '../features/ads/GoogleAd';
 import {GoBoard} from '../features/board/GoBoard';
 import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
@@ -811,7 +812,9 @@ export function App() {
             }
           />
         </Header>
-        <Content className={`app-content ${capabilities.katago ? 'with-katago-console' : ''}`}>
+        <Content
+          className={`app-content ${capabilities.katago || capabilities.platform === 'web' ? 'with-katago-console' : ''}`}
+        >
           {capabilities.katago ? (
             <aside className="katago-console-panel">
               <div className="katago-console-header">
@@ -835,6 +838,10 @@ export function App() {
                   ))
                 )}
               </div>
+            </aside>
+          ) : capabilities.platform === 'web' ? (
+            <aside className="katago-console-panel web-ad-panel">
+              <GoogleAd />
             </aside>
           ) : null}
           <main
@@ -886,7 +893,6 @@ export function App() {
               value={getComment(document, path)}
               onChange={handleCommentChange}
               showAnalysisControls={capabilities.katago}
-              showWebAd={capabilities.platform === 'web'}
               analysisActive={analysisMode}
               chartData={analysisChartData}
               moveDisplay={analysisSettings.moveDisplay}
