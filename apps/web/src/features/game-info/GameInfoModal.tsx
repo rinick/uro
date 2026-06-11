@@ -13,13 +13,13 @@ interface GameInfoModalProps {
 
 const gameInfoKeys = ['PB', 'PW', 'BR', 'WR', 'EV', 'RO', 'DT', 'PC', 'KM', 'HA', 'RU', 'RE', 'GN', 'GC'];
 const ruleOptions = [
-  {value: 'Japanese', label: 'Japanese'},
-  {value: 'Chinese', label: 'Chinese'},
-  {value: 'Korean', label: 'Korean'},
-  {value: 'AGA', label: 'AGA'},
-  {value: 'New Zealand', label: 'New Zealand'},
-  {value: 'Tromp-Taylor', label: 'Tromp-Taylor'},
-  {value: 'Stone Scoring', label: 'Stone Scoring'},
+  {value: 'Japanese', labelKey: 'japanese'},
+  {value: 'Chinese', labelKey: 'chinese'},
+  {value: 'Korean', labelKey: 'korean'},
+  {value: 'AGA', labelKey: 'aga'},
+  {value: 'New Zealand', labelKey: 'newZealand'},
+  {value: 'Tromp-Taylor', labelKey: 'trompTaylor'},
+  {value: 'Stone Scoring', labelKey: 'stoneScoring'},
 ];
 const ruleKeys = new Set(ruleOptions.map((option) => ruleKey(option.value)));
 
@@ -50,7 +50,14 @@ export function GameInfoModal({open, values, onCancel, onSave}: GameInfoModalPro
         {gameInfoKeys.map((key) => (
           <Form.Item key={key} name={key} label={t(`gameInfo.${key}`)} rules={validationRules(key, t)}>
             {key === 'RU' ? (
-              <Select size="small" allowClear options={ruleOptions} />
+              <Select
+                size="small"
+                allowClear
+                options={ruleOptions.map((option) => ({
+                  value: option.value,
+                  label: t(`gameInfo.rules.${option.labelKey}`),
+                }))}
+              />
             ) : (
               <Input size="small" inputMode={key === 'KM' || key === 'HA' ? 'decimal' : undefined} />
             )}
