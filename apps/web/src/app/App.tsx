@@ -916,6 +916,8 @@ export function App() {
               onMoveRight={handleMoveBranchRight}
               onReplace={() => setReplaceMode(true)}
               onDelete={handleDeleteNode}
+              onPreviousMove={() => navigatePrevious()}
+              onNextMove={() => navigateNext()}
             />
           </aside>
         </Content>

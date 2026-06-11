@@ -1,7 +1,7 @@
 import {LeftOutlined, RightOutlined, DeleteOutlined, SwapOutlined, DoubleLeftOutlined} from '@ant-design/icons';
 import {Button, Space} from 'antd';
 import {buildTree, getBoardSize, samePath, type SgfDocument} from '@ulugo/sgf-core';
-import {useCallback, useEffect, useMemo, useRef, type ReactNode} from 'react';
+import {useCallback, useEffect, useMemo, useRef, type ReactNode, type WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import {
   cornerRadius,
@@ -14,6 +14,8 @@ import {
   type TreeLayout,
 } from './layout';
 
+const moveTreePaddingTop = 4;
+
 interface SgfTreePanelProps {
   document: SgfDocument;
   selectedPath: number[];
@@ -24,6 +26,8 @@ interface SgfTreePanelProps {
   onMoveRight: () => void;
   onReplace: () => void;
   onDelete: () => void;
+  onPreviousMove: () => void;
+  onNextMove: () => void;
 }
 
 export function SgfTreePanel({
@@ -36,6 +40,8 @@ export function SgfTreePanel({
   onMoveRight,
   onReplace,
   onDelete,
+  onPreviousMove,
+  onNextMove,
 }: SgfTreePanelProps) {
   const {t} = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -60,9 +66,13 @@ export function SgfTreePanel({
     const node = panel.querySelector<HTMLElement>(`[data-tree-node-id="${selectedCell.id}"]`);
     if (node == null) return;
 
-    suppressScrollSelectRef.current = true;
-    node.scrollIntoView({block: 'nearest', inline: 'nearest'});
-    lastScrollTopRef.current = panel.scrollTop;
+    if (!isTreeRowVisible(panel, selectedCell.row)) {
+      suppressScrollSelectRef.current = true;
+      scrollTreeRowIntoView(panel, selectedCell.row);
+      lastScrollTopRef.current = panel.scrollTop;
+    }
+
+    scrollTreeNodeHorizontallyIntoView(panel, node);
 
     if (releaseSuppressScrollSelectRef.current != null) {
       window.clearTimeout(releaseSuppressScrollSelectRef.current);
@@ -96,16 +106,37 @@ export function SgfTreePanel({
     const branchCells = layout.cells
       .filter((cell) => cell.column === currentCell.column)
       .sort((left, right) => left.row - right.row);
-    const maxScroll = panel.scrollHeight - panel.clientHeight;
-    const scrollRatio = maxScroll <= 0 ? 0 : panel.scrollTop / maxScroll;
-    const nextIndex = Math.min(branchCells.length - 1, Math.max(0, Math.round(scrollRatio * (branchCells.length - 1))));
-    const nextCell = branchCells[nextIndex];
+    if (isTreeRowVisible(panel, currentCell.row)) return;
+
+    const nextCell = closestVisibleCell(panel, branchCells, currentCell.row);
 
     if (nextCell != null && !samePath(nextCell.path, selectedPath)) {
       selectedFromScrollRef.current = true;
       onSelectPath(nextCell.path);
     }
   }, [layout, onSelectPath, selectedPath]);
+
+  const handleWheel = useCallback(
+    (event: WheelEvent<HTMLDivElement>) => {
+      if (event.deltaY === 0) return;
+
+      const panel = scrollRef.current;
+      if (panel == null) return;
+
+      const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
+      const atTop = panel.scrollTop <= 0;
+      const atBottom = panel.scrollTop >= maxScroll - 1;
+
+      if (event.deltaY < 0 && atTop) {
+        event.preventDefault();
+        onPreviousMove();
+      } else if (event.deltaY > 0 && atBottom) {
+        event.preventDefault();
+        onNextMove();
+      }
+    },
+    [onNextMove, onPreviousMove]
+  );
 
   return (
     <section className="side-panel tree-panel">
@@ -147,7 +178,7 @@ export function SgfTreePanel({
           />
         </Space.Compact>
       </div>
-      <div className="tree-scroll" ref={scrollRef} onScroll={handleScroll}>
+      <div className="tree-scroll" ref={scrollRef} onScroll={handleScroll} onWheel={handleWheel}>
         <div
           className="move-tree"
           style={{gridTemplateColumns: `${gutterWidth}px repeat(${layout.columns}, ${treeColumnStep}px)`}}
@@ -167,6 +198,58 @@ export function SgfTreePanel({
       </div>
     </section>
   );
+}
+
+function isTreeRowVisible(panel: HTMLDivElement, row: number): boolean {
+  const rowTop = moveTreePaddingTop + row * treeRowStep;
+  const rowBottom = rowTop + treeRowStep;
+  const visibleTop = panel.scrollTop;
+  const visibleBottom = visibleTop + panel.clientHeight;
+
+  return rowBottom > visibleTop && rowTop < visibleBottom;
+}
+
+function scrollTreeRowIntoView(panel: HTMLDivElement, row: number): void {
+  const rowTop = moveTreePaddingTop + row * treeRowStep;
+  const rowBottom = rowTop + treeRowStep;
+  const visibleTop = panel.scrollTop;
+  const visibleBottom = visibleTop + panel.clientHeight;
+
+  if (isTreeRowVisible(panel, row)) return;
+
+  const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
+  const nextScrollTop = rowTop < visibleTop ? rowTop : rowBottom - panel.clientHeight;
+  panel.scrollTop = Math.max(0, Math.min(maxScroll, nextScrollTop));
+}
+
+function scrollTreeNodeHorizontallyIntoView(panel: HTMLDivElement, node: HTMLElement): void {
+  const nodeLeft = node.offsetLeft;
+  const nodeRight = nodeLeft + node.offsetWidth;
+  const visibleLeft = panel.scrollLeft;
+  const visibleRight = visibleLeft + panel.clientWidth;
+
+  if (nodeLeft < visibleLeft) {
+    panel.scrollLeft = nodeLeft;
+  } else if (nodeRight > visibleRight) {
+    panel.scrollLeft = nodeRight - panel.clientWidth;
+  }
+}
+
+function closestVisibleCell(panel: HTMLDivElement, cells: TreeCell[], row: number): TreeCell | null {
+  let closestCell: TreeCell | null = null;
+  let closestDistance = Infinity;
+
+  for (const cell of cells) {
+    if (!isTreeRowVisible(panel, cell.row)) continue;
+
+    const distance = Math.abs(cell.row - row);
+    if (distance < closestDistance) {
+      closestCell = cell;
+      closestDistance = distance;
+    }
+  }
+
+  return closestCell;
 }
 
 function TreeActionButton({

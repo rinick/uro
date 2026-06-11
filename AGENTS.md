@@ -1,6 +1,6 @@
 # Ulugo Project Notes
 
-Keep code changes minimal and scoped to each task. Prefer simpler code and less code. Pause on errors, blockers, or unclear requirements.
+Prefer simpler code and less code. Pause on errors, blockers, or unclear requirements.
 When adding string to i18n.ts, update the translation for all languages.
 
 ## Project Shape
