@@ -864,7 +864,15 @@ button.ant-btn.analysis-button {
   background: linear-gradient(100deg, #6253e1, #04befe, #1677ff, #6253e1);
   background-size: 400%;
 }
-
+.glow-button-red,
+.glow-button-deep-dive {
+  background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);
+  background-size: 400%;
+}
+.glow-button-green {
+  background: linear-gradient(100deg, #40c057, #12b886, #2f9e44, #40c057);
+  background-size: 400%;
+}
 .glow-button > * {
   z-index: 2;
 }

@@ -25,7 +25,7 @@ import {
 import {collectNodeIds, nodeKey, pathKey} from './appSgfUtils';
 import {createLocalConsoleMessage} from './appUiUtils';
 
-const liveAnalysisVisits = 10_000_000;
+const deepAnalysisVisits = 10_000_000;
 const maxFastAnalysisQueries = 2;
 const nextFastAnalysisCount = 5;
 const analysisSettingsStorageKey = 'ulugo.analysisSettings';
@@ -61,15 +61,21 @@ export function useKataGoAnalysis({
   const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
   const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
   const [analysisMode, setAnalysisMode] = useState(false);
+  const [analysisDeepMode, setAnalysisDeepMode] = useState(false);
   const [analysisQueueRevision, setAnalysisQueueRevision] = useState(0);
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
   const analysisModeRef = useRef(false);
+  const analysisDeepModeRef = useRef(false);
   const kataGoConsoleRef = useRef<HTMLDivElement>(null);
+  const currentNodeId = nodeKey(document, path);
+  const liveAnalysisTargetVisits = analysisDeepMode
+    ? deepAnalysisVisits
+    : Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
 
   const currentAnalysis = useMemo(
-    () => (enabled ? (analysisCache[nodeKey(document, path)]?.result ?? null) : null),
-    [analysisCache, document, enabled, path]
+    () => (enabled ? (analysisCache[currentNodeId]?.result ?? null) : null),
+    [analysisCache, currentNodeId, enabled]
   );
   const analysisTargetVisits = Math.max(1, kataGoSettings.fastVisits || defaultKataGoSettings.fastVisits);
   const analysisPendingCounts = useMemo(() => {
@@ -97,6 +103,12 @@ export function useKataGoAnalysis({
     enabled,
   ]);
   const fastAnalysisPendingCount = analysisPendingCounts.normal + analysisPendingCounts.hiddenPass;
+  const analysisIdle =
+    analysisMode &&
+    fastAnalysisPendingCount === 0 &&
+    !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'fast') &&
+    !hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live') &&
+    (analysisCache[currentNodeId]?.visits ?? 0) >= liveAnalysisTargetVisits;
   const analysisChartData = useMemo<AnalysisChartPoint[]>(
     () => (enabled ? buildAnalysisChartData(document, analysisChartPaths, analysisCache, analysisTargetVisits) : []),
     [analysisCache, analysisChartPaths, analysisTargetVisits, document, enabled]
@@ -136,22 +148,36 @@ export function useKataGoAnalysis({
   }, []);
 
   const setAnalysisModeActive = useCallback(
-    (active: boolean): void => {
+    (active: boolean, deep = false): void => {
       if (!enabled && active) return;
+      const nextDeep = active && deep;
+      const shouldRestartLive = active && analysisModeRef.current && analysisDeepModeRef.current !== nextDeep;
       analysisModeRef.current = active;
+      analysisDeepModeRef.current = nextDeep;
       setAnalysisMode(active);
+      setAnalysisDeepMode(nextDeep);
       if (!active) {
         clearPendingAnalysisQueries('fast');
         clearPendingAnalysisQueries('live');
         if (enabled && window.ulugo != null) void window.ulugo.katago.stopAnalysis();
+      } else if (shouldRestartLive) {
+        const liveQueryIds = getPendingAnalysisQueryIds(analysisQueryContextRef.current, 'live');
+        clearPendingAnalysisQueries('live');
+        if (enabled && window.ulugo != null && liveQueryIds.length > 0) {
+          void window.ulugo.katago.stopAnalysis(liveQueryIds);
+        }
       }
     },
     [clearPendingAnalysisQueries, enabled]
   );
 
   const toggleAnalysisMode = useCallback((): void => {
-    setAnalysisModeActive(!analysisMode);
-  }, [analysisMode, setAnalysisModeActive]);
+    setAnalysisModeActive(!analysisMode || analysisDeepMode, false);
+  }, [analysisDeepMode, analysisMode, setAnalysisModeActive]);
+
+  const toggleDeepAnalysisMode = useCallback((): void => {
+    setAnalysisModeActive(!analysisDeepMode, true);
+  }, [analysisDeepMode, setAnalysisModeActive]);
 
   const resetAnalysisForDocumentChange = useCallback(
     (next: SgfDocument, options: AnalysisDocumentChangeOptions): void => {
@@ -263,6 +289,10 @@ export function useKataGoAnalysis({
     analysisModeRef.current = analysisMode;
   }, [analysisMode]);
 
+  useEffect(() => {
+    analysisDeepModeRef.current = analysisDeepMode;
+  }, [analysisDeepMode]);
+
   const requestAnalysis = useCallback(
     async (
       requestPath: number[],
@@ -287,7 +317,7 @@ export function useKataGoAnalysis({
             id: queryId,
             path: requestPath,
             live,
-            maxVisits: live ? liveAnalysisVisits : maxVisits,
+            maxVisits,
           })
         );
       } catch (error) {
@@ -355,8 +385,9 @@ export function useKataGoAnalysis({
       return;
     }
 
-    const targetVisits = Math.max(1, kataGoSettings.maxVisits || defaultKataGoSettings.maxVisits);
-    const liveNodeId = nodeKey(document, path);
+    const targetVisits = liveAnalysisTargetVisits;
+    const liveNodeId = currentNodeId;
+    if ((analysisCache[liveNodeId]?.visits ?? 0) >= targetVisits) return;
     if (hasPendingAnalysisQuery(analysisQueryContextRef.current, 'live', liveNodeId)) return;
     let cancelled = false;
 
@@ -385,13 +416,17 @@ export function useKataGoAnalysis({
     };
   }, [
     analysisMode,
+    analysisDeepMode,
     analysisQueueRevision,
     appendKataGoConsoleMessage,
+    analysisCache,
     clearPendingAnalysisQueries,
+    currentNodeId,
     document,
     enabled,
     fastAnalysisPendingCount,
     kataGoSettings.maxVisits,
+    liveAnalysisTargetVisits,
     path,
     pendingSetupPathRef,
     requestAnalysis,
@@ -466,8 +501,11 @@ export function useKataGoAnalysis({
     updateAnalysisSettings,
     onAnalysisSettingsSave: saveAnalysisSettings,
     analysisMode,
+    analysisDeepMode,
+    analysisIdle,
     setAnalysisModeActive,
     toggleAnalysisMode,
+    toggleDeepAnalysisMode,
     currentAnalysis,
     stoneScoreDeltas,
     analysisChartData,

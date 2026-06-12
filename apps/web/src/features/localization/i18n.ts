@@ -106,6 +106,7 @@ export const resources = {
           toggleWinrate: 'Win rate',
           toggleComments: 'Comments',
           toggleAnalysisMode: 'Analysis mode',
+          toggleDeepAnalysisMode: 'Deep analysis mode',
         },
       },
       katago: {
@@ -337,6 +338,7 @@ export const resources = {
           toggleWinrate: '胜率',
           toggleComments: '注释',
           toggleAnalysisMode: '分析模式',
+          toggleDeepAnalysisMode: '深度分析模式',
         },
       },
       katago: {
@@ -568,6 +570,7 @@ export const resources = {
           toggleWinrate: '勝率',
           toggleComments: 'コメント',
           toggleAnalysisMode: '解析モード',
+          toggleDeepAnalysisMode: '深い解析モード',
         },
       },
       katago: {
@@ -799,6 +802,7 @@ export const resources = {
           toggleWinrate: '승률',
           toggleComments: '댓글',
           toggleAnalysisMode: '분석 모드',
+          toggleDeepAnalysisMode: '심층 분석 모드',
         },
       },
       katago: {
@@ -1030,6 +1034,7 @@ export const resources = {
           toggleWinrate: 'Taux de victoire',
           toggleComments: 'Commentaires',
           toggleAnalysisMode: 'Mode analyse',
+          toggleDeepAnalysisMode: 'Analyse profonde',
         },
       },
       katago: {
@@ -1261,6 +1266,7 @@ export const resources = {
           toggleWinrate: 'Gewinnrate',
           toggleComments: 'Kommentare',
           toggleAnalysisMode: 'Analysemodus',
+          toggleDeepAnalysisMode: 'Tiefenanalyse',
         },
       },
       katago: {
@@ -1492,6 +1498,7 @@ export const resources = {
           toggleWinrate: 'Процент побед',
           toggleComments: 'Комментарии',
           toggleAnalysisMode: 'Режим анализа',
+          toggleDeepAnalysisMode: 'Глубокий анализ',
         },
       },
       katago: {

@@ -35,7 +35,7 @@ import {
   type SgfNode,
 } from '@ulugo/sgf-core';
 import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState, type MouseEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
@@ -180,8 +180,11 @@ export function App() {
     analysisSettings,
     updateAnalysisSettings,
     analysisMode,
+    analysisDeepMode,
+    analysisIdle,
     setAnalysisModeActive,
     toggleAnalysisMode,
+    toggleDeepAnalysisMode,
     currentAnalysis,
     stoneScoreDeltas,
     analysisChartData,
@@ -561,6 +564,9 @@ export function App() {
         case 'toggleAnalysisMode':
           toggleAnalysisMode();
           break;
+        case 'toggleDeepAnalysisMode':
+          toggleDeepAnalysisMode();
+          break;
       }
     }
 
@@ -582,9 +588,18 @@ export function App() {
     navigatePrevious,
     path,
     position.nextColor,
+    toggleDeepAnalysisMode,
     toggleAnalysisMode,
     updateAnalysisSettings,
   ]);
+
+  function handleAnalysisButtonClick(event: MouseEvent<HTMLElement>): void {
+    if (event.shiftKey) {
+      toggleDeepAnalysisMode();
+    } else {
+      toggleAnalysisMode();
+    }
+  }
 
   function handleBoardClick(point: string, options: BoardVertexClickOptions, colorOverride?: SgfColor): void {
     if (options.shiftKey || options.clickCount > 1) {
@@ -939,11 +954,17 @@ export function App() {
             />
             {capabilities.katago ? (
               <Button
-                className={['analysis-button', analysisMode ? 'glow-button' : ''].filter(Boolean).join(' ')}
+                className={[
+                  'analysis-button',
+                  analysisMode ? 'glow-button' : '',
+                  analysisDeepMode ? 'glow-button-red' : analysisIdle ? 'glow-button-green' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 icon={<ThunderboltOutlined />}
                 type={analysisMode ? 'primary' : 'default'}
                 title={t('analysis.button')}
-                onClick={toggleAnalysisMode}
+                onClick={handleAnalysisButtonClick}
               >
                 {analysisMode ? <span>{fastAnalysisPendingCount}</span> : ''}
               </Button>

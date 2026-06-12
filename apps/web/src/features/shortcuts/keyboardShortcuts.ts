@@ -35,7 +35,8 @@ export type ShortcutActionId =
   | 'togglePointLoss'
   | 'toggleWinrate'
   | 'toggleComments'
-  | 'toggleAnalysisMode';
+  | 'toggleAnalysisMode'
+  | 'toggleDeepAnalysisMode';
 
 export type KeyboardShortcutConfig = Record<ShortcutActionId, KeyboardShortcut | null>;
 
@@ -137,6 +138,12 @@ export const shortcutActions: ShortcutAction[] = [
     id: 'toggleAnalysisMode',
     labelKey: 'shortcuts.actions.toggleAnalysisMode',
     defaultShortcut: shortcut('Space'),
+    electronOnly: true,
+  },
+  {
+    id: 'toggleDeepAnalysisMode',
+    labelKey: 'shortcuts.actions.toggleDeepAnalysisMode',
+    defaultShortcut: shortcut('Space', {shift: true}),
     electronOnly: true,
   },
 ];
