@@ -114,6 +114,19 @@ export function AnalysisSettingsModal({
             <Switch size="small" checked={playStoneSound} onChange={onPlayStoneSoundChange} />
           </div>
         </Form.Item>
+        <Form.Item label={t('settings.boardBackground')}>
+          <Select
+            size="small"
+            value={settings.boardBackground}
+            onChange={(value) => updateSettings({boardBackground: value as AnalysisSettings['boardBackground']})}
+            options={[
+              ...(showKataGoSettings ? [{value: 'auto', label: t('settings.boardBackgroundAuto')}] : []),
+              {value: 'color', label: t('settings.boardBackgroundColor')},
+              {value: 'grey', label: t('settings.boardBackgroundGrey')},
+              {value: 'pale', label: t('settings.boardBackgroundPale')},
+            ]}
+          />
+        </Form.Item>
         <Form.Item>
           <Button block onClick={onKeyboardShortcutsClick}>
             {t('shortcuts.button')}

@@ -56,12 +56,13 @@ export function useKataGoAnalysis({
   pendingSetupPathRef,
   startFailedMessage,
 }: UseKataGoAnalysisOptions) {
-  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(() => readStoredAnalysisSettings());
+  const [analysisSettings, setAnalysisSettings] = useState<AnalysisSettings>(() => readStoredAnalysisSettings(enabled));
   const [kataGoSettings, setKataGoSettings] = useState<KataGoSettings>(defaultKataGoSettings);
   const [analysisCache, setAnalysisCache] = useState<Record<string, CachedAnalysis>>({});
   const [kataGoConsoleMessages, setKataGoConsoleMessages] = useState<KataGoConsoleMessage[]>([]);
   const [analysisMode, setAnalysisMode] = useState(false);
   const [analysisDeepMode, setAnalysisDeepMode] = useState(false);
+  const [kataGoInitialized, setKataGoInitialized] = useState(false);
   const [analysisQueueRevision, setAnalysisQueueRevision] = useState(0);
   const analysisQueryContextRef = useRef(new Map<string, AnalysisQueryContext>());
   const documentVersionRef = useRef(0);
@@ -245,6 +246,7 @@ export function useKataGoAnalysis({
       if (context.version !== documentVersionRef.current) return;
       if (result.error != null) return;
 
+      setKataGoInitialized(true);
       const visits = getAnalysisVisits(result);
       setAnalysisCache((current) => {
         const existing = current[context.nodeId];
@@ -512,6 +514,7 @@ export function useKataGoAnalysis({
     selectedChartMoveNumber,
     analysisChartSummary,
     fastAnalysisPendingCount,
+    kataGoInitialized,
     kataGoConsoleMessages,
     setKataGoConsoleMessages,
     kataGoConsoleRef,
@@ -520,13 +523,19 @@ export function useKataGoAnalysis({
   };
 }
 
-function readStoredAnalysisSettings(): AnalysisSettings {
+function readStoredAnalysisSettings(enabled: boolean): AnalysisSettings {
+  const defaults: AnalysisSettings = enabled
+    ? defaultAnalysisSettings
+    : {...defaultAnalysisSettings, boardBackground: 'color'};
+
   try {
     const value = localStorage.getItem(analysisSettingsStorageKey);
-    if (value == null) return defaultAnalysisSettings;
-    return {...defaultAnalysisSettings, ...JSON.parse(value)};
+    if (value == null) return defaults;
+    const settings = {...defaults, ...JSON.parse(value)};
+    if (!enabled && settings.boardBackground === 'auto') return {...settings, boardBackground: 'color'};
+    return settings;
   } catch {
-    return defaultAnalysisSettings;
+    return defaults;
   }
 }
 

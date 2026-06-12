@@ -13,6 +13,7 @@ interface GoBoardProps {
   analysis: KataGoAnalysisResult | null;
   stoneScoreDeltas: Map<string, number>;
   analysisSettings: AnalysisSettings;
+  boardBackground: BoardBackgroundTheme;
   onVertexClick: (point: string, options: BoardVertexClickOptions) => void;
   onVertexRightClick: (point: string) => void;
 }
@@ -23,6 +24,7 @@ export interface BoardVertexClickOptions {
 }
 
 export type MoveNumberLimit = 0 | 1 | 5 | 20 | 'all';
+type BoardBackgroundTheme = Exclude<AnalysisSettings['boardBackground'], 'auto'>;
 
 const markerTypes: Record<MarkupKind, Marker['type']> = {
   CR: 'circle',
@@ -46,6 +48,7 @@ export function GoBoard({
   analysis,
   stoneScoreDeltas,
   analysisSettings,
+  boardBackground,
   onVertexClick,
   onVertexRightClick,
 }: GoBoardProps) {
@@ -174,7 +177,7 @@ export function GoBoard({
     <div className="board-frame" ref={frameRef}>
       <div className="board-surface" onContextMenu={(event) => event.preventDefault()}>
         <Goban
-          className="ulugo-goban"
+          className={`ulugo-goban shudan-goban-${boardBackground}`}
           vertexSize={vertexSize}
           showCoordinates={showCoordinates}
           signMap={signMap}

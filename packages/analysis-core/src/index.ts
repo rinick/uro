@@ -1,6 +1,7 @@
 export type AnalysisDisplayMode = 'none' | 'score' | 'winrate' | 'absScore';
 export type AnalysisTopMoveDisplay = 'dot' | 'number' | 'none';
 export type AnalysisMoveLimit = 1 | 5 | 20 | 'all';
+export type BoardBackground = 'auto' | 'color' | 'grey' | 'pale';
 
 export interface KataGoRootInfo {
   scoreLead?: number;
@@ -40,6 +41,7 @@ export interface AnalysisSettings {
   showNextMove: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
+  boardBackground: BoardBackground;
   autoAnalyze: boolean;
 }
 
@@ -51,6 +53,7 @@ export const defaultAnalysisSettings: AnalysisSettings = {
   showNextMove: true,
   showTopMoves: true,
   showExpectedTerritory: false,
+  boardBackground: 'auto',
   autoAnalyze: true,
 };
 

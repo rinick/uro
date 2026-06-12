@@ -24,6 +24,7 @@ interface AnalysisSettings {
   showNextMove: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
+  boardBackground: 'auto' | 'color' | 'grey' | 'pale';
   autoAnalyze: boolean;
 }
 
@@ -46,6 +47,7 @@ const defaultAnalysisSettings: AnalysisSettings = {
   showNextMove: true,
   showTopMoves: true,
   showExpectedTerritory: false,
+  boardBackground: 'auto',
   autoAnalyze: true,
 };
 

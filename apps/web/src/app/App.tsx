@@ -125,6 +125,7 @@ export function App() {
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [autoBoardBackgroundReady, setAutoBoardBackgroundReady] = useState(false);
   const [keyboardShortcuts, setKeyboardShortcuts] = useState(() => readKeyboardShortcuts());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const commentsPanelRef = useRef<CommentsPanelHandle>(null);
@@ -191,6 +192,7 @@ export function App() {
     selectedChartMoveNumber,
     analysisChartSummary,
     fastAnalysisPendingCount,
+    kataGoInitialized,
     kataGoConsoleMessages,
     setKataGoConsoleMessages,
     kataGoConsoleRef,
@@ -208,6 +210,10 @@ export function App() {
   const stoneOverlayDisplay =
     !capabilities.katago && analysisSettings.topMoveDisplay === 'dot' ? 'number' : analysisSettings.topMoveDisplay;
   const boardMoveNumberLimit = stoneOverlayDisplay === 'number' ? analysisSettings.maxMoves : 0;
+  const boardBackground = resolveBoardBackground(
+    analysisSettings.boardBackground,
+    autoBoardBackgroundReady && analysisSettings.showTopMoves
+  );
   const appTitle = capabilities.platform === 'electron' ? t('app.electronTitle') : t('app.title');
   const blackPlayerName = gameInfo.PB.trim() === '' ? t('app.black') : gameInfo.PB;
   const whitePlayerName = gameInfo.PW.trim() === '' ? t('app.white') : gameInfo.PW;
@@ -225,6 +231,12 @@ export function App() {
     if (capabilities.katago || analysisSettings.topMoveDisplay !== 'dot') return;
     updateAnalysisSettings({topMoveDisplay: 'number', maxMoves: 'all'});
   }, [analysisSettings.topMoveDisplay, capabilities.katago, updateAnalysisSettings]);
+
+  useEffect(() => {
+    if (autoBoardBackgroundReady || !capabilities.katago || !analysisSettings.showTopMoves || !kataGoInitialized)
+      return;
+    setAutoBoardBackgroundReady(true);
+  }, [autoBoardBackgroundReady, analysisSettings.showTopMoves, capabilities.katago, kataGoInitialized]);
 
   function rememberPath(nextPath: number[]): void {
     for (let index = 0; index < nextPath.length; index += 1) {
@@ -949,6 +961,7 @@ export function App() {
               analysis={currentAnalysis}
               stoneScoreDeltas={stoneScoreDeltas}
               analysisSettings={analysisSettings}
+              boardBackground={boardBackground}
               onVertexClick={handleBoardClick}
               onVertexRightClick={handleBoardRightClick}
             />
@@ -1171,6 +1184,14 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
   } catch {
     return fallback;
   }
+}
+
+function resolveBoardBackground(
+  boardBackground: AnalysisSettings['boardBackground'],
+  useAutoGrey: boolean
+): Exclude<AnalysisSettings['boardBackground'], 'auto'> {
+  if (boardBackground === 'auto') return useAutoGrey ? 'grey' : 'color';
+  return boardBackground;
 }
 
 function writeStoredBoolean(key: string, value: boolean): void {

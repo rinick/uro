@@ -785,8 +785,6 @@ textarea,
 }
 
 .ulugo-goban {
-  --shudan-board-border-color: #8c5e28;
-  --shudan-board-background-color: #dfaa55;
   --shudan-board-foreground-color: #503819;
   --shudan-black-background-color: #161a1f;
   --shudan-black-foreground-color: #f5f7fa;
