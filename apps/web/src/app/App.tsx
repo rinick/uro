@@ -19,6 +19,7 @@ import {
   getComment,
   getBoardSize,
   getGameInfo,
+  getLine,
   getNodeAtPath,
   buildTree,
   moveBranch,
@@ -30,14 +31,16 @@ import {
   updateGameInfo,
   type SgfColor,
   type SgfDocument,
+  type SgfNode,
 } from '@ulugo/sgf-core';
 import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
+import stoneSoundUrl from '../assets/go_stone_light.wav';
 import {GoogleAd} from '../features/ads/GoogleAd';
-import {GoBoard} from '../features/board/GoBoard';
+import {GoBoard, type BoardVertexClickOptions} from '../features/board/GoBoard';
 import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
 import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal';
@@ -90,6 +93,7 @@ import {useKataGoAnalysis} from './useKataGoAnalysis';
 const {Header, Content} = Layout;
 const showCoordinatesStorageKey = 'ulugo.showCoordinates';
 const showMarkupStorageKey = 'ulugo.showMarkup';
+const playStoneSoundStorageKey = 'ulugo.playStoneSound';
 
 interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
@@ -110,6 +114,7 @@ export function App() {
   const [showMarkup, setShowMarkup] = useState(() =>
     readStoredBoolean(showMarkupStorageKey, capabilities.platform === 'web')
   );
+  const [playStoneSound, setPlayStoneSound] = useState(() => readStoredBoolean(playStoneSoundStorageKey, true));
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [openGameModalOpen, setOpenGameModalOpen] = useState(false);
   const [storedGameId, setStoredGameId] = useState<string | null>(null);
@@ -122,6 +127,7 @@ export function App() {
   const [keyboardShortcuts, setKeyboardShortcuts] = useState(() => readKeyboardShortcuts());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const commentsPanelRef = useRef<CommentsPanelHandle>(null);
+  const stoneSoundRef = useRef<HTMLAudioElement | null>(null);
   const branchMemoryRef = useRef(new Map<string, number>());
   const pendingSetupPathRef = useRef<number[] | null>(null);
   const gameInfo = useMemo(() => getGameInfo(document), [document]);
@@ -160,6 +166,10 @@ export function App() {
   useEffect(() => {
     writeStoredBoolean(showMarkupStorageKey, showMarkup);
   }, [showMarkup]);
+
+  useEffect(() => {
+    writeStoredBoolean(playStoneSoundStorageKey, playStoneSound);
+  }, [playStoneSound]);
 
   useEffect(() => {
     if (!showMarkup && isMarkupTool(tool)) setTool('auto');
@@ -238,6 +248,15 @@ export function App() {
     setPath(normalizedPath);
     if (!options.keepAutoColorOverride) setAutoColorOverride(null);
     setReplaceMode(false);
+  }
+
+  function playPlaceStoneSound(): void {
+    if (!playStoneSound) return;
+
+    const audio = stoneSoundRef.current ?? new Audio(stoneSoundUrl);
+    stoneSoundRef.current = audio;
+    audio.currentTime = 0;
+    void audio.play().catch(() => undefined);
   }
 
   function handleNew(size: BoardSize = 19): void {
@@ -558,7 +577,17 @@ export function App() {
     updateAnalysisSettings,
   ]);
 
-  function handleBoardClick(point: string, colorOverride?: SgfColor): void {
+  function handleBoardClick(point: string, options: BoardVertexClickOptions, colorOverride?: SgfColor): void {
+    if (options.shiftKey || options.clickCount > 1) {
+      const nextPath = position.stones.has(point)
+        ? findCurrentStoneMovePath(document, path, point)
+        : options.shiftKey
+          ? findFutureMovePath(document, path, point, branchMemoryRef.current)
+          : null;
+      if (nextPath != null) selectPath(nextPath);
+      return;
+    }
+
     if (replaceMode) {
       const result = replaceMove(document, path, point);
       replaceDocument(result.document, result.path, {invalidatePath: result.path});
@@ -576,6 +605,7 @@ export function App() {
 
       const result = addMove(document, path, color, point);
       replaceDocument(result.document, result.path);
+      playPlaceStoneSound();
       return;
     }
 
@@ -586,7 +616,10 @@ export function App() {
 
         const result = addSetupStoneToPath(document, path, color, point);
         replaceDocument(result.document, result.path, {invalidatePath: result.path, pendingSetupPath: result.path});
-        if (result.placed) setAutoColorOverride(oppositeColor(color));
+        if (result.placed) {
+          playPlaceStoneSound();
+          setAutoColorOverride(oppositeColor(color));
+        }
         return;
       }
 
@@ -599,6 +632,7 @@ export function App() {
 
       const result = addMove(document, path, color, point);
       replaceDocument(result.document, result.path);
+      playPlaceStoneSound();
       return;
     }
 
@@ -623,7 +657,7 @@ export function App() {
 
   function handleBoardRightClick(point: string): void {
     if (tool !== 'black' && tool !== 'white') return;
-    handleBoardClick(point, tool === 'black' ? 'W' : 'B');
+    handleBoardClick(point, {shiftKey: false, clickCount: 1}, tool === 'black' ? 'W' : 'B');
   }
 
   function handlePass(): void {
@@ -971,12 +1005,14 @@ export function App() {
         language={currentLanguage}
         showCoordinates={showCoordinates}
         showMarkup={showMarkup}
+        playStoneSound={playStoneSound}
         showKataGoSettings={capabilities.katago}
         onCancel={() => setAnalysisSettingsOpen(false)}
         onSettingsChange={updateAnalysisSettings}
         onLanguageChange={handleLanguageChange}
         onShowCoordinatesChange={setShowCoordinates}
         onShowMarkupChange={setShowMarkup}
+        onPlayStoneSoundChange={setPlayStoneSound}
         onKeyboardShortcutsClick={openKeyboardShortcuts}
       />
       <KeyboardShortcutsModal
@@ -997,6 +1033,76 @@ export function App() {
       />
     </ConfigProvider>
   );
+}
+
+function findCurrentStoneMovePath(document: SgfDocument, selectedPath: number[], point: string): number[] | null {
+  const line = getLine(document, selectedPath);
+  for (let depth = Math.min(selectedPath.length, line.length - 1); depth > 0; depth -= 1) {
+    if (nodeMovePoint(line[depth]) === point) return selectedPath.slice(0, depth);
+  }
+
+  return null;
+}
+
+function findFutureMovePath(
+  document: SgfDocument,
+  selectedPath: number[],
+  point: string,
+  branchMemory: Map<string, number>
+): number[] | null {
+  const currentBranchPaths = futureCurrentBranchPaths(document, selectedPath, branchMemory);
+  for (const nextPath of currentBranchPaths) {
+    if (nodeMovePoint(getNodeAtPath(document, nextPath)) === point) return nextPath;
+  }
+
+  return findDescendantMovePath(
+    getNodeAtPath(document, selectedPath),
+    selectedPath,
+    point,
+    new Set(currentBranchPaths.map(pathKey))
+  );
+}
+
+function futureCurrentBranchPaths(
+  document: SgfDocument,
+  selectedPath: number[],
+  branchMemory: Map<string, number>
+): number[][] {
+  const paths: number[][] = [];
+  let path = selectedPath;
+  let node = getNodeAtPath(document, path);
+
+  while (node.children.length > 0) {
+    const rememberedChild = branchMemory.get(pathKey(path)) ?? 0;
+    const nextIndex = rememberedChild < node.children.length ? rememberedChild : 0;
+    path = [...path, nextIndex];
+    paths.push(path);
+    node = node.children[nextIndex];
+  }
+
+  return paths;
+}
+
+function findDescendantMovePath(
+  node: SgfNode,
+  path: number[],
+  point: string,
+  skippedPaths: Set<string>
+): number[] | null {
+  for (const [index, child] of node.children.entries()) {
+    const childPath = [...path, index];
+    const skipped = skippedPaths.has(pathKey(childPath));
+    if (!skipped && nodeMovePoint(child) === point) return childPath;
+
+    const descendantPath = findDescendantMovePath(child, childPath, point, skippedPaths);
+    if (descendantPath != null) return descendantPath;
+  }
+
+  return null;
+}
+
+function nodeMovePoint(node: SgfNode): string | null {
+  return node.data.B?.[0] ?? node.data.W?.[0] ?? null;
 }
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {

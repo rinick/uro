@@ -66,6 +66,7 @@ export const resources = {
       settings: {
         title: 'Settings',
         showMarkup: 'Show Markup',
+        playStoneSound: 'Play stone sound',
       },
       shortcuts: {
         button: 'Keyboard shortcuts',
@@ -295,6 +296,7 @@ export const resources = {
       settings: {
         title: '设置',
         showMarkup: '显示标记',
+        playStoneSound: '播放落子音效',
       },
       shortcuts: {
         button: '键盘快捷键',
@@ -524,6 +526,7 @@ export const resources = {
       settings: {
         title: '設定',
         showMarkup: 'マークアップを表示',
+        playStoneSound: '着手音を再生',
       },
       shortcuts: {
         button: 'キーボードショートカット',
@@ -753,6 +756,7 @@ export const resources = {
       settings: {
         title: '설정',
         showMarkup: '표식 표시',
+        playStoneSound: '착수 소리 재생',
       },
       shortcuts: {
         button: '키보드 단축키',
@@ -982,6 +986,7 @@ export const resources = {
       settings: {
         title: 'Paramètres',
         showMarkup: 'Afficher les annotations',
+        playStoneSound: 'Jouer le son de pierre',
       },
       shortcuts: {
         button: 'Raccourcis clavier',
@@ -1211,6 +1216,7 @@ export const resources = {
       settings: {
         title: 'Einstellungen',
         showMarkup: 'Markierungen anzeigen',
+        playStoneSound: 'Stein-Klang abspielen',
       },
       shortcuts: {
         button: 'Tastenkombinationen',
@@ -1440,6 +1446,7 @@ export const resources = {
       settings: {
         title: 'Настройки',
         showMarkup: 'Показывать разметку',
+        playStoneSound: 'Воспроизводить звук камня',
       },
       shortcuts: {
         button: 'Сочетания клавиш',

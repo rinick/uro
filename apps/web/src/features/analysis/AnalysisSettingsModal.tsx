@@ -10,12 +10,14 @@ interface AnalysisSettingsModalProps {
   language: AppLanguage;
   showCoordinates: boolean;
   showMarkup: boolean;
+  playStoneSound: boolean;
   showKataGoSettings?: boolean;
   onCancel: () => void;
   onSettingsChange: (settings: AnalysisSettings) => void;
   onLanguageChange: (language: AppLanguage) => void;
   onShowCoordinatesChange: (showCoordinates: boolean) => void;
   onShowMarkupChange: (showMarkup: boolean) => void;
+  onPlayStoneSoundChange: (playStoneSound: boolean) => void;
   onKeyboardShortcutsClick: () => void;
 }
 
@@ -25,12 +27,14 @@ export function AnalysisSettingsModal({
   language,
   showCoordinates,
   showMarkup,
+  playStoneSound,
   showKataGoSettings = false,
   onCancel,
   onSettingsChange,
   onLanguageChange,
   onShowCoordinatesChange,
   onShowMarkupChange,
+  onPlayStoneSoundChange,
   onKeyboardShortcutsClick,
 }: AnalysisSettingsModalProps) {
   const {t} = useTranslation();
@@ -102,6 +106,12 @@ export function AnalysisSettingsModal({
           <div className="app-settings-row">
             <span>{t('settings.showMarkup')}</span>
             <Switch size="small" checked={showMarkup} onChange={onShowMarkupChange} />
+          </div>
+        </Form.Item>
+        <Form.Item>
+          <div className="app-settings-row">
+            <span>{t('settings.playStoneSound')}</span>
+            <Switch size="small" checked={playStoneSound} onChange={onPlayStoneSoundChange} />
           </div>
         </Form.Item>
         <Form.Item>

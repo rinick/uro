@@ -13,8 +13,13 @@ interface GoBoardProps {
   analysis: KataGoAnalysisResult | null;
   stoneScoreDeltas: Map<string, number>;
   analysisSettings: AnalysisSettings;
-  onVertexClick: (point: string) => void;
+  onVertexClick: (point: string, options: BoardVertexClickOptions) => void;
   onVertexRightClick: (point: string) => void;
+}
+
+export interface BoardVertexClickOptions {
+  shiftKey: boolean;
+  clickCount: number;
 }
 
 export type MoveNumberLimit = 0 | 1 | 5 | 20 | 'all';
@@ -112,7 +117,11 @@ export function GoBoard({
     [analysis, analysisSettings, heatMap, moveNumberLimit, position.moveNumber, position.points, position.size, position.stones]
   );
   const handleVertexClick = useCallback(
-    (_event: VertexEvent, vertex: Vertex) => onVertexClick(vertexToPoint(vertex[0], vertex[1])),
+    (event: VertexEvent, vertex: Vertex) =>
+      onVertexClick(vertexToPoint(vertex[0], vertex[1]), {
+        shiftKey: event.shiftKey,
+        clickCount: 'detail' in event ? event.detail : 1,
+      }),
     [onVertexClick]
   );
   const handleVertexMouseDown = useCallback(
