@@ -116,21 +116,22 @@ export function GoBoard({
       ),
     [analysis, analysisSettings, heatMap, moveNumberLimit, position.moveNumber, position.points, position.size, position.stones]
   );
-  const handleVertexClick = useCallback(
-    (event: VertexEvent, vertex: Vertex) =>
+  const handleVertexPointerDown = useCallback(
+    (event: VertexEvent, vertex: Vertex) => {
+      if (event.button === 2) {
+        event.preventDefault();
+        onVertexRightClick(vertexToPoint(vertex[0], vertex[1]));
+        return;
+      }
+
+      if (event.button !== 0) return;
+      event.preventDefault();
       onVertexClick(vertexToPoint(vertex[0], vertex[1]), {
         shiftKey: event.shiftKey,
         clickCount: 'detail' in event ? event.detail : 1,
-      }),
-    [onVertexClick]
-  );
-  const handleVertexMouseDown = useCallback(
-    (event: VertexEvent, vertex: Vertex) => {
-      if (event.button !== 2) return;
-      event.preventDefault();
-      onVertexRightClick(vertexToPoint(vertex[0], vertex[1]));
+      });
     },
-    [onVertexRightClick]
+    [onVertexClick, onVertexRightClick]
   );
 
   useLayoutEffect(() => {
@@ -160,8 +161,7 @@ export function GoBoard({
           moveHintMap={moveHintMap}
           paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
-          onVertexClick={handleVertexClick}
-          onVertexMouseDown={handleVertexMouseDown}
+          onVertexPointerDown={handleVertexPointerDown}
         />
       </div>
     </div>
