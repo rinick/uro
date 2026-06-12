@@ -114,7 +114,16 @@ export function GoBoard({
         moveNumberLimit,
         heatMap
       ),
-    [analysis, analysisSettings, heatMap, moveNumberLimit, position.moveNumber, position.points, position.size, position.stones]
+    [
+      analysis,
+      analysisSettings,
+      heatMap,
+      moveNumberLimit,
+      position.moveNumber,
+      position.points,
+      position.size,
+      position.stones,
+    ]
   );
   const handleVertexPointerDown = useCallback(
     (event: VertexEvent, vertex: Vertex) => {
@@ -132,6 +141,19 @@ export function GoBoard({
       });
     },
     [onVertexClick, onVertexRightClick]
+  );
+  const handleVertexClick = useCallback(
+    (event: VertexEvent, vertex: Vertex) => {
+      const clickCount = 'detail' in event ? event.detail : 1;
+      if (clickCount <= 1) return;
+
+      event.preventDefault();
+      onVertexClick(vertexToPoint(vertex[0], vertex[1]), {
+        shiftKey: event.shiftKey,
+        clickCount,
+      });
+    },
+    [onVertexClick]
   );
 
   useLayoutEffect(() => {
@@ -161,6 +183,7 @@ export function GoBoard({
           moveHintMap={moveHintMap}
           paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
+          onVertexClick={handleVertexClick}
           onVertexPointerDown={handleVertexPointerDown}
         />
       </div>
@@ -290,10 +313,11 @@ function buildOwnershipPaintMap(
   heatMap: Array<Array<HeatVertex | null>> | undefined
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
-  //const doubleStoneOpacity = settings.topMoveDisplay !== 'number';
   const cappedPaintPoints = new Set(
     points
-      .filter((point) => shouldShowMoveNumber(point.moveNumber, point.stone != null, currentMoveNumber, moveNumberLimit))
+      .filter((point) =>
+        shouldShowMoveNumber(point.moveNumber, point.stone != null, currentMoveNumber, moveNumberLimit)
+      )
       .map((point) => point.point)
   );
 
@@ -309,7 +333,6 @@ function buildOwnershipPaintMap(
       const stone = stones.get(point);
       if (stone === 'B' && paint > 0) return 0;
       if (stone === 'W' && paint < 0) return 0;
-      //if (stone != null && doubleStoneOpacity) return paint * 2;
       return shouldCapPaintOpacity ? Math.sign(paint) * Math.min(Math.abs(paint), 0.3) : paint;
     })
   );

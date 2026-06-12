@@ -29,6 +29,7 @@ import {
   serializeSgf,
   updateComment,
   updateGameInfo,
+  vertexToPoint,
   type SgfColor,
   type SgfDocument,
   type SgfNode,
@@ -494,6 +495,9 @@ export function App() {
         case 'nextBranch':
           navigateBranch(1, steps);
           break;
+        case 'playBestMove':
+          handlePlayBestAnalysisMove();
+          break;
         case 'pass':
           handlePass();
           break;
@@ -567,12 +571,17 @@ export function App() {
     analysisSettings.showNextMove,
     analysisSettings.showTopMoves,
     analysisSettings.topMoveDisplay,
+    boardSize,
     capabilities.katago,
+    currentAnalysis,
+    document,
     keyboardShortcuts,
     navigateBranch,
     navigateFirstChild,
     navigateNext,
     navigatePrevious,
+    path,
+    position.nextColor,
     toggleAnalysisMode,
     updateAnalysisSettings,
   ]);
@@ -658,6 +667,24 @@ export function App() {
   function handleBoardRightClick(point: string): void {
     if (tool !== 'black' && tool !== 'white') return;
     handleBoardClick(point, {shiftKey: false, clickCount: 1}, tool === 'black' ? 'W' : 'B');
+  }
+
+  function handlePlayBestAnalysisMove(): void {
+    const bestMove = currentAnalysis?.moveInfos?.[0]?.move;
+    if (bestMove == null) return;
+
+    const point = bestMove.toLowerCase() === 'pass' ? '' : gtpMoveToPoint(bestMove, boardSize);
+    if (point == null || position.stones.has(point)) return;
+
+    const existingChildPath = findChildMovePath(document, path, position.nextColor, point);
+    if (existingChildPath != null) {
+      selectPath(existingChildPath);
+      return;
+    }
+
+    const result = addMove(document, path, position.nextColor, point);
+    replaceDocument(result.document, result.path);
+    if (point !== '') playPlaceStoneSound();
   }
 
   function handlePass(): void {
@@ -1103,6 +1130,16 @@ function findDescendantMovePath(
 
 function nodeMovePoint(node: SgfNode): string | null {
   return node.data.B?.[0] ?? node.data.W?.[0] ?? null;
+}
+
+function gtpMoveToPoint(move: string, size: number): string | null {
+  const match = /^([A-Za-z])(\d+)$/.exec(move);
+  if (match == null) return null;
+
+  const x = 'ABCDEFGHJKLMNOPQRSTUVWXYZ'.indexOf(match[1].toUpperCase());
+  const y = size - Number(match[2]);
+  if (x < 0 || y < 0 || x >= size || y >= size) return null;
+  return vertexToPoint(x, y);
 }
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {

@@ -14,6 +14,7 @@ export type ShortcutActionId =
   | 'nextMoveCurrent'
   | 'previousBranch'
   | 'nextBranch'
+  | 'playBestMove'
   | 'pass'
   | 'toolAuto'
   | 'toolBlack'
@@ -76,6 +77,12 @@ export const shortcutActions: ShortcutAction[] = [
     labelKey: 'shortcuts.actions.nextBranch',
     defaultShortcut: shortcut('ArrowRight'),
     navigation: true,
+  },
+  {
+    id: 'playBestMove',
+    labelKey: 'shortcuts.actions.playBestMove',
+    defaultShortcut: shortcut('Enter'),
+    electronOnly: true,
   },
   {id: 'pass', labelKey: 'shortcuts.actions.pass', defaultShortcut: shortcut('p')},
   {id: 'toolAuto', labelKey: 'shortcuts.actions.toolAuto', defaultShortcut: shortcut('1')},
