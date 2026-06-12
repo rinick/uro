@@ -479,12 +479,3 @@
 .shudan-vertex.shudan-nextmove-sign_-1 .shudan-movehint-next {
   border-color: #fff;
 }
-
-/* Lines & arrows */
-
-.shudan-line,
-.shudan-arrow {
-  fill: none;
-  stroke: var(--shudan-board-foreground-color);
-  stroke-width: 0.11em;
-}

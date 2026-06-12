@@ -17,12 +17,11 @@ import {
 import {CoordX, CoordY} from './Coord';
 import Grid from './Grid';
 import Vertex, {type GhostStone, type HeatVertex, type MoveHint, type VertexHandler} from './Vertex';
-import Line, {type LineMarker} from './Line';
 import type {Marker} from './Marker';
 
 export type Vertex = VertexPoint;
 export type Map<T> = T[][];
-export type {GhostStone, HeatVertex, LineMarker, Marker, MoveHint};
+export type {GhostStone, HeatVertex, Marker, MoveHint};
 
 type Sign = 0 | -1 | 1;
 
@@ -56,7 +55,6 @@ export interface GobanProps extends PublicVertexEventHandlers {
   moveHintMap?: Map<MoveHint | null>;
   selectedVertices?: VertexPoint[];
   dimmedVertices?: VertexPoint[];
-  lines?: LineMarker[];
 }
 
 interface GobanState {
@@ -127,7 +125,7 @@ export default class Goban extends Component<GobanProps, GobanState> {
   }
 
   render() {
-    let {width, height, rangeX, rangeY, xs, ys, hoshis, shiftMap, randomMap} = this.state;
+    let {width, height, xs, ys, hoshis, shiftMap, randomMap} = this.state;
 
     let {
       innerProps = {},
@@ -143,7 +141,6 @@ export default class Goban extends Component<GobanProps, GobanState> {
       ghostStoneMap,
       fuzzyStonePlacement = false,
       showCoordinates = false,
-      lines = [],
       selectedVertices = [],
       dimmedVertices = [],
     } = this.props;
@@ -260,31 +257,6 @@ export default class Goban extends Component<GobanProps, GobanState> {
                 )
               );
             })
-          )
-        ),
-
-        h(
-          'svg',
-          {
-            className: 'shudan-lines',
-            style: {
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              pointerEvents: 'none',
-              zIndex: 2,
-            },
-          },
-
-          h(
-            'g',
-            {
-              transform: `translate(-${rangeX[0] * vertexSize} -${rangeY[0] * vertexSize})`,
-            },
-
-            lines.map(({v1, v2, type}, i) => h(Line, {key: i, v1, v2, type, vertexSize}))
           )
         )
       ),

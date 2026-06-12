@@ -10,7 +10,7 @@ This package keeps the Shudan goban rendering model, CSS class names, and visual
 - `BoundedGoban`
 - `GobanProps`
 - `BoundedGobanProps`
-- board data types such as `Vertex`, `Marker`, `GhostStone`, `HeatVertex`, and `LineMarker`
+- board data types such as `Vertex`, `Marker`, `GhostStone`, and `HeatVertex`
 
 Import the stylesheet separately:
 
