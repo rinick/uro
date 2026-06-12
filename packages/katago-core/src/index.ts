@@ -9,7 +9,6 @@ export interface KataGoSettings {
   altCommand: string;
   maxVisits: number;
   fastVisits: number;
-  maxTime: number;
   wideRootNoise: number;
 }
 
@@ -19,7 +18,6 @@ export interface KataGoQueryOptions {
   analyzeTurns?: number[];
   nextMove?: {color: SgfColor; point: string};
   maxVisits?: number;
-  maxTime?: number;
   priority?: number;
   live?: boolean;
 }
@@ -34,7 +32,6 @@ export interface KataGoAnalysisQuery {
   moves: Array<[SgfColor, string]>;
   analyzeTurns?: number[];
   maxVisits?: number;
-  maxTime?: number;
   priority?: number;
   includePolicy: boolean;
   includeOwnership: boolean;
@@ -48,7 +45,6 @@ export const defaultKataGoSettings: KataGoSettings = {
   altCommand: '',
   maxVisits: 800,
   fastVisits: 100,
-  maxTime: 10,
   wideRootNoise: 0.04,
 };
 
@@ -170,7 +166,6 @@ export function buildKataGoQuery(document: SgfDocument, options: KataGoQueryOpti
     moves,
     analyzeTurns: options.analyzeTurns ?? [moves.length],
     maxVisits: options.maxVisits,
-    maxTime: options.maxTime,
     priority: options.priority,
     includePolicy: true,
     includeOwnership: true,

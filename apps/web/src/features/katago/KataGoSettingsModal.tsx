@@ -240,9 +240,6 @@ export function KataGoSettingsModal({open, onCancel}: KataGoSettingsModalProps) 
           <Form.Item name="fastVisits" label={t('katago.fastVisits')}>
             <InputNumber size="small" min={1} />
           </Form.Item>
-          <Form.Item name="maxTime" label={t('katago.maxTime')}>
-            <InputNumber size="small" min={0} step={0.5} />
-          </Form.Item>
           <Form.Item name="wideRootNoise" label={t('katago.wideRootNoise')}>
             <InputNumber size="small" min={0} max={1} step={0.01} />
           </Form.Item>

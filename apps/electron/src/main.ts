@@ -12,7 +12,6 @@ interface KataGoSettings {
   altCommand: string;
   maxVisits: number;
   fastVisits: number;
-  maxTime: number;
   wideRootNoise: number;
 }
 
@@ -35,7 +34,6 @@ const defaultKataGoSettings: KataGoSettings = {
   altCommand: '',
   maxVisits: 800,
   fastVisits: 100,
-  maxTime: 10,
   wideRootNoise: 0.04,
 };
 
@@ -68,7 +66,6 @@ interface KataGoAnalysisQuery {
   moves: Array<[string, string]>;
   analyzeTurns?: number[];
   maxVisits?: number;
-  maxTime?: number;
   priority?: number;
   includePolicy: boolean;
   includeOwnership: boolean;
