@@ -7,7 +7,7 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Segmented, Space, message, theme} from 'antd';
+import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Modal, Segmented, Space, message, theme} from 'antd';
 import type {MenuProps} from 'antd';
 import {
   addLabel,
@@ -653,6 +653,21 @@ export function App() {
   }
 
   function handleDeleteNode(): void {
+    if (getNodeAtPath(document, path).children.length > 0) {
+      Modal.confirm({
+        title: t('treeActions.deleteConfirmTitle'),
+        content: t('treeActions.deleteConfirmContent'),
+        okText: t('action.ok'),
+        cancelText: t('action.cancel'),
+        okButtonProps: {danger: true},
+        onOk: () => {
+          const result = deleteNode(document, path);
+          replaceDocument(result.document, result.path);
+        },
+      });
+      return;
+    }
+
     const result = deleteNode(document, path);
     replaceDocument(result.document, result.path);
   }
@@ -765,14 +780,14 @@ export function App() {
             onLast={navigateToLast}
             extraEnd={
               <Space className="analysis-toolbar-options">
+                <Checkbox
+                  checked={analysisSettings.showNextMove}
+                  onChange={(event) => updateAnalysisSettings({showNextMove: event.target.checked})}
+                >
+                  {t('analysis.nextMove')}
+                </Checkbox>
                 {capabilities.katago ? (
                   <>
-                    <Checkbox
-                      checked={analysisSettings.showNextMove}
-                      onChange={(event) => updateAnalysisSettings({showNextMove: event.target.checked})}
-                    >
-                      {t('analysis.nextMove')}
-                    </Checkbox>
                     <Checkbox
                       checked={analysisSettings.showTopMoves}
                       onChange={(event) => updateAnalysisSettings({showTopMoves: event.target.checked})}

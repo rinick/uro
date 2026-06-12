@@ -167,6 +167,8 @@ export const resources = {
         moveRight: 'Move branch right',
         replace: 'Replace move',
         delete: 'Delete branch',
+        deleteConfirmTitle: 'Delete this branch?',
+        deleteConfirmContent: 'This move has child moves. Deleting it will also delete all child moves.',
       },
       moveNumbers: {
         none: 'Hide',
@@ -394,6 +396,8 @@ export const resources = {
         moveRight: '分支右移',
         replace: '替换本手',
         delete: '删除分支',
+        deleteConfirmTitle: '删除这个分支？',
+        deleteConfirmContent: '这手棋有后续节点。删除后也会删除所有后续节点。',
       },
       moveNumbers: {
         none: '隐藏',
@@ -621,6 +625,8 @@ export const resources = {
         moveRight: '分岐を右へ',
         replace: '着手を置換',
         delete: '分岐を削除',
+        deleteConfirmTitle: 'この分岐を削除しますか？',
+        deleteConfirmContent: 'この着手には子の着手があります。削除すると、すべての子の着手も削除されます。',
       },
       moveNumbers: {
         none: '非表示',
@@ -848,6 +854,8 @@ export const resources = {
         moveRight: '분기 오른쪽 이동',
         replace: '수 교체',
         delete: '분기 삭제',
+        deleteConfirmTitle: '이 분기를 삭제할까요?',
+        deleteConfirmContent: '이 수에는 하위 수가 있습니다. 삭제하면 모든 하위 수도 삭제됩니다.',
       },
       moveNumbers: {
         none: '숨김',
@@ -1075,6 +1083,8 @@ export const resources = {
         moveRight: 'Deplacer la branche a droite',
         replace: 'Remplacer le coup',
         delete: 'Supprimer la branche',
+        deleteConfirmTitle: 'Supprimer cette branche ?',
+        deleteConfirmContent: 'Ce coup a des coups enfants. Le supprimer supprimera aussi tous les coups enfants.',
       },
       moveNumbers: {
         none: 'Masquer',
@@ -1302,6 +1312,8 @@ export const resources = {
         moveRight: 'Variante nach rechts',
         replace: 'Zug ersetzen',
         delete: 'Variante loeschen',
+        deleteConfirmTitle: 'Diese Variante loeschen?',
+        deleteConfirmContent: 'Dieser Zug hat Folgezuge. Beim Loeschen werden auch alle Folgezuge geloescht.',
       },
       moveNumbers: {
         none: 'Ausblenden',
@@ -1529,6 +1541,8 @@ export const resources = {
         moveRight: 'Сдвинуть ветку вправо',
         replace: 'Заменить ход',
         delete: 'Удалить ветку',
+        deleteConfirmTitle: 'Удалить эту ветку?',
+        deleteConfirmContent: 'У этого хода есть дочерние ходы. При удалении они тоже будут удалены.',
       },
       moveNumbers: {
         none: 'Скрыть',

@@ -92,7 +92,6 @@ export const shortcutActions: ShortcutAction[] = [
     id: 'toggleShowNextMove',
     labelKey: 'shortcuts.actions.toggleShowNextMove',
     defaultShortcut: shortcut('q'),
-    electronOnly: true,
   },
   {
     id: 'toggleShowTopMoves',

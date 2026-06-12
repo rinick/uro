@@ -1,4 +1,5 @@
 import {Button, Empty, Input, Space} from 'antd';
+import type {TextAreaRef} from 'antd/es/input/TextArea';
 import {forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState} from 'react';
 import type {MouseEvent, WheelEvent} from 'react';
 import {useTranslation} from 'react-i18next';
@@ -77,6 +78,8 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
   const [showPointLoss, setShowPointLoss] = useState(false);
   const [showComments, setShowComments] = useState(true);
   const previousAnalysisActiveRef = useRef(false);
+  const commentInputRef = useRef<TextAreaRef>(null);
+  const pendingCommentFocusRef = useRef(false);
   const showChart = showAnalysisControls && (showScore || showWinrate || showPointLoss);
   const scoreData = useMemo(() => chartData.filter((item) => item.series === 'score'), [chartData]);
   const winrateData = useMemo(() => chartData.filter((item) => item.series === 'winrate'), [chartData]);
@@ -95,19 +98,17 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
   }, [analysisActive, showPointLoss, showScore, showWinrate]);
 
   const showOnlyComments = useCallback(() => {
+    pendingCommentFocusRef.current = true;
+    if (showComments && !showChart) commentInputRef.current?.focus();
     setShowScore(false);
     setShowPointLoss(false);
     setShowWinrate(false);
     setShowComments(true);
-  }, []);
+  }, [showChart, showComments]);
 
   const toggleComments = useCallback(() => {
-    if (showChart || !showComments) {
-      showOnlyComments();
-      return;
-    }
-    setShowComments(false);
-  }, [showChart, showComments, showOnlyComments]);
+    showOnlyComments();
+  }, [showOnlyComments]);
 
   const toggleChart = useCallback((setter: (updater: (current: boolean) => boolean) => void) => {
     setShowComments(false);
@@ -124,6 +125,13 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
     }),
     [toggleChart, toggleComments]
   );
+
+  useEffect(() => {
+    if (!pendingCommentFocusRef.current || !showComments || showChart) return;
+
+    pendingCommentFocusRef.current = false;
+    commentInputRef.current?.focus();
+  }, [showChart, showComments]);
 
   return (
     <section className="side-panel comments-panel">
@@ -179,6 +187,7 @@ export const CommentsPanel = forwardRef<CommentsPanelHandle, CommentsPanelProps>
           )
         ) : showComments ? (
           <Input.TextArea
+            ref={commentInputRef}
             size="small"
             value={value}
             onChange={(event) => onChange(event.target.value)}

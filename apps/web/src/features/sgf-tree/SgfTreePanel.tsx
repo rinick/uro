@@ -15,6 +15,7 @@ import {
 } from './layout';
 
 const moveTreePaddingTop = 4;
+const moveTreeNodeSize = 26;
 
 interface SgfTreePanelProps {
   document: SgfDocument;
@@ -66,9 +67,9 @@ export function SgfTreePanel({
     const node = panel.querySelector<HTMLElement>(`[data-tree-node-id="${selectedCell.id}"]`);
     if (node == null) return;
 
-    if (!isTreeRowVisible(panel, selectedCell.row)) {
+    if (!isTreeStoneVisible(panel, selectedCell.row)) {
       suppressScrollSelectRef.current = true;
-      scrollTreeRowIntoView(panel, selectedCell.row);
+      scrollTreeStoneIntoView(panel, selectedCell.row);
       lastScrollTopRef.current = panel.scrollTop;
     }
 
@@ -106,7 +107,7 @@ export function SgfTreePanel({
     const branchCells = layout.cells
       .filter((cell) => cell.column === currentCell.column)
       .sort((left, right) => left.row - right.row);
-    if (isTreeRowVisible(panel, currentCell.row)) return;
+    if (isTreeStoneVisible(panel, currentCell.row)) return;
 
     const nextCell = closestVisibleCell(panel, branchCells, currentCell.row);
 
@@ -200,26 +201,29 @@ export function SgfTreePanel({
   );
 }
 
-function isTreeRowVisible(panel: HTMLDivElement, row: number): boolean {
-  const rowTop = moveTreePaddingTop + row * treeRowStep;
-  const rowBottom = rowTop + treeRowStep;
+function isTreeStoneVisible(panel: HTMLDivElement, row: number): boolean {
+  const {stoneTop, stoneBottom} = treeStoneBounds(row);
   const visibleTop = panel.scrollTop;
   const visibleBottom = visibleTop + panel.clientHeight;
 
-  return rowBottom > visibleTop && rowTop < visibleBottom;
+  return stoneTop >= visibleTop && stoneBottom <= visibleBottom;
 }
 
-function scrollTreeRowIntoView(panel: HTMLDivElement, row: number): void {
-  const rowTop = moveTreePaddingTop + row * treeRowStep;
-  const rowBottom = rowTop + treeRowStep;
+function scrollTreeStoneIntoView(panel: HTMLDivElement, row: number): void {
+  const {stoneTop, stoneBottom} = treeStoneBounds(row);
   const visibleTop = panel.scrollTop;
   const visibleBottom = visibleTop + panel.clientHeight;
 
-  if (isTreeRowVisible(panel, row)) return;
+  if (isTreeStoneVisible(panel, row)) return;
 
   const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
-  const nextScrollTop = rowTop < visibleTop ? rowTop : rowBottom - panel.clientHeight;
+  const nextScrollTop = stoneTop < visibleTop ? stoneTop : stoneBottom - panel.clientHeight;
   panel.scrollTop = Math.max(0, Math.min(maxScroll, nextScrollTop));
+}
+
+function treeStoneBounds(row: number): {stoneTop: number; stoneBottom: number} {
+  const stoneTop = moveTreePaddingTop + row * treeRowStep + (treeRowStep - moveTreeNodeSize) / 2;
+  return {stoneTop, stoneBottom: stoneTop + moveTreeNodeSize};
 }
 
 function scrollTreeNodeHorizontallyIntoView(panel: HTMLDivElement, node: HTMLElement): void {
@@ -240,7 +244,7 @@ function closestVisibleCell(panel: HTMLDivElement, cells: TreeCell[], row: numbe
   let closestDistance = Infinity;
 
   for (const cell of cells) {
-    if (!isTreeRowVisible(panel, cell.row)) continue;
+    if (!isTreeStoneVisible(panel, cell.row)) continue;
 
     const distance = Math.abs(cell.row - row);
     if (distance < closestDistance) {
