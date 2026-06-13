@@ -21,16 +21,16 @@
 .shudan-goban-image {
   background: url('./board.webp') var(--shudan-board-background-color);
 }
-.shudan-goban-color {
+.shudan-goban-golden {
   --shudan-board-border-color: #ca933a;
   --shudan-board-background-color: #f1b458;
 }
-.shudan-goban-grey {
+.shudan-goban-natural {
   --shudan-board-border-color: #b69064;
   --shudan-board-background-color: #dcb081;
   background-image: url('./board-grey.webp');
 }
-.shudan-goban-pale {
+.shudan-goban-flat {
   --shudan-board-border-color: #cec8c0;
   --shudan-board-background-color: #eee8e0;
   background-image: none;

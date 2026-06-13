@@ -526,13 +526,13 @@ export function useKataGoAnalysis({
 function readStoredAnalysisSettings(enabled: boolean): AnalysisSettings {
   const defaults: AnalysisSettings = enabled
     ? defaultAnalysisSettings
-    : {...defaultAnalysisSettings, boardBackground: 'color'};
+    : {...defaultAnalysisSettings, boardBackground: 'golden'};
 
   try {
     const value = localStorage.getItem(analysisSettingsStorageKey);
     if (value == null) return defaults;
     const settings = {...defaults, ...JSON.parse(value)};
-    if (!enabled && settings.boardBackground === 'auto') return {...settings, boardBackground: 'color'};
+    if (!enabled && settings.boardBackground === 'auto') return {...settings, boardBackground: 'golden'};
     return settings;
   } catch {
     return defaults;

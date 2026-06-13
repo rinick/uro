@@ -1,7 +1,7 @@
 export type AnalysisDisplayMode = 'none' | 'score' | 'winrate' | 'absScore';
 export type AnalysisTopMoveDisplay = 'dot' | 'number' | 'none';
 export type AnalysisMoveLimit = 1 | 5 | 20 | 'all';
-export type BoardBackground = 'auto' | 'color' | 'grey' | 'pale';
+export type BoardBackground = 'auto' | 'golden' | 'natural' | 'flat';
 
 export interface KataGoRootInfo {
   scoreLead?: number;

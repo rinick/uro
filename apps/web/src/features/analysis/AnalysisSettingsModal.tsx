@@ -121,9 +121,9 @@ export function AnalysisSettingsModal({
             onChange={(value) => updateSettings({boardBackground: value as AnalysisSettings['boardBackground']})}
             options={[
               ...(showKataGoSettings ? [{value: 'auto', label: t('settings.boardBackgroundAuto')}] : []),
-              {value: 'color', label: t('settings.boardBackgroundColor')},
-              {value: 'grey', label: t('settings.boardBackgroundGrey')},
-              {value: 'pale', label: t('settings.boardBackgroundPale')},
+              {value: 'golden', label: t('settings.boardBackgroundGolden')},
+              {value: 'natural', label: t('settings.boardBackgroundNatural')},
+              {value: 'flat', label: t('settings.boardBackgroundFlat')},
             ]}
           />
         </Form.Item>

@@ -23,7 +23,7 @@ interface AnalysisSettings {
   showNextMove: boolean;
   showTopMoves: boolean;
   showExpectedTerritory: boolean;
-  boardBackground: 'auto' | 'color' | 'grey' | 'pale';
+  boardBackground: 'auto' | 'golden' | 'natural' | 'flat';
   autoAnalyze: boolean;
 }
 

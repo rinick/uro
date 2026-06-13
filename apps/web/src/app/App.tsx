@@ -1188,9 +1188,9 @@ function readStoredBoolean(key: string, fallback: boolean): boolean {
 
 function resolveBoardBackground(
   boardBackground: AnalysisSettings['boardBackground'],
-  useAutoGrey: boolean
+  useNaturalBackground: boolean
 ): Exclude<AnalysisSettings['boardBackground'], 'auto'> {
-  if (boardBackground === 'auto') return useAutoGrey ? 'grey' : 'color';
+  if (boardBackground === 'auto') return useNaturalBackground ? 'natural' : 'golden';
   return boardBackground;
 }
 
