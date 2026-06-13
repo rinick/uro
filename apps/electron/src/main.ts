@@ -70,6 +70,9 @@ interface KataGoAnalysisQuery {
   includePolicy: boolean;
   includeOwnership: boolean;
   reportDuringSearchEvery?: number;
+  overrideSettings?: {
+    wideRootNoise?: number;
+  };
 }
 
 let katagoProcess: ChildProcessWithoutNullStreams | null = null;
@@ -272,7 +275,7 @@ function registerIpc(): void {
     try {
       const settings = await normalizeKataGoSettings(await readJson('katago-settings.json', defaultKataGoSettings));
       await ensureKataGoEngine(settings, event.sender);
-      await writeKataGoQuery(normalizedQuery);
+      await writeKataGoQuery(withKataGoOverrideSettings(normalizedQuery, settings));
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to write KataGo analysis query.';
       sendKataGoConsole(event.sender, 'katago', 'error', message);
@@ -531,6 +534,16 @@ function normalizeAnalysisQuery(query: KataGoAnalysisQuery): KataGoAnalysisQuery
     ...query,
     komi: normalizeKomi(query.komi),
     rules: normalizeRules(query.rules),
+  };
+}
+
+function withKataGoOverrideSettings(query: KataGoAnalysisQuery, settings: KataGoSettings): KataGoAnalysisQuery {
+  return {
+    ...query,
+    overrideSettings: {
+      wideRootNoise: settings.wideRootNoise,
+      ...query.overrideSettings,
+    },
   };
 }
 

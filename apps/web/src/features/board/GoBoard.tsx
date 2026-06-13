@@ -222,9 +222,11 @@ function buildAnalysisHeatMap(
       seenMoves.add(moveKey);
 
       const isChildMove = childMoves.has(moveKey);
-      const hasEnoughVisits = (move.visits ?? 0) >= settings.minVisits;
+      const visits = move.visits ?? 0;
+      const hasEnoughVisitsForHint = visits >= 1 + (settings.minVisits >> 2);
+      const hasEnoughVisits = visits >= settings.minVisits;
       const withinLimit = limit == null || limitedMoveCount < limit;
-      if (!withinLimit && !isChildMove && !hasEnoughVisits) continue;
+      if (!withinLimit && !isChildMove && !hasEnoughVisitsForHint) continue;
       if (withinLimit) limitedMoveCount += 1;
 
       const vertex = gtpMoveToVertex(move.move, size);

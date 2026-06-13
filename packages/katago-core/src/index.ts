@@ -36,6 +36,9 @@ export interface KataGoAnalysisQuery {
   includePolicy: boolean;
   includeOwnership: boolean;
   reportDuringSearchEvery?: number;
+  overrideSettings?: {
+    wideRootNoise?: number;
+  };
 }
 
 export const defaultKataGoSettings: KataGoSettings = {
