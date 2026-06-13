@@ -35,7 +35,7 @@ import {
   type SgfNode,
 } from '@ulugo/sgf-core';
 import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
-import {useCallback, useEffect, useMemo, useRef, useState, type MouseEvent} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent} from 'react';
 import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
@@ -75,6 +75,7 @@ import {
   getAnalysisQueuePaths,
   getCurrentBranchMovePaths,
   isCurrentSetupStone,
+  isGameRecordFile,
   isTextInputActive,
   nextFirstChildPath,
   nextRememberedPath,
@@ -381,6 +382,19 @@ export function App() {
     } finally {
       if (fileInputRef.current != null) fileInputRef.current.value = '';
     }
+  }
+
+  function handleBoardDragOver(event: DragEvent<HTMLElement>): void {
+    if (!hasDraggedFiles(event.dataTransfer)) return;
+    event.preventDefault();
+  }
+
+  function handleBoardDrop(event: DragEvent<HTMLElement>): void {
+    if (!hasDraggedFiles(event.dataTransfer)) return;
+
+    event.preventDefault();
+    const file = Array.from(event.dataTransfer.files).find((item) => isGameRecordFile(item.name));
+    void handleImportSgf(file);
   }
 
   function importSgfText(text: string, fileName: string): void {
@@ -947,6 +961,8 @@ export function App() {
           ) : null}
           <main
             className="board-region"
+            onDragOver={handleBoardDragOver}
+            onDrop={handleBoardDrop}
             onWheel={(event) => {
               if (event.deltaY > 0) navigateNext();
               if (event.deltaY < 0) navigatePrevious();
@@ -1103,6 +1119,10 @@ function findCurrentStoneMovePath(document: SgfDocument, selectedPath: number[],
   }
 
   return null;
+}
+
+function hasDraggedFiles(dataTransfer: DataTransfer): boolean {
+  return Array.from(dataTransfer.types).includes('Files');
 }
 
 function findFutureMovePath(

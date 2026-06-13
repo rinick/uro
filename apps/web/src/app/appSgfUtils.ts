@@ -169,6 +169,10 @@ export function parseGameRecord(text: string, fileName: string): SgfDocument {
   return isGibFile(fileName) ? parseGib(text) : parseSgf(text);
 }
 
+export function isGameRecordFile(fileName: string): boolean {
+  return /\.(sgf|gib)$/i.test(fileName);
+}
+
 export async function readGameRecordFile(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   return decodeGameRecordBytes(buffer, isGibFile(file.name));
