@@ -82,7 +82,7 @@ We use reasonable measures to protect information. However, no method of transmi
 
 ## Children
 
-Ulugo is not intended for children under 13. We do not knowingly collect personal information from children under 13.
+Ulugo can be used by children, including children under 13, but Ulugo does not knowingly collect personal information from children.
 
 ## Changes
 
