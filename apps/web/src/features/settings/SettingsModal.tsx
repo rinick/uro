@@ -86,6 +86,9 @@ export function SettingsModal({
 
   return (
     <Modal title={t('settings.title')} open={open} onCancel={onCancel} footer={null} width={420} destroyOnHidden>
+      <Button block onClick={onKeyboardShortcutsClick}>
+        {t('shortcuts.button')}
+      </Button>
       <Form form={form} layout="vertical" disabled={loading} initialValues={defaultAnalysisSettings}>
         <Form.Item label={t('menu.language')}>
           <Select
@@ -126,11 +129,6 @@ export function SettingsModal({
               {value: 'flat', label: t('settings.boardBackgroundFlat')},
             ]}
           />
-        </Form.Item>
-        <Form.Item>
-          <Button block onClick={onKeyboardShortcutsClick}>
-            {t('shortcuts.button')}
-          </Button>
         </Form.Item>
         {showKataGoAnalysisSettings ? (
           <>
