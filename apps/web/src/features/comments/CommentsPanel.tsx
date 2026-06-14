@@ -29,6 +29,9 @@ export interface CommentsPanelHandle {
 interface AnalysisChartSummary {
   scoreLead: number | null;
   winrate: number | null;
+  color?: 'B' | 'W';
+  pointLoss?: number | null;
+  winrateLoss?: number | null;
 }
 
 interface PlotPoint {
@@ -253,6 +256,8 @@ function AnalysisChart({
   const currentMoveLabel =
     currentMoveNumber == null ? null : moveAxisLabelFor(currentMoveNumber, maxMove, width, padding, hoverChartX);
   const hoverSummary = hoverMoveNumber == null ? null : chartSummaryForMove(allData, hoverMoveNumber);
+  const selectedSummary =
+    selectedMoveNumber == null ? summary : (chartSummaryForMove(allData, selectedMoveNumber) ?? summary);
 
   function handleMouseDown(event: MouseEvent<SVGSVGElement>): void {
     if (onSelectMove == null) return;
@@ -421,7 +426,7 @@ function AnalysisChart({
           </text>
         )}
       </svg>
-      <AnalysisChartSummaryView summary={hoverSummary ?? summary} />
+      <AnalysisChartSummaryView summary={hoverSummary ?? selectedSummary} />
     </div>
   );
 }
@@ -457,6 +462,11 @@ function buildPointLossData(data: AnalysisChartPoint[]): PointLoss[] {
   });
 
   return losses;
+}
+
+function lossForColor(delta: number, color: 'B' | 'W'): number {
+  const loss = color === 'B' ? -delta : delta;
+  return Math.max(0, loss);
 }
 
 function makePointLossPoints(
@@ -535,12 +545,17 @@ function AnalysisChartSummaryView({summary}: {summary: AnalysisChartSummary | nu
   const scoreLead = summary.scoreLead;
   const blackWinrate = summary.winrate == null ? null : Math.max(0, Math.min(100, summary.winrate));
   const whiteWinrate = blackWinrate == null ? null : 100 - blackWinrate;
+  const lossColor = summary.color === 'W' ? 'white' : 'black';
 
   return (
     <div className="analysis-chart-summary">
       <div className="analysis-chart-scorebox black">
         <span>B {scoreLead == null ? '-' : formatSignedScore(scoreLead)}</span>
         <span>{formatWinrate(blackWinrate)}</span>
+      </div>
+      <div className={`analysis-chart-scorebox ${lossColor}`}>
+        <span>{formatLoss(summary.pointLoss)}</span>
+        <span>{formatWinrate(summary.winrateLoss)}</span>
       </div>
       <div className="analysis-chart-scorebox white">
         <span>W {scoreLead == null ? '-' : formatSignedScore(-scoreLead)}</span>
@@ -551,9 +566,29 @@ function AnalysisChartSummaryView({summary}: {summary: AnalysisChartSummary | nu
 }
 
 function chartSummaryForMove(data: AnalysisChartPoint[], moveNumber: number): AnalysisChartSummary | null {
-  const scoreLead = data.find((item) => item.moveNumber === moveNumber && item.series === 'score')?.value ?? null;
-  const winrate = data.find((item) => item.moveNumber === moveNumber && item.series === 'winrate')?.value ?? null;
-  return scoreLead == null && winrate == null ? null : {scoreLead, winrate};
+  const scorePoint = data.find((item) => item.moveNumber === moveNumber && item.series === 'score');
+  const previousScore = data.find((item) => item.moveNumber === moveNumber - 1 && item.series === 'score')?.value;
+  const winratePoint = data.find((item) => item.moveNumber === moveNumber && item.series === 'winrate');
+  const previousWinrate = data.find((item) => item.moveNumber === moveNumber - 1 && item.series === 'winrate')?.value;
+  const scoreLead = scorePoint?.value ?? null;
+  const winrate = winratePoint?.value ?? null;
+  const color = scorePoint?.color;
+
+  return scoreLead == null && winrate == null
+    ? null
+    : {
+        scoreLead,
+        winrate,
+        color,
+        pointLoss:
+          color == null || scoreLead == null || previousScore == null
+            ? null
+            : lossForColor(scoreLead - previousScore, color),
+        winrateLoss:
+          color == null || winrate == null || previousWinrate == null
+            ? null
+            : lossForColor(winrate - previousWinrate, color),
+      };
 }
 
 function mouseEventToViewBoxPoint(
@@ -663,6 +698,10 @@ function formatSignedScore(value: number): string {
   return normalized > 0 ? `+${normalized.toFixed(1)}` : normalized.toFixed(1).replace('-', '−');
 }
 
-function formatWinrate(value: number | null): string {
+function formatLoss(value: number | null | undefined): string {
+  return value == null ? '-' : value.toFixed(1);
+}
+
+function formatWinrate(value: number | null | undefined): string {
   return value == null ? '-' : `${value.toFixed(1)}%`;
 }

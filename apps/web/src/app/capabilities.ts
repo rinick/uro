@@ -1,12 +1,12 @@
 export interface AppCapabilities {
   platform: 'web' | 'electron';
-  storage: 'indexeddb' | 'filesystem';
+  storage: 'browser' | 'filesystem';
   katago: boolean;
 }
 
 export const webCapabilities: AppCapabilities = {
   platform: 'web',
-  storage: 'indexeddb',
+  storage: 'browser',
   katago: false,
 };
 

@@ -11,16 +11,36 @@ import type {
 export interface ElectronImportResult {
   content: string;
   fileName: string;
+  filePath: string;
 }
 
 export interface ElectronExportRequest {
   content: string;
   suggestedName: string;
+  filePath?: string;
 }
 
 export interface ElectronExportResult {
   canceled: boolean;
   filePath?: string;
+  fileName?: string;
+}
+
+export interface ElectronGoogleDriveOpenResult {
+  content: string;
+  fileId: string;
+  fileName: string;
+}
+
+export interface ElectronGoogleDriveSaveRequest {
+  content: string;
+  fileName: string;
+  fileId?: string | null;
+}
+
+export interface ElectronGoogleDriveSaveResult {
+  fileId: string;
+  fileName: string;
 }
 
 export interface UlugoElectronApi {
@@ -31,6 +51,10 @@ export interface UlugoElectronApi {
     title?: string;
     filters?: Array<{name: string; extensions: string[]}>;
   }) => Promise<string | null>;
+  googleDrive: {
+    openSgf: () => Promise<ElectronGoogleDriveOpenResult | null>;
+    saveSgf: (request: ElectronGoogleDriveSaveRequest) => Promise<ElectronGoogleDriveSaveResult>;
+  };
   katago: {
     getSettings: () => Promise<KataGoSettings>;
     saveSettings: (settings: KataGoSettings) => Promise<KataGoSettings>;

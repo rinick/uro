@@ -1,8 +1,10 @@
-import {app, BrowserWindow, Menu, dialog, ipcMain, type WebContents} from 'electron';
+import {app, BrowserWindow, Menu, dialog, ipcMain, shell, type WebContents} from 'electron';
 import extract from 'extract-zip';
 import {spawn, type ChildProcessWithoutNullStreams} from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
+import http from 'node:http';
 import path from 'node:path';
 
 interface KataGoSettings {
@@ -49,11 +51,39 @@ const defaultAnalysisSettings: AnalysisSettings = {
   autoAnalyze: true,
 };
 
+const googleDriveScope = 'https://www.googleapis.com/auth/drive.file';
+const electronGoogleClientId = '218591242507-jg4hjrjdp9mi1vkmgeu3hvrfkvam9dii.apps.googleusercontent.com';
+const sgfMimeType = 'application/x-go-sgf';
+
 interface DownloadOption {
   id: string;
   label: string;
   url: string;
   installedPath?: string;
+}
+
+interface GoogleDriveTokenState {
+  accessToken: string;
+  expiresAt: number;
+  refreshToken: string;
+}
+
+interface GoogleTokenResponse {
+  access_token?: string;
+  expires_in?: number;
+  refresh_token?: string;
+  error?: string;
+  error_description?: string;
+}
+
+interface GoogleDrivePickedToken {
+  accessToken: string;
+  pickedFileIds: string[];
+}
+
+interface GoogleDriveFileMetadata {
+  id: string;
+  name?: string;
 }
 
 interface KataGoAnalysisQuery {
@@ -79,6 +109,7 @@ let katagoProcess: ChildProcessWithoutNullStreams | null = null;
 let katagoOutputBuffer = '';
 let katagoSender: WebContents | null = null;
 let consoleMessageCounter = 0;
+let googleDriveAuthorizationPromise: Promise<string> | null = null;
 const activeKataGoQueryIds = new Set<string>();
 
 app.disableHardwareAcceleration();
@@ -210,19 +241,27 @@ function registerIpc(): void {
     return {
       content: decodeGameRecordBuffer(buffer, filePath.toLowerCase().endsWith('.gib')),
       fileName: path.basename(filePath),
+      filePath,
     };
   });
 
-  ipcMain.handle('ulugo:export-sgf', async (_event, request: {content: string; suggestedName: string}) => {
-    const result = await dialog.showSaveDialog({
-      defaultPath: request.suggestedName,
-      filters: [{name: 'SGF files', extensions: ['sgf']}],
-    });
-    if (result.canceled || result.filePath == null) return {canceled: true};
+  ipcMain.handle(
+    'ulugo:export-sgf',
+    async (_event, request: {content: string; suggestedName: string; filePath?: string}) => {
+      const filePath =
+        request.filePath ??
+        (
+          await dialog.showSaveDialog({
+            defaultPath: request.suggestedName,
+            filters: [{name: 'SGF files', extensions: ['sgf']}],
+          })
+        ).filePath;
+      if (filePath == null) return {canceled: true};
 
-    await fs.writeFile(result.filePath, request.content, 'utf8');
-    return {canceled: false, filePath: result.filePath};
-  });
+      await fs.writeFile(filePath, request.content, 'utf8');
+      return {canceled: false, filePath, fileName: path.basename(filePath)};
+    }
+  );
 
   ipcMain.handle(
     'ulugo:select-file',
@@ -234,6 +273,19 @@ function registerIpc(): void {
       });
       if (result.canceled || result.filePaths[0] == null) return null;
       return result.filePaths[0];
+    }
+  );
+
+  ipcMain.handle('ulugo:google-drive:open-sgf', () => openGoogleDriveSgf());
+  ipcMain.handle(
+    'ulugo:google-drive:save-sgf',
+    (_event, request: {content: string; fileName: string; fileId?: string | null}) => {
+      googleDriveAuthorizationPromise ??= authorizeGoogleDrive().finally(() => {
+        googleDriveAuthorizationPromise = null;
+      });
+      return googleDriveAuthorizationPromise.then((accessToken) =>
+        saveGoogleDriveSgf(accessToken, request.content, request.fileName, request.fileId)
+      );
     }
   );
 
@@ -726,6 +778,274 @@ async function downloadFile(url: string, destination: string, onProgress: (perce
   } finally {
     await file.close();
   }
+}
+
+async function openGoogleDriveSgf(): Promise<{content: string; fileId: string; fileName: string} | null> {
+  const {accessToken, pickedFileIds} = await pickGoogleDriveFileWithOAuth();
+  const fileId = pickedFileIds[0];
+  if (fileId == null) return null;
+
+  const metadata = await getGoogleDriveFileMetadata(accessToken, fileId);
+  return {
+    content: await downloadGoogleDriveFile(accessToken, fileId),
+    fileId,
+    fileName: metadata.name ?? 'game.sgf',
+  };
+}
+
+async function saveGoogleDriveSgf(
+  accessToken: string,
+  content: string,
+  fileName: string,
+  fileId?: string | null
+): Promise<{fileId: string; fileName: string}> {
+  if (fileId != null) return updateGoogleDriveFile(accessToken, fileId, content, fileName);
+  return createGoogleDriveFile(accessToken, content, fileName);
+}
+
+async function getGoogleDriveFileMetadata(accessToken: string, fileId: string): Promise<GoogleDriveFileMetadata> {
+  const response = await googleDriveFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=id,name&supportsAllDrives=true`,
+    accessToken
+  );
+  return (await response.json()) as GoogleDriveFileMetadata;
+}
+
+async function downloadGoogleDriveFile(accessToken: string, fileId: string): Promise<string> {
+  const response = await googleDriveFetch(
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+    accessToken
+  );
+  return response.text();
+}
+
+async function createGoogleDriveFile(
+  accessToken: string,
+  content: string,
+  fileName: string
+): Promise<{fileId: string; fileName: string}> {
+  const boundary = `ulugo_${crypto.randomUUID()}`;
+  const body = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify({name: fileName, mimeType: sgfMimeType}),
+    `--${boundary}`,
+    `Content-Type: ${sgfMimeType}; charset=UTF-8`,
+    '',
+    content,
+    `--${boundary}--`,
+  ].join('\r\n');
+  const response = await googleDriveFetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name',
+    accessToken,
+    {
+      method: 'POST',
+      headers: {'Content-Type': `multipart/related; boundary=${boundary}`},
+      body,
+    }
+  );
+  const file = (await response.json()) as GoogleDriveFileMetadata;
+  return {fileId: file.id, fileName: file.name ?? fileName};
+}
+
+async function updateGoogleDriveFile(
+  accessToken: string,
+  fileId: string,
+  content: string,
+  fileName: string
+): Promise<{fileId: string; fileName: string}> {
+  const response = await googleDriveFetch(
+    `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name&supportsAllDrives=true`,
+    accessToken,
+    {
+      method: 'PATCH',
+      headers: {'Content-Type': `${sgfMimeType}; charset=UTF-8`},
+      body: content,
+    }
+  );
+  const file = (await response.json()) as GoogleDriveFileMetadata;
+  return {fileId: file.id, fileName: file.name ?? fileName};
+}
+
+async function googleDriveFetch(url: string, accessToken: string, init: RequestInit = {}): Promise<Response> {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      ...init.headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (response.status === 401) {
+    await writeJson<GoogleDriveTokenState>('google-drive-token.json', {
+      accessToken: '',
+      expiresAt: 0,
+      refreshToken: '',
+    });
+  }
+  if (!response.ok) throw new Error(`Google Drive request failed (${response.status}).`);
+  return response;
+}
+
+async function authorizeGoogleDrive(): Promise<string> {
+  const cached = await readJson<GoogleDriveTokenState>('google-drive-token.json', {
+    accessToken: '',
+    expiresAt: 0,
+    refreshToken: '',
+  });
+  if (cached.accessToken !== '' && cached.expiresAt > Date.now() + 60000) return cached.accessToken;
+  if (cached.refreshToken !== '') {
+    try {
+      return await refreshGoogleDriveAccessToken(cached.refreshToken);
+    } catch {
+      await writeJson<GoogleDriveTokenState>('google-drive-token.json', {
+        accessToken: '',
+        expiresAt: 0,
+        refreshToken: '',
+      });
+    }
+  }
+
+  return (await requestGoogleDriveOAuth(false)).accessToken;
+}
+
+async function pickGoogleDriveFileWithOAuth(): Promise<GoogleDrivePickedToken> {
+  return requestGoogleDriveOAuth(true);
+}
+
+async function requestGoogleDriveOAuth(usePicker: boolean): Promise<GoogleDrivePickedToken> {
+  const verifier = base64Url(crypto.randomBytes(32));
+  const challenge = base64Url(crypto.createHash('sha256').update(verifier).digest());
+  const state = base64Url(crypto.randomBytes(16));
+  const {server, port} = await createOAuthServer();
+  const redirectUri = `http://127.0.0.1:${port}/oauth2callback`;
+
+  try {
+    return await new Promise<GoogleDrivePickedToken>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Google sign-in timed out.')), 120000);
+      server.on('request', (request, response) => {
+        void (async () => {
+          const requestUrl = new URL(request.url ?? '/', redirectUri);
+          if (requestUrl.pathname !== '/oauth2callback') {
+            response.writeHead(404).end();
+            return;
+          }
+
+          const error = requestUrl.searchParams.get('error');
+          const code = requestUrl.searchParams.get('code');
+          const pickedFileIds = requestUrl.searchParams.get('picked_file_ids')?.split(',').filter(Boolean) ?? [];
+          const returnedState = requestUrl.searchParams.get('state');
+          if (error != null || code == null || returnedState !== state || (usePicker && pickedFileIds.length === 0)) {
+            response
+              .writeHead(400, {'Connection': 'close', 'Content-Type': 'text/html'})
+              .end('<p>Google sign-in failed. You can close this tab.</p>');
+            clearTimeout(timeout);
+            reject(new Error(error ?? 'Google Drive did not return a selected file.'));
+            return;
+          }
+
+          try {
+            const accessToken = await exchangeGoogleOAuthCode(code, redirectUri, verifier);
+            response
+              .writeHead(200, {'Connection': 'close', 'Content-Type': 'text/html'})
+              .end('<p>Google Drive is connected. You can close this tab and return to Ulugo.</p>');
+            clearTimeout(timeout);
+            resolve({accessToken, pickedFileIds});
+          } catch (error) {
+            response
+              .writeHead(500, {'Connection': 'close', 'Content-Type': 'text/html'})
+              .end('<p>Google Drive connection failed. You can close this tab and return to Ulugo.</p>');
+            clearTimeout(timeout);
+            reject(error);
+          }
+        })();
+      });
+
+      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      authUrl.searchParams.set('client_id', electronGoogleClientId);
+      authUrl.searchParams.set('redirect_uri', redirectUri);
+      authUrl.searchParams.set('response_type', 'code');
+      authUrl.searchParams.set('scope', googleDriveScope);
+      authUrl.searchParams.set('code_challenge', challenge);
+      authUrl.searchParams.set('code_challenge_method', 'S256');
+      authUrl.searchParams.set('state', state);
+      authUrl.searchParams.set('access_type', 'offline');
+      authUrl.searchParams.set('prompt', 'consent');
+      if (usePicker) {
+        authUrl.searchParams.set('trigger_onepick', 'true');
+        authUrl.searchParams.set('allow_multiple', 'false');
+      }
+      void shell.openExternal(authUrl.toString()).catch(reject);
+    });
+  } finally {
+    server.close();
+    server.closeAllConnections?.();
+  }
+}
+
+function createOAuthServer(): Promise<{server: http.Server; port: number}> {
+  return new Promise((resolve, reject) => {
+    const server = http.createServer();
+    server.on('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (address == null || typeof address === 'string') {
+        reject(new Error('Could not start Google sign-in callback server.'));
+        return;
+      }
+      resolve({server, port: address.port});
+    });
+  });
+}
+
+async function exchangeGoogleOAuthCode(code: string, redirectUri: string, verifier: string): Promise<string> {
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      client_id: electronGoogleClientId,
+      code,
+      code_verifier: verifier,
+      grant_type: 'authorization_code',
+      redirect_uri: redirectUri,
+    }),
+  });
+  return saveGoogleTokenResponse(await parseGoogleTokenResponse(response), '');
+}
+
+async function refreshGoogleDriveAccessToken(refreshToken: string): Promise<string> {
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({
+      client_id: electronGoogleClientId,
+      grant_type: 'refresh_token',
+      refresh_token: refreshToken,
+    }),
+  });
+  return saveGoogleTokenResponse(await parseGoogleTokenResponse(response), refreshToken);
+}
+
+async function parseGoogleTokenResponse(response: Response): Promise<GoogleTokenResponse> {
+  const data = (await response.json()) as GoogleTokenResponse;
+  if (!response.ok || data.access_token == null) {
+    throw new Error(data.error_description ?? data.error ?? `Google token request failed (${response.status}).`);
+  }
+  return data;
+}
+
+async function saveGoogleTokenResponse(data: GoogleTokenResponse, fallbackRefreshToken: string): Promise<string> {
+  const refreshToken = data.refresh_token ?? fallbackRefreshToken;
+  await writeJson<GoogleDriveTokenState>('google-drive-token.json', {
+    accessToken: data.access_token!,
+    expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+    refreshToken,
+  });
+  return data.access_token!;
+}
+
+function base64Url(value: Buffer): string {
+  return value.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
 async function extractDownloadedAsset(zipPath: string, destination: string, kind: 'katago' | 'model'): Promise<string> {

@@ -3,9 +3,15 @@ import {contextBridge, ipcRenderer} from 'electron';
 contextBridge.exposeInMainWorld('ulugo', {
   platform: 'electron',
   importSgf: () => ipcRenderer.invoke('ulugo:import-sgf'),
-  exportSgf: (request: {content: string; suggestedName: string}) => ipcRenderer.invoke('ulugo:export-sgf', request),
+  exportSgf: (request: {content: string; suggestedName: string; filePath?: string}) =>
+    ipcRenderer.invoke('ulugo:export-sgf', request),
   selectFile: (options?: {title?: string; filters?: Array<{name: string; extensions: string[]}>}) =>
     ipcRenderer.invoke('ulugo:select-file', options),
+  googleDrive: {
+    openSgf: () => ipcRenderer.invoke('ulugo:google-drive:open-sgf'),
+    saveSgf: (request: {content: string; fileName: string; fileId?: string | null}) =>
+      ipcRenderer.invoke('ulugo:google-drive:save-sgf', request),
+  },
   katago: {
     getSettings: () => ipcRenderer.invoke('ulugo:katago:get-settings'),
     saveSettings: (settings: unknown) => ipcRenderer.invoke('ulugo:katago:save-settings', settings),

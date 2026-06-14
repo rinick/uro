@@ -1,5 +1,4 @@
 import {
-  DownloadOutlined,
   FileAddOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
@@ -7,7 +6,7 @@ import {
   SettingOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons';
-import {Button, Checkbox, ConfigProvider, Dropdown, Layout, Modal, Segmented, Space, message, theme} from 'antd';
+import {Button, Checkbox, ConfigProvider, Dropdown, Input, Layout, Modal, Segmented, Space, message, theme} from 'antd';
 import type {MenuProps} from 'antd';
 import {
   addLabel,
@@ -48,14 +47,6 @@ import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal'
 import {KataGoSettingsModal} from '../features/katago/KataGoSettingsModal';
 import {SgfTreePanel} from '../features/sgf-tree/SgfTreePanel';
 import {layoutTree} from '../features/sgf-tree/layout';
-import {OpenGameModal} from '../features/storage/OpenGameModal';
-import {
-  deleteStoredGame,
-  listStoredGames,
-  loadStoredGame,
-  saveStoredGame,
-  type StoredGameSummary,
-} from '../features/storage/gameStorage';
 import {KeyboardShortcutsModal} from '../features/shortcuts/KeyboardShortcutsModal';
 import {
   readKeyboardShortcuts,
@@ -90,6 +81,7 @@ import {
 } from './appSgfUtils';
 import {type AppLanguage, antdLocales, formatConsoleTime, normalizeLanguage, saveLanguage} from './appUiUtils';
 import {getAppFontFamily} from './fonts';
+import {openSgfFromGoogleDrive, saveSgfToGoogleDrive} from './googleDrive';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
 
 const {Header, Content} = Layout;
@@ -101,6 +93,12 @@ interface ReplaceDocumentOptions {
   clearAnalysisCache?: boolean;
   invalidatePath?: number[];
   pendingSetupPath?: number[] | null;
+}
+
+interface CurrentFileMetadata {
+  name: string;
+  electronFilePath?: string;
+  googleDriveFileId?: string;
 }
 
 export function App() {
@@ -118,11 +116,7 @@ export function App() {
   );
   const [playStoneSound, setPlayStoneSound] = useState(() => readStoredBoolean(playStoneSoundStorageKey, true));
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
-  const [openGameModalOpen, setOpenGameModalOpen] = useState(false);
-  const [storedGameId, setStoredGameId] = useState<string | null>(null);
-  const [storedGames, setStoredGames] = useState<StoredGameSummary[]>([]);
-  const [selectedStoredGameId, setSelectedStoredGameId] = useState<string | null>(null);
-  const [storedGamesLoading, setStoredGamesLoading] = useState(false);
+  const [currentFile, setCurrentFile] = useState<CurrentFileMetadata | null>(null);
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
@@ -223,9 +217,10 @@ export function App() {
     key: String(size),
     label: t(`menu.new${size}`),
   }));
-  const storageMenuItems: MenuProps['items'] = [
-    {key: 'save', icon: <SaveOutlined />, label: t('menu.save')},
-    {key: 'load', icon: <FolderOpenOutlined />, label: t('menu.load')},
+  const openMenuItems: MenuProps['items'] = [{key: 'googleDrive', label: t('menu.openFromGoogleDrive')}];
+  const saveMenuItems: MenuProps['items'] = [
+    {key: 'saveAs', label: t('menu.saveAs')},
+    {key: 'googleDrive', label: t('menu.saveToGoogleDrive')},
   ];
 
   useEffect(() => {
@@ -278,69 +273,71 @@ export function App() {
 
   function handleNew(size: BoardSize = 19): void {
     branchMemoryRef.current.clear();
-    setStoredGameId(null);
+    setCurrentFile(null);
     setAnalysisModeActive(false);
     replaceDocument(createNewGame(size), [], {clearAnalysisCache: true});
   }
 
-  async function handleSaveBrowserGame(): Promise<void> {
+  async function handleSaveSgf(): Promise<void> {
+    if (currentFile == null) {
+      await handleSaveAsSgf();
+      return;
+    }
+
+    if (currentFile.googleDriveFileId != null) {
+      await handleSaveSgfToGoogleDrive();
+      return;
+    }
+
+    await exportSgfFile(currentFile.name, {electronFilePath: currentFile.electronFilePath});
+  }
+
+  async function handleSaveAsSgf(): Promise<void> {
+    const fileName =
+      capabilities.storage === 'filesystem'
+        ? currentSgfFileName(currentFile, gameInfo.GN)
+        : await promptSaveFileName({
+            title: t('menu.saveAs'),
+            initialValue: currentSgfFileName(currentFile, gameInfo.GN),
+            okText: t('action.save'),
+            cancelText: t('action.cancel'),
+          });
+    if (fileName == null) return;
+
+    await exportSgfFile(fileName, {saveAs: true});
+  }
+
+  async function handleSaveSgfToGoogleDrive(): Promise<void> {
+    const fileName = currentSgfFileName(currentFile, gameInfo.GN);
     try {
-      const id = await saveStoredGame(document, storedGameId);
-      setStoredGameId(id);
-      message.success(t('savedGames.saved'));
+      const result = await saveSgfToGoogleDrive({
+        platform: capabilities.platform,
+        content: serializeSgf(document),
+        fileName,
+        fileId: currentFile?.googleDriveFileId,
+      });
+      setCurrentFile({name: result.fileName, googleDriveFileId: result.fileId});
+      message.success(t('menu.savedToGoogleDrive'));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : t('savedGames.saveFailed'));
+      message.error(error instanceof Error ? error.message : t('menu.googleDriveFailed'));
     }
   }
 
-  async function openSavedGameDialog(): Promise<void> {
-    setOpenGameModalOpen(true);
-    setStoredGamesLoading(true);
-    try {
-      const games = await listStoredGames();
-      setStoredGames(games);
-      setSelectedStoredGameId(games[0]?.id ?? null);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : t('savedGames.loadListFailed'));
-    } finally {
-      setStoredGamesLoading(false);
-    }
-  }
-
-  async function handleOpenSavedGame(): Promise<void> {
-    if (selectedStoredGameId == null) return;
-
-    try {
-      const nextDocument = await loadStoredGame(selectedStoredGameId);
-      branchMemoryRef.current.clear();
-      setStoredGameId(selectedStoredGameId);
-      setAnalysisModeActive(capabilities.katago && analysisSettings.autoAnalyze);
-      replaceDocument(nextDocument, [], {clearAnalysisCache: true});
-      setOpenGameModalOpen(false);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : t('savedGames.openFailed'));
-    }
-  }
-
-  async function handleDeleteSavedGame(): Promise<void> {
-    if (selectedStoredGameId == null) return;
-
-    try {
-      await deleteStoredGame(selectedStoredGameId);
-      const games = await listStoredGames();
-      setStoredGames(games);
-      setSelectedStoredGameId(games[0]?.id ?? null);
-      if (storedGameId === selectedStoredGameId) setStoredGameId(null);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : t('savedGames.deleteFailed'));
-    }
-  }
-
-  async function handleExportSgf(): Promise<void> {
+  async function exportSgfFile(
+    fileName: string,
+    options: {saveAs?: boolean; electronFilePath?: string | null} = {}
+  ): Promise<void> {
     const content = serializeSgf(document);
     if (capabilities.storage === 'filesystem' && window.ulugo != null) {
       try {
-        await window.ulugo.exportSgf({content, suggestedName: `${safeFileName(gameInfo.GN || 'game')}.sgf`});
+        const result = await window.ulugo.exportSgf({
+          content,
+          suggestedName: fileName,
+          filePath: options.saveAs ? undefined : (options.electronFilePath ?? undefined),
+        });
+        if (!result.canceled && result.fileName != null) {
+          setCurrentFile({name: result.fileName, electronFilePath: result.filePath});
+        }
       } catch (error) {
         message.error(error instanceof Error ? error.message : t('menu.exportFailed'));
       }
@@ -351,9 +348,10 @@ export function App() {
     const url = URL.createObjectURL(blob);
     const link = window.document.createElement('a');
     link.href = url;
-    link.download = `${safeFileName(gameInfo.GN || 'game')}.sgf`;
+    link.download = normalizeSgfFileName(fileName);
     link.click();
     URL.revokeObjectURL(url);
+    setCurrentFile({name: normalizeSgfFileName(fileName)});
   }
 
   async function handleImportSgfFromMenu(): Promise<void> {
@@ -361,7 +359,10 @@ export function App() {
       try {
         const result = await window.ulugo.importSgf();
         if (result == null) return;
-        importSgfText(result.content, result.fileName);
+        importSgfText(result.content, result.fileName, {
+          name: result.fileName,
+          electronFilePath: result.filePath,
+        });
       } catch (error) {
         message.error(error instanceof Error ? error.message : t('menu.importFailed'));
       }
@@ -371,12 +372,25 @@ export function App() {
     fileInputRef.current?.click();
   }
 
+  async function handleImportSgfFromGoogleDrive(): Promise<void> {
+    try {
+      const result = await openSgfFromGoogleDrive(capabilities.platform);
+      if (result == null) return;
+      importSgfText(result.content, result.fileName, {
+        name: result.fileName,
+        googleDriveFileId: result.fileId,
+      });
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : t('menu.googleDriveFailed'));
+    }
+  }
+
   async function handleImportSgf(file: File | undefined): Promise<void> {
     if (file == null) return;
 
     try {
       const text = await readGameRecordFile(file);
-      importSgfText(text, file.name);
+      importSgfText(text, file.name, {name: file.name});
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('menu.importFailed'));
     } finally {
@@ -397,10 +411,10 @@ export function App() {
     void handleImportSgf(file);
   }
 
-  function importSgfText(text: string, fileName: string): void {
+  function importSgfText(text: string, fileName: string, metadata: CurrentFileMetadata): void {
     const importedDocument = withImportedGameName(parseGameRecord(text, fileName), fileName);
     branchMemoryRef.current.clear();
-    setStoredGameId(null);
+    setCurrentFile(metadata);
     setAnalysisModeActive(capabilities.katago && analysisSettings.autoAnalyze);
     replaceDocument(importedDocument, [], {clearAnalysisCache: true});
   }
@@ -504,7 +518,7 @@ export function App() {
           void handleImportSgfFromMenu();
           break;
         case 'save':
-          void handleExportSgf();
+          void handleSaveSgf();
           break;
         case 'gameInfo':
           setGameInfoOpen(true);
@@ -825,30 +839,36 @@ export function App() {
               >
                 {t('menu.new')}
               </Dropdown.Button>
-              <Button size="small" icon={<FolderOpenOutlined />} onClick={() => void handleImportSgfFromMenu()}>
+              <Dropdown.Button
+                size="small"
+                icon={<FolderOpenOutlined />}
+                menu={{
+                  items: openMenuItems,
+                  onClick: (info) => {
+                    if (info.key === 'googleDrive') void handleImportSgfFromGoogleDrive();
+                  },
+                }}
+                onClick={() => void handleImportSgfFromMenu()}
+              >
                 {t('menu.importSgf')}
-              </Button>
-              <Button size="small" icon={<DownloadOutlined />} onClick={() => void handleExportSgf()}>
+              </Dropdown.Button>
+              <Dropdown.Button
+                size="small"
+                icon={<SaveOutlined />}
+                menu={{
+                  items: saveMenuItems,
+                  onClick: (info) => {
+                    if (info.key === 'saveAs') {
+                      void handleSaveAsSgf();
+                    } else if (info.key === 'googleDrive') {
+                      void handleSaveSgfToGoogleDrive();
+                    }
+                  },
+                }}
+                onClick={() => void handleSaveSgf()}
+              >
                 {t('menu.exportSgf')}
-              </Button>
-              {capabilities.storage === 'indexeddb' ? (
-                <Dropdown.Button
-                  size="small"
-                  icon={<SaveOutlined />}
-                  menu={{
-                    items: storageMenuItems,
-                    onClick: (info) => {
-                      if (info.key === 'save') {
-                        void handleSaveBrowserGame();
-                      } else if (info.key === 'load') {
-                        void openSavedGameDialog();
-                      }
-                    },
-                  }}
-                >
-                  {t('menu.storage')}
-                </Dropdown.Button>
-              ) : null}
+              </Dropdown.Button>
               <Button size="small" icon={<InfoCircleOutlined />} onClick={() => setGameInfoOpen(true)}>
                 {t('menu.editGameInfo')}
               </Button>
@@ -1055,18 +1075,6 @@ export function App() {
         accept=".sgf,.gib,application/x-go-sgf,text/plain"
         onChange={(event) => void handleImportSgf(event.target.files?.[0])}
       />
-      {capabilities.storage === 'indexeddb' ? (
-        <OpenGameModal
-          open={openGameModalOpen}
-          games={storedGames}
-          selectedId={selectedStoredGameId}
-          loading={storedGamesLoading}
-          onSelect={(id) => setSelectedStoredGameId(id === '' ? null : id)}
-          onOpen={() => void handleOpenSavedGame()}
-          onDelete={() => void handleDeleteSavedGame()}
-          onCancel={() => setOpenGameModalOpen(false)}
-        />
-      ) : null}
       {capabilities.katago ? (
         <KataGoSettingsModal
           open={kataGoSettingsOpen}
@@ -1194,6 +1202,50 @@ function gtpMoveToPoint(move: string, size: number): string | null {
   const y = size - Number(match[2]);
   if (x < 0 || y < 0 || x >= size || y >= size) return null;
   return vertexToPoint(x, y);
+}
+
+function currentSgfFileName(currentFile: CurrentFileMetadata | null, gameName: string): string {
+  if (currentFile != null) return normalizeSgfFileName(currentFile.name);
+  return `${safeFileName(gameName || 'game')}.sgf`;
+}
+
+function normalizeSgfFileName(fileName: string): string {
+  const normalized = safeFileName(fileName.replace(/\.(sgf|gib)$/i, ''));
+  return `${normalized}.sgf`;
+}
+
+function promptSaveFileName({
+  title,
+  initialValue,
+  okText,
+  cancelText,
+}: {
+  title: string;
+  initialValue: string;
+  okText: string;
+  cancelText: string;
+}): Promise<string | null> {
+  let value = initialValue;
+
+  return new Promise((resolve) => {
+    Modal.confirm({
+      title,
+      icon: null,
+      content: (
+        <Input
+          autoFocus
+          defaultValue={initialValue}
+          onChange={(event) => {
+            value = event.target.value;
+          }}
+        />
+      ),
+      okText,
+      cancelText,
+      onOk: () => resolve(normalizeSgfFileName(value)),
+      onCancel: () => resolve(null),
+    });
+  });
 }
 
 function readStoredBoolean(key: string, fallback: boolean): boolean {

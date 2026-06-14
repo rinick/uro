@@ -1,7 +1,11 @@
-# Ulugo Project Notes
 
-Prefer simpler code and less code. Pause on errors, blockers, or unclear requirements.
-When adding string to i18n.ts, update the translation for all languages.
+## Coding Guidelines
+
+- Prefer simple, minimal code. Avoid unnecessary abstractions, indirection, or large rewrites when a smaller change is enough.
+- If you hit an error, blocker, or unclear requirement, stop and ask for clarification before continuing.
+- When refactoring or redesigning code, fully clean up old logic that no longer applies. Do not leave obsolete branches, unused variables, stale comments, or dead code.
+- Keep names aligned with the current feature behavior. Update variable names, function names, translation keys, and related comments when the feature meaning changes.
+- When adding or changing strings in i18n.ts, update the translations for all supported languages in the same change.
 
 ## Project Shape
 
