@@ -4,7 +4,7 @@
   <img src ="/apps/web/src/assets/logo-512.webp" />
 </p>
 
-A web-based SGF editor for Go/Weiqi games.
+AI review tool and sgf editor for Go/Weiqi
 
 ## Development
 

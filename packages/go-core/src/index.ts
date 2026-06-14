@@ -42,6 +42,7 @@ export function deriveBoardPosition(document: SgfDocument, path: number[]): Boar
   let moveNumber = 0;
   let lastMove: SgfPoint | null = null;
   let lastColor: Stone | null = null;
+  const allowSuicide = isNewZealandRules(document.root.data.RU?.[0]);
 
   for (const node of line) {
     applySetup(node, stones, moveNumbers);
@@ -58,18 +59,7 @@ export function deriveBoardPosition(document: SgfDocument, path: number[]): Boar
     stones.set(point, color);
     moveNumbers.set(point, moveNumber);
 
-    const opponent = color === 'B' ? 'W' : 'B';
-    for (const neighbor of neighbors(point, size)) {
-      if (stones.get(neighbor) !== opponent) continue;
-      const group = collectGroup(neighbor, stones, size);
-      if (group.liberties === 0) {
-        captures[color] += group.points.length;
-        for (const captured of group.points) {
-          stones.delete(captured);
-          moveNumbers.delete(captured);
-        }
-      }
-    }
+    applyCaptures(point, color, stones, moveNumbers, captures, size, allowSuicide);
   }
 
   const current = line[line.length - 1];
@@ -102,6 +92,65 @@ export function deriveBoardPosition(document: SgfDocument, path: number[]): Boar
     lastMove,
     moveNumber,
   };
+}
+
+export function isLegalMove(position: BoardPosition, color: Stone, point: SgfPoint, rules?: string): boolean {
+  if (point === '') return true;
+  const vertex = pointToVertex(point);
+  if (vertex == null || vertex[0] >= position.size || vertex[1] >= position.size) return false;
+  if (position.stones.has(point)) return false;
+
+  const stones = new Map(position.stones);
+  const moveNumbers = new Map<SgfPoint, number>();
+  const captures: Record<Stone, number> = {B: 0, W: 0};
+  const allowSuicide = isNewZealandRules(rules);
+  stones.set(point, color);
+  applyCaptures(point, color, stones, moveNumbers, captures, position.size, allowSuicide);
+  return allowSuicide || collectGroup(point, stones, position.size).liberties > 0;
+}
+
+function applyCaptures(
+  point: SgfPoint,
+  color: Stone,
+  stones: Map<SgfPoint, Stone>,
+  moveNumbers: Map<SgfPoint, number>,
+  captures: Record<Stone, number>,
+  size: number,
+  allowSuicide: boolean
+): void {
+  const opponent = color === 'B' ? 'W' : 'B';
+  for (const neighbor of neighbors(point, size)) {
+    if (stones.get(neighbor) !== opponent) continue;
+    const group = collectGroup(neighbor, stones, size);
+    if (group.liberties === 0) {
+      captures[color] += group.points.length;
+      removeGroup(group.points, stones, moveNumbers);
+    }
+  }
+
+  const ownGroup = collectGroup(point, stones, size);
+  if (allowSuicide && ownGroup.liberties === 0) {
+    captures[opponent] += ownGroup.points.length;
+    removeGroup(ownGroup.points, stones, moveNumbers);
+  }
+}
+
+function removeGroup(
+  points: SgfPoint[],
+  stones: Map<SgfPoint, Stone>,
+  moveNumbers: Map<SgfPoint, number>
+): void {
+  for (const point of points) {
+    stones.delete(point);
+    moveNumbers.delete(point);
+  }
+}
+
+function isNewZealandRules(value: string | undefined): boolean {
+  return value
+    ?.trim()
+    .toLowerCase()
+    .replace(/[_\s]+/g, '-') === 'new-zealand';
 }
 
 function applySetup(node: SgfNode, stones: Map<SgfPoint, Stone>, moveNumbers: Map<SgfPoint, number>): void {

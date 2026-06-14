@@ -34,7 +34,7 @@ import {
 import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent} from 'react';
 import {useTranslation} from 'react-i18next';
-import {deriveBoardPosition} from '@ulugo/go-core';
+import {deriveBoardPosition, isLegalMove} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
 import stoneSoundUrl from '../assets/go_stone_light.wav';
 import {GoogleAd} from '../features/ads/GoogleAd';
@@ -662,6 +662,12 @@ export function App() {
     }
 
     if (replaceMode) {
+      const current = getNodeAtPath(document, path);
+      const color: SgfColor | null = current.data.B != null ? 'B' : current.data.W != null ? 'W' : null;
+      if (color == null) return;
+      const parentPosition = deriveBoardPosition(document, path.slice(0, -1));
+      if (!isLegalMove(parentPosition, color, point, gameInfo.RU)) return;
+
       const result = replaceMove(document, path, point);
       replaceDocument(result.document, result.path, {invalidatePath: result.path});
       return;
@@ -676,6 +682,7 @@ export function App() {
         return;
       }
 
+      if (!isLegalMove(position, color, point, gameInfo.RU)) return;
       const result = addMove(document, path, color, point);
       replaceDocument(result.document, result.path);
       playPlaceStoneSound();
@@ -703,6 +710,7 @@ export function App() {
         return;
       }
 
+      if (!isLegalMove(position, color, point, gameInfo.RU)) return;
       const result = addMove(document, path, color, point);
       replaceDocument(result.document, result.path);
       playPlaceStoneSound();
@@ -746,6 +754,7 @@ export function App() {
       return;
     }
 
+    if (!isLegalMove(position, position.nextColor, point, gameInfo.RU)) return;
     const result = addMove(document, path, position.nextColor, point);
     replaceDocument(result.document, result.path);
     if (point !== '') playPlaceStoneSound();

@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {addLabel, addMarkup, addMove, createNewGame} from '@ulugo/sgf-core';
-import {deriveBoardPosition} from '.';
+import {deriveBoardPosition, isLegalMove} from '.';
 
 describe('go-core', () => {
   it('derives stones from moves', () => {
@@ -35,5 +35,56 @@ describe('go-core', () => {
     const position = deriveBoardPosition(result.document, result.path);
     expect(position.stones.has('cc')).toBe(false);
     expect(position.captures.B).toBe(1);
+  });
+
+  it('rejects suicide moves outside New Zealand rules', () => {
+    let result = addMove(createNewGame(5), [], 'W', 'ab');
+    result = addMove(result.document, result.path, 'W', 'ba');
+    result = addMove(result.document, result.path, 'W', 'cb');
+    result = addMove(result.document, result.path, 'W', 'bc');
+
+    const position = deriveBoardPosition(result.document, result.path);
+
+    expect(isLegalMove(position, 'B', 'bb', 'Japanese')).toBe(false);
+  });
+
+  it('allows New Zealand suicide and credits the opponent capture', () => {
+    let document = createNewGame(5);
+    document.root.data.RU = ['New Zealand'];
+    let result = addMove(document, [], 'W', 'ab');
+    result = addMove(result.document, result.path, 'W', 'ba');
+    result = addMove(result.document, result.path, 'W', 'cb');
+    result = addMove(result.document, result.path, 'W', 'bc');
+
+    expect(isLegalMove(deriveBoardPosition(result.document, result.path), 'B', 'bb', 'New Zealand')).toBe(true);
+
+    result = addMove(result.document, result.path, 'B', 'bb');
+    const position = deriveBoardPosition(result.document, result.path);
+
+    expect(position.stones.has('bb')).toBe(false);
+    expect(position.captures.W).toBe(1);
+  });
+
+  it('removes the connected group on New Zealand suicide', () => {
+    let document = createNewGame(5);
+    document.root.data.RU = ['New Zealand'];
+    let result = addMove(document, [], 'B', 'cb');
+    result = addMove(result.document, result.path, 'B', 'bc');
+    result = addMove(result.document, result.path, 'W', 'ca');
+    result = addMove(result.document, result.path, 'W', 'db');
+    result = addMove(result.document, result.path, 'W', 'bb');
+    result = addMove(result.document, result.path, 'W', 'ba');
+    result = addMove(result.document, result.path, 'W', 'ac');
+    result = addMove(result.document, result.path, 'W', 'bd');
+    result = addMove(result.document, result.path, 'W', 'dc');
+    result = addMove(result.document, result.path, 'W', 'cd');
+    result = addMove(result.document, result.path, 'B', 'cc');
+
+    const position = deriveBoardPosition(result.document, result.path);
+
+    expect(position.stones.has('cb')).toBe(false);
+    expect(position.stones.has('bc')).toBe(false);
+    expect(position.stones.has('cc')).toBe(false);
+    expect(position.captures.W).toBe(3);
   });
 });
