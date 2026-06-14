@@ -107,10 +107,10 @@ export async function saveSgfToGoogleDrive({
   content: string;
   fileName: string;
   fileId?: string | null;
-}): Promise<GoogleDriveSaveResult> {
+}): Promise<GoogleDriveSaveResult | null> {
   if (platform === 'electron') {
     const result = await window.ulugo?.googleDrive.saveSgf({content, fileName, fileId});
-    if (result == null) throw new Error('Google Drive is unavailable.');
+    if (result === undefined) throw new Error('Google Drive is unavailable.');
     return result;
   }
 

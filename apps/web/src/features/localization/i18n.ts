@@ -31,6 +31,11 @@ export const resources = {
         language: 'Language',
         coordinates: 'Show coordinates',
       },
+      googleDrive: {
+        waitingTitle: 'Google Drive',
+        openWaiting: 'Finish opening the SGF file in your browser.',
+        saveWaiting: 'Finish saving the SGF file in your browser.',
+      },
       nav: {
         first: 'First move',
         previous10: 'Previous 10 moves',
@@ -233,6 +238,11 @@ export const resources = {
         editGameInfo: '棋局信息',
         language: '语言',
         coordinates: '显示坐标',
+      },
+      googleDrive: {
+        waitingTitle: 'Google 云端硬盘',
+        openWaiting: '请在浏览器中完成打开 SGF 文件。',
+        saveWaiting: '请在浏览器中完成保存 SGF 文件。',
       },
       nav: {
         first: '第一手',
@@ -437,6 +447,11 @@ export const resources = {
         language: '言語',
         coordinates: '座標を表示',
       },
+      googleDrive: {
+        waitingTitle: 'Google Drive',
+        openWaiting: 'ブラウザーで SGF ファイルを開いてください。',
+        saveWaiting: 'ブラウザーで SGF ファイルを保存してください。',
+      },
       nav: {
         first: '最初の手',
         previous10: '10手戻る',
@@ -639,6 +654,11 @@ export const resources = {
         editGameInfo: '대국 정보',
         language: '언어',
         coordinates: '좌표 표시',
+      },
+      googleDrive: {
+        waitingTitle: 'Google Drive',
+        openWaiting: '브라우저에서 SGF 파일 열기를 완료하세요.',
+        saveWaiting: '브라우저에서 SGF 파일 저장을 완료하세요.',
       },
       nav: {
         first: '첫 수',
@@ -843,6 +863,11 @@ export const resources = {
         language: 'Langue',
         coordinates: 'Afficher les coordonnees',
       },
+      googleDrive: {
+        waitingTitle: 'Google Drive',
+        openWaiting: "Terminez l'ouverture du fichier SGF dans votre navigateur.",
+        saveWaiting: "Terminez l'enregistrement du fichier SGF dans votre navigateur.",
+      },
       nav: {
         first: 'Premier coup',
         previous10: '10 coups precedents',
@@ -1046,6 +1071,11 @@ export const resources = {
         language: 'Sprache',
         coordinates: 'Koordinaten anzeigen',
       },
+      googleDrive: {
+        waitingTitle: 'Google Drive',
+        openWaiting: 'Schliesse das Oeffnen der SGF-Datei im Browser ab.',
+        saveWaiting: 'Schliesse das Speichern der SGF-Datei im Browser ab.',
+      },
       nav: {
         first: 'Erster Zug',
         previous10: '10 Zuege zurueck',
@@ -1248,6 +1278,11 @@ export const resources = {
         editGameInfo: 'Информация',
         language: 'Язык',
         coordinates: 'Показывать координаты',
+      },
+      googleDrive: {
+        waitingTitle: 'Google Диск',
+        openWaiting: 'Завершите открытие SGF-файла в браузере.',
+        saveWaiting: 'Завершите сохранение SGF-файла в браузере.',
       },
       nav: {
         first: 'Первый ход',

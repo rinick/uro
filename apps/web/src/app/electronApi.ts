@@ -53,7 +53,8 @@ export interface UlugoElectronApi {
   }) => Promise<string | null>;
   googleDrive: {
     openSgf: () => Promise<ElectronGoogleDriveOpenResult | null>;
-    saveSgf: (request: ElectronGoogleDriveSaveRequest) => Promise<ElectronGoogleDriveSaveResult>;
+    saveSgf: (request: ElectronGoogleDriveSaveRequest) => Promise<ElectronGoogleDriveSaveResult | null>;
+    cancel: () => Promise<void>;
   };
   katago: {
     getSettings: () => Promise<KataGoSettings>;

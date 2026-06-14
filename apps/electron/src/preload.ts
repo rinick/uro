@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ulugo', {
     openSgf: () => ipcRenderer.invoke('ulugo:google-drive:open-sgf'),
     saveSgf: (request: {content: string; fileName: string; fileId?: string | null}) =>
       ipcRenderer.invoke('ulugo:google-drive:save-sgf', request),
+    cancel: () => ipcRenderer.invoke('ulugo:google-drive:cancel'),
   },
   katago: {
     getSettings: () => ipcRenderer.invoke('ulugo:katago:get-settings'),

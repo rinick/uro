@@ -119,6 +119,7 @@ export function App() {
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
+  const [googleDrivePending, setGoogleDrivePending] = useState<'open' | 'save' | null>(null);
   const [autoBoardBackgroundReady, setAutoBoardBackgroundReady] = useState(false);
   const [keyboardShortcuts, setKeyboardShortcuts] = useState(() => readKeyboardShortcuts());
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -308,6 +309,8 @@ export function App() {
 
   async function handleSaveSgfToGoogleDrive(): Promise<void> {
     const fileName = currentSgfFileName(currentFile, gameInfo.GN);
+    const showPendingDialog = capabilities.platform === 'electron';
+    if (showPendingDialog) setGoogleDrivePending('save');
     try {
       const result = await saveSgfToGoogleDrive({
         platform: capabilities.platform,
@@ -315,10 +318,13 @@ export function App() {
         fileName,
         fileId: currentFile?.googleDriveFileId,
       });
+      if (result == null) return;
       setCurrentFile({name: result.fileName, googleDriveFileId: result.fileId});
       message.success(t('menu.savedToGoogleDrive'));
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('menu.googleDriveFailed'));
+    } finally {
+      if (showPendingDialog) setGoogleDrivePending(null);
     }
   }
 
@@ -372,6 +378,8 @@ export function App() {
   }
 
   async function handleImportSgfFromGoogleDrive(): Promise<void> {
+    const showPendingDialog = capabilities.platform === 'electron';
+    if (showPendingDialog) setGoogleDrivePending('open');
     try {
       const result = await openSgfFromGoogleDrive(capabilities.platform);
       if (result == null) return;
@@ -381,6 +389,8 @@ export function App() {
       });
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('menu.googleDriveFailed'));
+    } finally {
+      if (showPendingDialog) setGoogleDrivePending(null);
     }
   }
 
@@ -803,6 +813,10 @@ export function App() {
     setKeyboardShortcutsOpen(true);
   }
 
+  function cancelGoogleDriveOperation(): void {
+    void window.ulugo?.googleDrive.cancel();
+  }
+
   return (
     <ConfigProvider
       locale={antdLocale}
@@ -822,6 +836,20 @@ export function App() {
         },
       }}
     >
+      <Modal
+        open={googleDrivePending != null}
+        title={t('googleDrive.waitingTitle')}
+        footer={
+          <Button size="small" onClick={cancelGoogleDriveOperation}>
+            {t('action.cancel')}
+          </Button>
+        }
+        closable={false}
+        keyboard={false}
+        maskClosable={false}
+      >
+        {googleDrivePending === 'open' ? t('googleDrive.openWaiting') : t('googleDrive.saveWaiting')}
+      </Modal>
       <Layout className="app-shell">
         <Header className="app-header">
           <div className="menu-row">
