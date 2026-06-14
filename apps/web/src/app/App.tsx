@@ -37,6 +37,8 @@ import {useTranslation} from 'react-i18next';
 import {deriveBoardPosition, isLegalMove} from '@ulugo/go-core';
 import type {AnalysisSettings} from '@ulugo/analysis-core';
 import stoneSoundUrl from '../assets/go_stone_light.wav';
+import privacyPolicyUrl from '../../../../policies/privacy-policy.md?url';
+import termsOfServiceUrl from '../../../../policies/terms-of-service.md?url';
 import {GoogleAd} from '../features/ads/GoogleAd';
 import {GoBoard, type BoardVertexClickOptions} from '../features/board/GoBoard';
 import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
@@ -1013,6 +1015,14 @@ export function App() {
           ) : capabilities.platform === 'web' ? (
             <aside className="left-panel web-ad-panel">
               <GoogleAd />
+              <div className="policy-links">
+                <Button type="link" href={privacyPolicyUrl} target="_blank" rel="noreferrer">
+                  Privacy Policy
+                </Button>
+                <Button type="link" href={termsOfServiceUrl} target="_blank" rel="noreferrer">
+                  Terms of Service
+                </Button>
+              </div>
             </aside>
           ) : null}
           <main

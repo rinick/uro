@@ -7,6 +7,13 @@ export default defineConfig({
   plugins: [react()],
   build: {
     minify: true,
+    rollupOptions: {
+      output: {
+        assetFileNames: 'assets/[name][extname]',
+        chunkFileNames: 'assets/[name].js',
+        entryFileNames: 'assets/[name].js',
+      },
+    },
   },
   server: {
     hmr: false,
