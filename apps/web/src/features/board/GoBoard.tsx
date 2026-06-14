@@ -1,4 +1,4 @@
-import {Goban, type HeatVertex, type Marker, type MoveHint, type Vertex} from '@ulugo/react-shudan';
+import {Goban, type AnalysisOverlay, type Marker, type MoveHint, type Vertex} from '@ulugo/react-shudan';
 import {deriveBoardPosition, type BoardPoint} from '@ulugo/go-core';
 import {getNodeAtPath, pointToVertex, type MarkupKind, type SgfDocument, vertexToPoint} from '@ulugo/sgf-core';
 import {useCallback, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type PointerEvent} from 'react';
@@ -87,9 +87,9 @@ export function GoBoard({
       ),
     [position, moveNumberLimit, showMarkup]
   );
-  const heatMap = useMemo(
+  const analysisOverlayMap = useMemo(
     () =>
-      buildAnalysisHeatMap(
+      buildAnalysisOverlayMap(
         position.size,
         childMoveSet(document, path, position.size),
         analysis,
@@ -115,12 +115,12 @@ export function GoBoard({
         position.points,
         position.moveNumber,
         moveNumberLimit,
-        heatMap
+        analysisOverlayMap
       ),
     [
       analysis,
       analysisSettings,
-      heatMap,
+      analysisOverlayMap,
       moveNumberLimit,
       position.moveNumber,
       position.points,
@@ -182,7 +182,7 @@ export function GoBoard({
           showCoordinates={showCoordinates}
           signMap={signMap}
           markerMap={markerMap}
-          heatMap={heatMap}
+          analysisOverlayMap={analysisOverlayMap}
           moveHintMap={moveHintMap}
           paintMap={paintMap}
           selectedVertices={position.lastMove == null ? [] : [pointToVertex(position.lastMove)!]}
@@ -196,7 +196,7 @@ export function GoBoard({
 
 type VertexEvent = MouseEvent<HTMLDivElement> | PointerEvent<HTMLDivElement>;
 
-function buildAnalysisHeatMap(
+function buildAnalysisOverlayMap(
   size: number,
   childMoves: Set<string>,
   analysis: KataGoAnalysisResult | null,
@@ -205,10 +205,10 @@ function buildAnalysisHeatMap(
   points: BoardPoint[],
   currentMoveNumber: number,
   stoneScoreDeltas: Map<string, number>
-): Array<Array<HeatVertex | null>> | undefined {
-  const result = emptyMap<HeatVertex | null>(size, null);
+): Array<Array<AnalysisOverlay | null>> | undefined {
+  const result = emptyMap<AnalysisOverlay | null>(size, null);
   const topMoveDisplay = settings.topMoveDisplay;
-  let hasHeat = false;
+  let hasAnalysisOverlay = false;
 
   if (settings.showTopMoves && analysis?.moveInfos != null) {
     const moves = analysis.moveInfos.filter((move) => gtpMoveToVertex(move.move, size) != null);
@@ -236,11 +236,11 @@ function buildAnalysisHeatMap(
       const text = showText ? analysisMoveText(move, settings.moveDisplay, analysis, nextColor) : '';
       result[y][x] = {
         ...(result[y][x] ?? {}),
-        strength: heatStrength(move, analysis, nextColor),
-        heat: true,
+        strength: analysisStrength(move, analysis, nextColor),
+        halo: true,
         text: text === '' ? undefined : text,
       };
-      hasHeat = true;
+      hasAnalysisOverlay = true;
     }
   }
 
@@ -259,15 +259,15 @@ function buildAnalysisHeatMap(
       result[point.y][point.x] = {
         ...(result[point.y][point.x] ?? {}),
         strength: evaluationClass(-scoreDelta) + 1,
-        heat: false,
+        halo: false,
         dot: true,
         dotSize: analysisDotSize(point.moveNumber, currentMoveNumber),
       };
-      hasHeat = true;
+      hasAnalysisOverlay = true;
     }
   }
 
-  return hasHeat ? result : undefined;
+  return hasAnalysisOverlay ? result : undefined;
 }
 
 function buildMoveHintMap(
@@ -315,7 +315,7 @@ function buildOwnershipPaintMap(
   points: BoardPoint[],
   currentMoveNumber: number,
   moveNumberLimit: MoveNumberLimit,
-  heatMap: Array<Array<HeatVertex | null>> | undefined
+  analysisOverlayMap: Array<Array<AnalysisOverlay | null>> | undefined
 ): number[][] | undefined {
   if (!settings.showExpectedTerritory || analysis?.ownership == null) return undefined;
   const cappedPaintPoints = new Set(
@@ -329,7 +329,7 @@ function buildOwnershipPaintMap(
   return Array.from({length: size}, (_, y) =>
     Array.from({length: size}, (_, x) => {
       const point = vertexToPoint(x, y);
-      const shouldCapPaintOpacity = cappedPaintPoints.has(point) || heatMap?.[y]?.[x]?.text != null;
+      const shouldCapPaintOpacity = cappedPaintPoints.has(point) || analysisOverlayMap?.[y]?.[x]?.text != null;
 
       const value = analysis.ownership?.[y * size + x] ?? 0;
       if (Math.abs(value) < 0.15) return 0;
@@ -406,7 +406,7 @@ function evaluationClass(pointsLost: number): number {
   return index;
 }
 
-function heatStrength(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number {
+function analysisStrength(move: KataGoMoveInfo, analysis: KataGoAnalysisResult, nextColor: 'B' | 'W'): number {
   const pointsLost = movePointsLost(move, analysis, nextColor);
   if (pointsLost != null) return evaluationClass(pointsLost) + 1;
 

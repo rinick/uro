@@ -16,12 +16,12 @@ import {
 } from './helper';
 import {CoordX, CoordY} from './Coord';
 import Grid from './Grid';
-import Vertex, {type GhostStone, type HeatVertex, type MoveHint, type VertexHandler} from './Vertex';
+import Vertex, {type AnalysisOverlay, type GhostStone, type MoveHint, type VertexHandler} from './Vertex';
 import type {Marker} from './Marker';
 
 export type Vertex = VertexPoint;
 export type Map<T> = T[][];
-export type {GhostStone, HeatVertex, Marker, MoveHint};
+export type {AnalysisOverlay, GhostStone, Marker, MoveHint};
 
 type Sign = 0 | -1 | 1;
 
@@ -51,7 +51,7 @@ export interface GobanProps extends PublicVertexEventHandlers {
   markerMap?: Map<Marker | null>;
   paintMap?: Map<number>;
   ghostStoneMap?: Map<GhostStone | null>;
-  heatMap?: Map<HeatVertex | null>;
+  analysisOverlayMap?: Map<AnalysisOverlay | null>;
   moveHintMap?: Map<MoveHint | null>;
   selectedVertices?: VertexPoint[];
   dimmedVertices?: VertexPoint[];
@@ -135,7 +135,7 @@ export default class Goban extends Component<GobanProps, GobanState> {
       busy,
       signMap,
       paintMap,
-      heatMap,
+      analysisOverlayMap,
       moveHintMap,
       markerMap,
       ghostStoneMap,
@@ -235,7 +235,7 @@ export default class Goban extends Component<GobanProps, GobanState> {
                     random: randomMap?.[y]?.[x],
                     sign: signMap?.[y]?.[x],
 
-                    heat: heatMap?.[y]?.[x],
+                    analysisOverlay: analysisOverlayMap?.[y]?.[x],
                     moveHint: moveHintMap?.[y]?.[x],
                     marker: markerMap?.[y]?.[x],
                     ghostStone: ghostStoneMap?.[y]?.[x],

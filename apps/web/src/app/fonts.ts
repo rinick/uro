@@ -1,4 +1,4 @@
-import type {antdLocales} from './appUiUtils';
+import type {antdLocales} from './localizationUtils';
 
 type AppLanguage = keyof typeof antdLocales;
 

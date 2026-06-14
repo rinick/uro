@@ -18,7 +18,6 @@ import {
   getComment,
   getBoardSize,
   getGameInfo,
-  getLine,
   getNodeAtPath,
   buildTree,
   moveBranch,
@@ -31,7 +30,6 @@ import {
   vertexToPoint,
   type SgfColor,
   type SgfDocument,
-  type SgfNode,
 } from '@ulugo/sgf-core';
 import {boardSizes, type BoardSize} from '@ulugo/ui-shared';
 import {useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type MouseEvent} from 'react';
@@ -43,7 +41,7 @@ import {GoogleAd} from '../features/ads/GoogleAd';
 import {GoBoard, type BoardVertexClickOptions} from '../features/board/GoBoard';
 import {CommentsPanel, type CommentsPanelHandle} from '../features/comments/CommentsPanel';
 import {GameInfoModal} from '../features/game-info/GameInfoModal';
-import {AnalysisSettingsModal} from '../features/analysis/AnalysisSettingsModal';
+import {SettingsModal} from '../features/settings/SettingsModal';
 import {KataGoSettingsModal} from '../features/katago/KataGoSettingsModal';
 import {SgfTreePanel} from '../features/sgf-tree/SgfTreePanel';
 import {layoutTree} from '../features/sgf-tree/layout';
@@ -60,26 +58,27 @@ import {
 import {EditorToolbar} from '../features/toolbar/EditorToolbar';
 import type {EditorTool} from '../features/toolbar/types';
 import {getAppCapabilities} from './capabilities';
+import {addSetupStoneToPath, findChildMovePath, isCurrentSetupStone, oppositeColor, toolToMarkup} from './sgfEditUtils';
 import {
-  addSetupStoneToPath,
-  findChildMovePath,
+  findCurrentStoneMovePath,
+  findFutureMovePath,
   getAnalysisQueuePaths,
   getCurrentBranchMovePaths,
-  isCurrentSetupStone,
-  isGameRecordFile,
-  isTextInputActive,
   nextFirstChildPath,
   nextRememberedPath,
   normalizeSelectedPath,
-  oppositeColor,
-  parseGameRecord,
   pathKey,
+} from './sgfPathUtils';
+import {
+  isGameRecordFile,
+  parseGameRecord,
   readGameRecordFile,
   safeFileName,
-  toolToMarkup,
   withImportedGameName,
-} from './appSgfUtils';
-import {type AppLanguage, antdLocales, formatConsoleTime, normalizeLanguage, saveLanguage} from './appUiUtils';
+} from './gameRecordFileUtils';
+import {isTextInputActive} from './domUtils';
+import {type AppLanguage, antdLocales, normalizeLanguage, saveLanguage} from './localizationUtils';
+import {formatConsoleTime} from './katagoConsoleUtils';
 import {getAppFontFamily} from './fonts';
 import {openSgfFromGoogleDrive, saveSgfToGoogleDrive} from './googleDrive';
 import {useKataGoAnalysis} from './useKataGoAnalysis';
@@ -118,7 +117,7 @@ export function App() {
   const [gameInfoOpen, setGameInfoOpen] = useState(false);
   const [currentFile, setCurrentFile] = useState<CurrentFileMetadata | null>(null);
   const [kataGoSettingsOpen, setKataGoSettingsOpen] = useState(false);
-  const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [keyboardShortcutsOpen, setKeyboardShortcutsOpen] = useState(false);
   const [autoBoardBackgroundReady, setAutoBoardBackgroundReady] = useState(false);
   const [keyboardShortcuts, setKeyboardShortcuts] = useState(() => readKeyboardShortcuts());
@@ -800,7 +799,7 @@ export function App() {
   }
 
   function openKeyboardShortcuts(): void {
-    setAnalysisSettingsOpen(false);
+    setSettingsOpen(false);
     setKeyboardShortcutsOpen(true);
   }
 
@@ -877,7 +876,7 @@ export function App() {
                   {t('katago.button')}
                 </Button>
               ) : null}
-              <Button size="small" icon={<SettingOutlined />} onClick={() => setAnalysisSettingsOpen(true)}>
+              <Button size="small" icon={<SettingOutlined />} onClick={() => setSettingsOpen(true)}>
                 {t('settings.title')}
               </Button>
             </Space>
@@ -951,7 +950,7 @@ export function App() {
         </Header>
         <Content className="app-content">
           {capabilities.katago ? (
-            <aside className="katago-console-panel">
+            <aside className="left-panel">
               <div className="katago-console-header">
                 <h2>{t('panels.katagoConsole')}</h2>
                 <Button size="small" onClick={() => setKataGoConsoleMessages([])}>
@@ -975,7 +974,7 @@ export function App() {
               </div>
             </aside>
           ) : capabilities.platform === 'web' ? (
-            <aside className="katago-console-panel web-ad-panel">
+            <aside className="left-panel web-ad-panel">
               <GoogleAd />
             </aside>
           ) : null}
@@ -1005,8 +1004,8 @@ export function App() {
               <Button
                 className={[
                   'analysis-button',
-                  analysisMode ? 'glow-button' : '',
-                  analysisDeepMode ? 'glow-button-red' : analysisIdle ? 'glow-button-green' : '',
+                  analysisMode ? 'analysis-button-active' : '',
+                  analysisDeepMode ? 'analysis-button-deep' : analysisIdle ? 'analysis-button-idle' : '',
                 ]
                   .filter(Boolean)
                   .join(' ')}
@@ -1084,16 +1083,16 @@ export function App() {
           }}
         />
       ) : null}
-      <AnalysisSettingsModal
-        open={analysisSettingsOpen}
+      <SettingsModal
+        open={settingsOpen}
         settings={analysisSettings}
         language={currentLanguage}
         showCoordinates={showCoordinates}
         showMarkup={showMarkup}
         playStoneSound={playStoneSound}
-        showKataGoSettings={capabilities.katago}
-        onCancel={() => setAnalysisSettingsOpen(false)}
-        onSettingsChange={updateAnalysisSettings}
+        showKataGoAnalysisSettings={capabilities.katago}
+        onCancel={() => setSettingsOpen(false)}
+        onAnalysisSettingsChange={updateAnalysisSettings}
         onLanguageChange={handleLanguageChange}
         onShowCoordinatesChange={setShowCoordinates}
         onShowMarkupChange={setShowMarkup}
@@ -1120,78 +1119,8 @@ export function App() {
   );
 }
 
-function findCurrentStoneMovePath(document: SgfDocument, selectedPath: number[], point: string): number[] | null {
-  const line = getLine(document, selectedPath);
-  for (let depth = Math.min(selectedPath.length, line.length - 1); depth > 0; depth -= 1) {
-    if (nodeMovePoint(line[depth]) === point) return selectedPath.slice(0, depth);
-  }
-
-  return null;
-}
-
 function hasDraggedFiles(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.types).includes('Files');
-}
-
-function findFutureMovePath(
-  document: SgfDocument,
-  selectedPath: number[],
-  point: string,
-  branchMemory: Map<string, number>
-): number[] | null {
-  const currentBranchPaths = futureCurrentBranchPaths(document, selectedPath, branchMemory);
-  for (const nextPath of currentBranchPaths) {
-    if (nodeMovePoint(getNodeAtPath(document, nextPath)) === point) return nextPath;
-  }
-
-  return findDescendantMovePath(
-    getNodeAtPath(document, selectedPath),
-    selectedPath,
-    point,
-    new Set(currentBranchPaths.map(pathKey))
-  );
-}
-
-function futureCurrentBranchPaths(
-  document: SgfDocument,
-  selectedPath: number[],
-  branchMemory: Map<string, number>
-): number[][] {
-  const paths: number[][] = [];
-  let path = selectedPath;
-  let node = getNodeAtPath(document, path);
-
-  while (node.children.length > 0) {
-    const rememberedChild = branchMemory.get(pathKey(path)) ?? 0;
-    const nextIndex = rememberedChild < node.children.length ? rememberedChild : 0;
-    path = [...path, nextIndex];
-    paths.push(path);
-    node = node.children[nextIndex];
-  }
-
-  return paths;
-}
-
-function findDescendantMovePath(
-  node: SgfNode,
-  path: number[],
-  point: string,
-  skippedPaths: Set<string>
-): number[] | null {
-  for (const [index, child] of node.children.entries()) {
-    const childPath = [...path, index];
-    const skipped = skippedPaths.has(pathKey(childPath));
-    if (!skipped && nodeMovePoint(child) === point) return childPath;
-
-    const descendantPath = findDescendantMovePath(child, childPath, point, skippedPaths);
-    if (descendantPath != null) return descendantPath;
-  }
-
-  return null;
-}
-
-function nodeMovePoint(node: SgfNode): string | null {
-  return node.data.B?.[0] ?? node.data.W?.[0] ?? null;
 }
 
 function gtpMoveToPoint(move: string, size: number): string | null {

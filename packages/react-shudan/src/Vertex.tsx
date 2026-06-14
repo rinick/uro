@@ -15,9 +15,9 @@ export interface GhostStone {
   faint?: boolean | null;
 }
 
-export interface HeatVertex {
+export interface AnalysisOverlay {
   strength: number;
-  heat?: boolean;
+  halo?: boolean;
   dot?: boolean;
   dotSize?: number;
   text?: string | number | null;
@@ -36,7 +36,7 @@ export interface VertexProps extends VertexEventHandlers {
   shift?: number;
   random?: number;
   sign?: Sign;
-  heat?: HeatVertex | null;
+  analysisOverlay?: AnalysisOverlay | null;
   moveHint?: MoveHint | null;
   paint?: number;
   dimmed?: boolean;
@@ -60,7 +60,7 @@ function Vertex(props: VertexProps) {
     shift,
     random,
     sign = 0,
-    heat,
+    analysisOverlay,
     moveHint,
     paint = 0,
     dimmed,
@@ -108,7 +108,7 @@ function Vertex(props: VertexProps) {
         } satisfies CSSProperties,
         'className': classnames('shudan-vertex', `shudan-random_${random}`, `shudan-sign_${sign}`, {
           [`shudan-shift_${shift}`]: !!shift,
-          [`shudan-heat_${heat?.strength}`]: (heat?.strength ?? 0) > 0,
+          [`shudan-analysis-strength_${analysisOverlay?.strength}`]: (analysisOverlay?.strength ?? 0) > 0,
           'shudan-bestmove': !!moveHint?.best,
           [`shudan-nextmove_${moveHint?.branch}`]: !!moveHint?.branch,
           [`shudan-nextmove-sign_${moveHint?.sign}`]: !!moveHint?.sign,
@@ -147,9 +147,10 @@ function Vertex(props: VertexProps) {
       }),
 
     h('div', {
-      key: 'heat',
-      className: classnames('shudan-heat', {
-        [`shudan-heat_${heat?.strength}`]: (heat?.heat ?? true) && (heat?.strength ?? 0) > 0,
+      key: 'analysisOverlay',
+      className: classnames('shudan-analysis-overlay', {
+        [`shudan-analysis-strength_${analysisOverlay?.strength}`]:
+          (analysisOverlay?.halo ?? true) && (analysisOverlay?.strength ?? 0) > 0,
       }),
       style: absoluteStyle(),
     }),
@@ -201,16 +202,17 @@ function Vertex(props: VertexProps) {
         style: absoluteStyle(),
       }),
 
-    !!heat?.dot &&
+    !!analysisOverlay?.dot &&
       h('div', {
-        key: 'analysisdot',
-        className: classnames('shudan-analysisdot', {
-          [`shudan-heat_${heat?.strength}`]: (heat?.strength ?? 0) > 0,
+        key: 'analysisDot',
+        className: classnames('shudan-analysis-dot', {
+          [`shudan-analysis-strength_${analysisOverlay?.strength}`]: (analysisOverlay?.strength ?? 0) > 0,
         }),
         style: {
           ...absoluteStyle(),
-          '--shudan-analysisdot-size': heat.dotSize == null ? undefined : `${heat.dotSize}em`,
-          '--shudan-analysisdot-offset': heat.dotSize == null ? undefined : `${-heat.dotSize / 2}em`,
+          '--shudan-analysis-dot-size': analysisOverlay.dotSize == null ? undefined : `${analysisOverlay.dotSize}em`,
+          '--shudan-analysis-dot-offset':
+            analysisOverlay.dotSize == null ? undefined : `${-analysisOverlay.dotSize / 2}em`,
         } as CSSProperties,
       }),
 
@@ -220,15 +222,15 @@ function Vertex(props: VertexProps) {
         className: 'shudan-selection',
         style: absoluteStyle(),
       }),
-    heat?.text != null &&
+    analysisOverlay?.text != null &&
       h(
         'div',
         {
-          key: 'heatlabel',
-          className: 'shudan-heatlabel',
+          key: 'analysisLabel',
+          className: 'shudan-analysis-label',
           style: absoluteStyle(),
         },
-        heat.text && heat.text.toString()
+        analysisOverlay.text && analysisOverlay.text.toString()
       )
   );
 }
@@ -242,7 +244,7 @@ function sameVertexProps(previous: VertexProps, next: VertexProps): boolean {
     previous.shift === next.shift &&
     previous.random === next.random &&
     previous.sign === next.sign &&
-    sameHeat(previous.heat, next.heat) &&
+    sameAnalysisOverlay(previous.analysisOverlay, next.analysisOverlay) &&
     sameMoveHint(previous.moveHint, next.moveHint) &&
     sameMarker(previous.marker, next.marker) &&
     sameGhostStone(previous.ghostStone, next.ghostStone) &&
@@ -258,13 +260,16 @@ function sameVertexProps(previous: VertexProps, next: VertexProps): boolean {
   );
 }
 
-function sameHeat(left: HeatVertex | null | undefined, right: HeatVertex | null | undefined): boolean {
+function sameAnalysisOverlay(
+  left: AnalysisOverlay | null | undefined,
+  right: AnalysisOverlay | null | undefined
+): boolean {
   return (
     left === right ||
     (left != null &&
       right != null &&
       left.strength === right.strength &&
-      left.heat === right.heat &&
+      left.halo === right.halo &&
       left.dot === right.dot &&
       left.dotSize === right.dotSize &&
       left.text === right.text)

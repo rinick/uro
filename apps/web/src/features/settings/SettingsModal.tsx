@@ -2,18 +2,18 @@ import {Button, Checkbox, Form, InputNumber, Modal, Select, Switch, message} fro
 import {useEffect, useState} from 'react';
 import {useTranslation} from 'react-i18next';
 import {defaultAnalysisSettings, type AnalysisSettings} from '@ulugo/analysis-core';
-import {type AppLanguage, languageOptions} from '../../app/appUiUtils';
+import {type AppLanguage, languageOptions} from '../../app/localizationUtils';
 
-interface AnalysisSettingsModalProps {
+interface SettingsModalProps {
   open: boolean;
   settings: AnalysisSettings;
   language: AppLanguage;
   showCoordinates: boolean;
   showMarkup: boolean;
   playStoneSound: boolean;
-  showKataGoSettings?: boolean;
+  showKataGoAnalysisSettings?: boolean;
   onCancel: () => void;
-  onSettingsChange: (settings: AnalysisSettings) => void;
+  onAnalysisSettingsChange: (settings: AnalysisSettings) => void;
   onLanguageChange: (language: AppLanguage) => void;
   onShowCoordinatesChange: (showCoordinates: boolean) => void;
   onShowMarkupChange: (showMarkup: boolean) => void;
@@ -21,22 +21,22 @@ interface AnalysisSettingsModalProps {
   onKeyboardShortcutsClick: () => void;
 }
 
-export function AnalysisSettingsModal({
+export function SettingsModal({
   open,
   settings,
   language,
   showCoordinates,
   showMarkup,
   playStoneSound,
-  showKataGoSettings = false,
+  showKataGoAnalysisSettings = false,
   onCancel,
-  onSettingsChange,
+  onAnalysisSettingsChange,
   onLanguageChange,
   onShowCoordinatesChange,
   onShowMarkupChange,
   onPlayStoneSoundChange,
   onKeyboardShortcutsClick,
-}: AnalysisSettingsModalProps) {
+}: SettingsModalProps) {
   const {t} = useTranslation();
   const [form] = Form.useForm<AnalysisSettings>();
   const [loading, setLoading] = useState(false);
@@ -50,7 +50,7 @@ export function AnalysisSettingsModal({
 
   useEffect(() => {
     if (!open) return;
-    if (!showKataGoSettings || window.ulugo == null) return;
+    if (!showKataGoAnalysisSettings || window.ulugo == null) return;
 
     let active = true;
     setLoading(true);
@@ -61,7 +61,7 @@ export function AnalysisSettingsModal({
         const next = {...defaultAnalysisSettings, ...settings};
         form.setFieldsValue(next);
         setMinVisitsDraft(next.minVisits);
-        onSettingsChange(next);
+        onAnalysisSettingsChange(next);
       })
       .catch((error: unknown) => message.error(error instanceof Error ? error.message : t('analysis.loadFailed')))
       .finally(() => {
@@ -71,10 +71,10 @@ export function AnalysisSettingsModal({
     return () => {
       active = false;
     };
-  }, [form, onSettingsChange, open, showKataGoSettings, t]);
+  }, [form, onAnalysisSettingsChange, open, showKataGoAnalysisSettings, t]);
 
   function updateSettings(values: Partial<AnalysisSettings>): void {
-    onSettingsChange({...defaultAnalysisSettings, ...settings, ...values});
+    onAnalysisSettingsChange({...defaultAnalysisSettings, ...settings, ...values});
   }
 
   function commitMinVisits(): void {
@@ -120,7 +120,7 @@ export function AnalysisSettingsModal({
             value={settings.boardBackground}
             onChange={(value) => updateSettings({boardBackground: value as AnalysisSettings['boardBackground']})}
             options={[
-              ...(showKataGoSettings ? [{value: 'auto', label: t('settings.boardBackgroundAuto')}] : []),
+              ...(showKataGoAnalysisSettings ? [{value: 'auto', label: t('settings.boardBackgroundAuto')}] : []),
               {value: 'golden', label: t('settings.boardBackgroundGolden')},
               {value: 'natural', label: t('settings.boardBackgroundNatural')},
               {value: 'flat', label: t('settings.boardBackgroundFlat')},
@@ -132,7 +132,7 @@ export function AnalysisSettingsModal({
             {t('shortcuts.button')}
           </Button>
         </Form.Item>
-        {showKataGoSettings ? (
+        {showKataGoAnalysisSettings ? (
           <>
             <Form.Item>
               <Checkbox
@@ -150,7 +150,7 @@ export function AnalysisSettingsModal({
                 options={[
                   {value: 'score', label: t('analysis.score')},
                   {value: 'winrate', label: t('analysis.winrate')},
-                  {value: 'absScore', label: t('analysis.value')},
+                  {value: 'absScore', label: t('analysis.absoluteScore')},
                 ]}
               />
             </Form.Item>

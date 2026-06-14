@@ -78,15 +78,6 @@ textarea,
   color: #1f343f;
 }
 
-.view-toggles {
-  padding: 0 8px;
-  color: #595959;
-}
-
-.app-settings-form {
-  width: 100%;
-}
-
 .app-settings-row {
   display: flex;
   align-items: center;
@@ -148,12 +139,6 @@ textarea,
   font-size: 12px;
 }
 
-.analysis-pending-count {
-  min-width: 52px;
-  color: #8c8c8c;
-  text-align: right;
-}
-
 .edit-tools {
   flex: 0 1 auto;
 }
@@ -167,7 +152,7 @@ textarea,
   text-align: center;
 }
 
-.auto-play-icon {
+.auto-tool-icon {
   position: relative;
   display: inline-block;
   width: 24px;
@@ -194,13 +179,13 @@ textarea,
   background: #111827;
 }
 
-.auto-play-icon.black-next .auto-stone-black,
-.auto-play-icon.white-next .auto-stone-white {
+.auto-tool-icon.black-next .auto-stone-black,
+.auto-tool-icon.white-next .auto-stone-white {
   z-index: 2;
 }
 
-.auto-play-icon.black-next .auto-stone-white,
-.auto-play-icon.white-next .auto-stone-black {
+.auto-tool-icon.black-next .auto-stone-white,
+.auto-tool-icon.white-next .auto-stone-black {
   z-index: 1;
 }
 
@@ -215,8 +200,7 @@ textarea,
   stroke-linejoin: round;
 }
 
-.tool-stone,
-.tool-point {
+.tool-stone {
   display: inline-block;
   width: 14px;
   height: 14px;
@@ -236,13 +220,6 @@ textarea,
   background: #ffffff;
 }
 
-.tool-point {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #274967;
-}
-
 .app-content {
   display: flex;
   flex: 1;
@@ -250,7 +227,7 @@ textarea,
   overflow: hidden;
 }
 
-.katago-console-panel {
+.left-panel {
   display: flex;
   flex: 0 0 360px;
   flex-direction: column;
@@ -524,18 +501,10 @@ textarea,
   cursor: pointer;
 }
 
-.analysis-chart-title {
-  fill: #3d2411;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.analysis-chart-title.score,
 .analysis-chart-label.score {
   fill: #14513c;
 }
 
-.analysis-chart-title.winrate,
 .analysis-chart-label.winrate {
   fill: #243f8f;
 }
@@ -856,26 +825,24 @@ button.ant-btn.analysis-button {
   border-radius: 20px;
   transition: background 0.5s;
 }
-.glow-button {
+button.ant-btn.analysis-button-active {
   color: white;
-  /*background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);*/
   background: linear-gradient(100deg, #6253e1, #04befe, #1677ff, #6253e1);
   background-size: 400%;
 }
-.glow-button-red,
-.glow-button-deep-dive {
+button.ant-btn.analysis-button-deep {
   background: linear-gradient(100deg, #fa7161, #f0ae42, #e43603, #fa7161);
   background-size: 400%;
 }
-.glow-button-green {
+button.ant-btn.analysis-button-idle {
   background: linear-gradient(100deg, #40c057, #12b886, #2f9e44, #40c057);
   background-size: 400%;
 }
-.glow-button > * {
+button.ant-btn.analysis-button-active > * {
   z-index: 2;
 }
 
-.glow-button:before {
+button.ant-btn.analysis-button-active:before {
   content: '';
   position: absolute;
   background: inherit;

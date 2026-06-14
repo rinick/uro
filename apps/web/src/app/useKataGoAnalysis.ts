@@ -22,8 +22,8 @@ import {
   type AnalysisQueryContext,
   type CachedAnalysis,
 } from './appAnalysisUtils';
-import {collectNodeIds, nodeKey, pathKey} from './appSgfUtils';
-import {createLocalConsoleMessage} from './appUiUtils';
+import {collectNodeIds, nodeKey, pathKey} from './sgfPathUtils';
+import {createLocalConsoleMessage} from './katagoConsoleUtils';
 
 const deepAnalysisVisits = 10_000_000;
 const maxFastAnalysisQueries = 2;
@@ -403,11 +403,7 @@ export function useKataGoAnalysis({
         if (!cancelled) await requestAnalysis(path, 'live', targetVisits, true);
       } catch (error: unknown) {
         appendKataGoConsoleMessage(
-          createLocalConsoleMessage(
-            'ulugo',
-            'error',
-            error instanceof Error ? error.message : startFailedMessage
-          )
+          createLocalConsoleMessage('ulugo', 'error', error instanceof Error ? error.message : startFailedMessage)
         );
         setAnalysisModeActive(false);
       }

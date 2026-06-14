@@ -1,9 +1,8 @@
 import type {AnalysisChartPoint, KataGoAnalysisResult, KataGoMoveInfo} from '@ulugo/analysis-core';
 import {deriveBoardPosition} from '@ulugo/go-core';
-import {defaultKataGoSettings, type KataGoSettings} from '@ulugo/katago-core';
 import {getBoardSize, getNodeAtPath, type SgfColor, type SgfDocument} from '@ulugo/sgf-core';
 import {sgfPointToGtp} from '@ulugo/sgf-analysis-tree';
-import {getLinePaths, nodeKey} from './appSgfUtils';
+import {getLinePaths, nodeKey} from './sgfPathUtils';
 
 export interface CachedAnalysis {
   result: KataGoAnalysisResult;
@@ -42,13 +41,6 @@ export function getPendingAnalysisQueryIds(
 
 export function getAnalysisVisits(result: KataGoAnalysisResult): number {
   return Math.max(result.rootInfo?.visits ?? 0, ...(result.moveInfos ?? []).map((move) => move.visits ?? 0));
-}
-
-export function hiddenPassVisits(settings: KataGoSettings, live: boolean): number {
-  if (!live) return Math.max(1, settings.fastVisits || defaultKataGoSettings.fastVisits);
-
-  const maxVisits = Math.max(1, settings.maxVisits || defaultKataGoSettings.maxVisits);
-  return Math.max(1, Math.ceil(maxVisits * 0.5));
 }
 
 export function shouldRequestHiddenPassAnalysis(

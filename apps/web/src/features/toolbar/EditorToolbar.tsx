@@ -183,7 +183,7 @@ export function EditorToolbar({
 function AutoPlayIcon({nextColor, onClick}: {nextColor: 'B' | 'W'; onClick: () => void}) {
   return (
     <span
-      className={`auto-play-icon ${nextColor === 'B' ? 'black-next' : 'white-next'}`}
+      className={`auto-tool-icon ${nextColor === 'B' ? 'black-next' : 'white-next'}`}
       onClick={(event) => {
         event.stopPropagation();
         onClick();
